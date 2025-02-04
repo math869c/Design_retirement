@@ -44,9 +44,9 @@ class ModelClass(EconModelClass):
         par.a_min = 0
         par.N_a = 50
 
-        par.k_max = 100
-        par.k_min = 0
-        par.N_k = 50
+        par.s_max = 100
+        par.s_min = 0
+        par.N_s = 50
 
 
         par.h_min = 0
@@ -66,9 +66,9 @@ class ModelClass(EconModelClass):
         par.simT = par.T
 
         par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, 1.1)
-        par.s_grid = nonlinspace(par.k_min, par.k_max, par.N_k, 1.1)
+        par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, 1.1)
 
-        shape = (par.T,par.N_a,par.N_k)
+        shape = (par.T,par.N_a,par.N_s)
         sol.c = np.nan + np.zeros(shape)
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
@@ -102,7 +102,7 @@ class ModelClass(EconModelClass):
                         hours = 0
 
                         obj = lambda x: -self.value_function(x[0], hours, assets, savings, t)
-                        init_c = 1
+                        init_c = result.x[0]
                         bounds = [(par.c_min, par.c_max)]
                         result = minimize(obj, init_c, bounds=bounds, method='L-BFGS-B')
 
@@ -113,9 +113,13 @@ class ModelClass(EconModelClass):
                     else:
                         obj = lambda x: -self.value_function(x[0], x[1], assets, savings, t)
 
-                        bounds = [(par.h_min, par.h_max), (par.c_min, par.c_max)]
+                        bounds = [(par.c_min, par.c_max), (par.h_min, par.h_max)]
 
-                        init = np.array([1.0, 1.0])
+                        if par.retirement_age - 1 == t:
+                            init = np.array([result.x[0], 0.5])
+                        else:
+                            init = np.array([result.x[0], result.x[1]])
+
                         result = minimize(obj, init, bounds=bounds, method='L-BFGS-B')
 
                         sol.c[idx] = result.x[0]
@@ -126,7 +130,7 @@ class ModelClass(EconModelClass):
     def utility(self, c, h):
         par = self.par
 
-        return (c)**(1-par.sigma)/(1-par.sigma) + (h)**(1-par.gamma)/(1-par.gamma)
+        return (c)**(1-par.sigma)/(1-par.sigma) - (h)**(1-par.gamma)/(1-par.gamma)
     
     def bequest(self, a):
         par = self.par
@@ -134,9 +138,12 @@ class ModelClass(EconModelClass):
         return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
     
     def value_last_period(self, c, a):
+        par = self.par
         h = 0
 
-        return self.utility(c, h) + self.bequest(a)
+        a_next = (1+par.r_a)*a - c
+
+        return self.utility(c, h) + self.bequest(a_next)
     
     def value_function(self, c, h, a, s, t):
         par = self.par
@@ -153,7 +160,7 @@ class ModelClass(EconModelClass):
             s_next = (1-1/par.m)*s
 
         else:
-            a_next = (1.0+par.r_a)*a + (1-par.tau)*h - c
+            a_next = (1.0+par.r_a)*a + (1-par.tau)*h*100- c
             s_next = (1+par.r_s)*s + par.tau*h
 
         V_next_interp = interp_2d(par.a_grid,par.s_grid,V_next,a_next,s_next)
