@@ -25,7 +25,7 @@ class ModelClass(EconModelClass):
         par.start_age = 30  # Time when agents enter the workforce
         par.retirement_age = 65 - par.start_age # Time when agents enter pension
 
-        par.T = par.retirement_age - 1 # time periods
+        par.T = 100 - par.start_age # time periods
 
         par.m = 10 # Years with retirement payments
 
@@ -38,39 +38,45 @@ class ModelClass(EconModelClass):
 
         par.r_a    = 0.02
         par.r_s    = 0.04
+        par.H = 0.1
+        
+        
+        
         par.tau    = 0.10    # 10% pension contribution
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
-        par.beta_1 = 0.08
-        par.beta_2 = 0.00    # or a small positive number
+
+        par.beta_1 = 0.001
+        par.beta_2 = 0.001    # or a small positive number
 
         par.w_0    = 1.0
 
         ages       = np.arange(par.start_age, par.T + par.start_age + 1)
         par.pi     = 1 - ((ages - par.start_age) / (par.T + par.start_age - par.start_age))**2
 
-        print(ages)
-        print(par.pi)
 
         # Grids
         par.a_max  = 200
         par.a_min  = 0
-        par.N_a    = 20
+        par.N_a    = 5
 
         par.s_max  = 200
         par.s_min  = 0
-        par.N_s    = 20
+        par.N_s    = 5
 
         par.k_min  = 0
-        par.k_max  = 200
-        par.N_k    = 20
+        par.k_max  = par.retirement_age - par.start_age
+        par.N_k    = 5
 
         par.h_min  = 0
-        par.h_max  = np.inf
+        par.h_max  = 1
 
         par.c_min  = 0.001
         par.c_max  = np.inf
+
+
+        par.stop_parameter = 0
 
 
     def allocate(self):
@@ -93,7 +99,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 1_000 # number of individuals
+        par.simN = 1 # number of individuals
 
         shape = (par.simN,par.simT)
 
@@ -102,11 +108,13 @@ class ModelClass(EconModelClass):
         sim.a = np.nan + np.zeros(shape)
         sim.s = np.nan + np.zeros(shape)
         sim.k = np.nan + np.zeros(shape)
+        sim.w = np.nan + np.zeros(shape)
 
         # e. initialization
-        sim.a_init = np.zeros(par.simN)
+        sim.a_init = np.ones(par.simN)*par.H
         sim.s_init = np.zeros(par.simN)
         sim.k_init = np.zeros(par.simN)
+        sim.w_init = np.ones(par.simN)*par.w_0
 
 
 
@@ -117,6 +125,7 @@ class ModelClass(EconModelClass):
 
         for t in reversed(range(par.T)):
             print(f"We are in t = {t}")
+            par.stop_parameter = 0
 
             for a_idx, assets in enumerate(par.a_grid):
                 for s_idx, savings in enumerate(par.s_grid):
@@ -129,7 +138,7 @@ class ModelClass(EconModelClass):
 
                             obj = lambda x: -self.value_last_period(x[0], assets)
                             init_c = 1
-                            bounds = [self.budget_constraint(assets, hours, savings, human_capital, t)]
+                            bounds = [(self.budget_constraint(assets, hours, savings, human_capital, t))]
                             result = minimize(obj, init_c, bounds=bounds, method='L-BFGS-B')
 
                             sol.c[idx] = result.x[0]
@@ -141,7 +150,7 @@ class ModelClass(EconModelClass):
 
                             obj = lambda x: -self.value_function(x[0], hours, assets, savings, human_capital, t)
                             init_c = result.x[0]
-                            bounds = [self.budget_constraint(assets, hours, savings, human_capital, t)]
+                            bounds = [(self.budget_constraint(assets, hours, savings, human_capital, t))]
                             result = minimize(obj, init_c, bounds=bounds, method='L-BFGS-B')
 
                             sol.c[idx] = result.x[0]
@@ -149,53 +158,49 @@ class ModelClass(EconModelClass):
                             sol.V[idx] = -result.fun
 
                         else:
-                            # Outer objective: we want to find hours that give the best utility after 
-                            # choosing consumption optimally in the inner problem
-                            def outer_obj(h):
-                                val, _ = self.inner_opt_for_consumption(hours, assets, savings, human_capital, t)
-                                return -val  # invert because 'minimize' -> we want to maximize
+                            c_init = sol.c[ (t+1, a_idx, s_idx, k_idx)]
 
-                            # Hours initial guess + bounds
-                            init_h = 0.5 * (par.h_min + par.h_max)
-                            bounds_h = [(par.h_min, par.h_max)]
+                            obj = lambda x: self.optimize_consumption(x[0], assets, savings, human_capital, c_init, t)[0]
 
-                            result_h = minimize(outer_obj, init_h, bounds=bounds_h, method='L-BFGS-B')
-                            hours_opt = result_h.x[0]
+                            if par.retirement_age - 1 == t:
+                                h_init = par.h_max
+                            else:
+                                h_init = result.x[0]
 
-                            # Now get the best consumption at that hours
-                            best_val, best_c = self.inner_opt_for_consumption(hours_opt)
+                            bounds = [(par.h_min, par.h_max)]
+                            result = minimize(obj, h_init, bounds=bounds, method='L-BFGS-B')
 
-                            sol.c[idx] = best_c
-                            sol.h[idx] = hours_opt
-                            sol.V[idx] = best_val
+                            optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, c_init, t)[1]
 
-    def inner_opt_for_consumption(self, h, a, s, k, t):
-        def obj_consumption(c):
-            return -self.value_function(c, h, a, s, k, t)
+                            sol.c[idx] = optimal_consumption
+                            sol.h[idx] = result.x[0]
+                            sol.V[idx] = -result.fun
 
-        budget_constraint = self.budget_constraint(a, h, s, k, t)
-        init_c = 0.5 * budget_constraint
-        bounds_c = [budget_constraint]
 
-        result_c = minimize(obj_consumption, init_c, bounds=bounds_c, method='L-BFGS-B')
-        best_val = -result_c.fun  # maximize utility
-        best_c = result_c.x[0]
 
-        return best_val, best_c
+    def optimize_consumption(self, h, a, s, k, init, t):
+        
+        bc_min, bc_max = self.budget_constraint(a, h, s, k, t)
+        bounds = [(bc_min, bc_max)]
+        
+        obj = lambda x: -self.value_function(x[0], h, a, s, k, t)
 
+        result = minimize(obj, init, bounds=bounds, method='L-BFGS-B')
+
+        return result.fun, result.x[0]
 
 
     def budget_constraint(self, a, h, s, k, t):
         par = self.par
 
         if par.retirement_age + par.m <= t:
-            return (par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + par.chi))
+            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + par.chi)
         
         elif par.retirement_age <= t < par.retirement_age + par.m:
-            return (par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1/par.m)*s + par.chi))
+            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1/par.m)*s + par.chi)
 
         else:
-            return (par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k)))
+            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k))
 
 
     def utility(self, c, h):
@@ -229,9 +234,6 @@ class ModelClass(EconModelClass):
 
         V_next = sol.V[t+1]
         
-        if np.any(np.isnan(V_next)):
-            print(f"V_next contains NaN at t = {t}")
-            assert False
 
         if par.retirement_age + par.m <= t:
             a_next = (1.0+par.r_a)*a + par.chi - c
@@ -270,11 +272,29 @@ class ModelClass(EconModelClass):
             for t in range(par.simT):
 
                 # ii. interpolate optimal consumption and hours
-                sim.c[i,t] = interp_3d(par.a_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.k[i,t])
-                sim.h[i,t] = interp_3d(par.a_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.k[i,t])
+                sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
+                sim.h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
 
                 # iii. store next-period states
-                if t<par.simT-1:
-                    income = self.wage_func(sim.k[i,t],t)*sim.h[i,t]
-                    sim.a[i,t+1] = (1+par.r)*(sim.a[i,t] + income - sim.c[i,t])
-                    sim.k[i,t+1] = sim.k[i,t] + sim.h[i,t]
+                if t<par.retirement_age:
+                    sim.w[i,t] = self.wage(sim.k[i,t])
+                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
+                    sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t]
+                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t] + sim.h[i,t]
+
+                elif par.retirement_age <= t < par.retirement_age + par.m: 
+                    sim.w[i,t] = self.wage(sim.k[i,t])
+                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + 1/par.m*sim.s[i,t] - sim.c[i,t]
+                    sim.s[i,t+1] = (1-1/par.m)*sim.s[i,t]
+                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t] 
+                
+                elif par.retirement_age + par.m <= t < par.T-1:
+                    sim.w[i,t] = self.wage(sim.k[i,t])
+                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + par.chi - sim.c[i,t]
+                    sim.s[i,t+1] = 0
+                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t]
+                
+                else:
+                    sim.w[i,t] = self.wage(sim.k[i,t])
+                    pass
+
