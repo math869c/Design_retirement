@@ -25,7 +25,7 @@ class ModelClass(EconModelClass):
         par.start_age = 30  # Time when agents enter the workforce
         par.retirement_age = 65 - par.start_age # Time when agents enter pension
 
-        par.T = 100 - par.start_age # time periods
+        par.T = par.retirement_age - 1 # time periods
 
         par.m = 10 # Years with retirement payments
 
@@ -149,34 +149,39 @@ class ModelClass(EconModelClass):
                             sol.V[idx] = -result.fun
 
                         else:
-                            obj, consumption = lambda x: self.optimize_for_hours(x, assets, savings, human_capital, t)[0]
+                            # Outer objective: we want to find hours that give the best utility after 
+                            # choosing consumption optimally in the inner problem
+                            def outer_obj(h):
+                                val, _ = self.inner_opt_for_consumption(hours, assets, savings, human_capital, t)
+                                return -val  # invert because 'minimize' -> we want to maximize
 
-                            bounds = [self.budget_constraint(assets, hours, savings, human_capital, t), (par.h_min, par.h_max)]
+                            # Hours initial guess + bounds
+                            init_h = 0.5 * (par.h_min + par.h_max)
+                            bounds_h = [(par.h_min, par.h_max)]
 
-                            if par.retirement_age - 1 == t:
-                                init = np.array([0.5])
-                            else:
-                                init = np.array([result.x[0]])
+                            result_h = minimize(outer_obj, init_h, bounds=bounds_h, method='L-BFGS-B')
+                            hours_opt = result_h.x[0]
 
-                            result = minimize(obj, init, bounds=bounds, method='L-BFGS-B')
+                            # Now get the best consumption at that hours
+                            best_val, best_c = self.inner_opt_for_consumption(hours_opt)
 
-                            sol.c[idx] = consumption
-                            sol.h[idx] = result.x[0]
-                            sol.V[idx] = -result.fun
+                            sol.c[idx] = best_c
+                            sol.h[idx] = hours_opt
+                            sol.V[idx] = best_val
 
-
-    def optimize_for_hours(self, h, a, s, k, t):
-        par = self.par
+    def inner_opt_for_consumption(self, h, a, s, k, t):
+        def obj_consumption(c):
+            return -self.value_function(c, h, a, s, k, t)
 
         budget_constraint = self.budget_constraint(a, h, s, k, t)
+        init_c = 0.5 * budget_constraint
+        bounds_c = [budget_constraint]
 
-        obj = lambda x: -self.value_function(x, h, a, s, k, t)
+        result_c = minimize(obj_consumption, init_c, bounds=bounds_c, method='L-BFGS-B')
+        best_val = -result_c.fun  # maximize utility
+        best_c = result_c.x[0]
 
-        init = par.c_min
-
-        result = minimize(obj, init, bounds=[budget_constraint], method='L-BFGS-B')
-
-        return result.fun, result.x[0]
+        return best_val, best_c
 
 
 
