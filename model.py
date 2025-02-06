@@ -144,8 +144,7 @@ class ModelClass(EconModelClass):
                                 
                                 init_c = par.c_min
 
-                                f_obj = create_obj_last(model_jit_par, assets)
-                                optimal_c = golden_section_search(f_obj, bc_min, bc_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
+                                optimal_c = golden_section_search_last(bc_min, bc_max, model_jit_par, assets, x0=init_c)
 
                                 sol.c[idx] = optimal_c
                                 sol.h[idx] = hours
@@ -158,8 +157,7 @@ class ModelClass(EconModelClass):
 
                                 init_c = np.min([optimal_c, bc_max])
 
-                                f_obj = create_obj_c(model_jit_par, model_jit_sol, hours, assets, savings, human_capital, t)
-                                optimal_c = golden_section_search(f_obj, bc_min, bc_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
+                                optimal_c = golden_section_search_c(bc_min, bc_max, model_jit_par, model_jit_sol, hours, assets, savings, human_capital, t, x0=init_c)
 
                                 sol.c[idx] = optimal_c
                                 sol.h[idx] = hours
@@ -174,9 +172,7 @@ class ModelClass(EconModelClass):
                                 else:
                                     init_h = optimal_c
 
-                                f_obj = create_obj_hour(model_jit_par, model_jit_sol, assets, savings, human_capital, init_c, t)
-
-                                optimal_h = golden_section_search(f_obj, par.h_min, par.h_max, x0=init_h, tol=par.opt_tol, max_iter=par.opt_maxiter)
+                                optimal_h = golden_section_search_h(par.h_min, par.h_max, model_jit_par, model_jit_sol, assets, savings, human_capital, init_c, t, x0=init_h)
 
                                 optimal_c = optimize_consumption(model_jit_par, model_jit_sol, optimal_h, assets, savings, human_capital, init_c, t)
 
@@ -185,45 +181,17 @@ class ModelClass(EconModelClass):
                                 sol.V[idx] = value_function(model_jit_par, model_jit_sol, optimal_c, optimal_h, assets, savings, human_capital, t)
 
 
-
-
-
 # @njit
-def obj_last(x, par, assets):
+def f_last(x, par, assets):
     return -value_last_period(par, x, assets)
 
 # @njit
-def create_obj_last(par, assets):
-    # @njit
-    def f(x):
-        return obj_last(x, par, assets)
-    return f
-
-
-
-# @njit
-def obj_c(x, par, sol, hours, assets, savings, human_capital, t):
+def f_c(x, par, sol, hours, assets, savings, human_capital, t):
     return -value_function(par, sol, x, hours, assets, savings, human_capital, t)
 
 # @njit
-def create_obj_c(par, sol, hours, assets, savings, human_capital, t):
-    # @njit
-    def f(x):
-        return obj_c(x, par, sol, hours, assets, savings, human_capital, t)
-    return f
-
-
-# @njit
-def obj_hour(x, par, sol, assets, savings, human_capital, init_c, t):
+def f_h(x, par, sol, assets, savings, human_capital, init_c, t):
     return optimize_consumption(par, sol, x, assets, savings, human_capital, init_c, t)
-
-# @njit
-def create_obj_hour(par, sol, assets, savings, human_capital, init_c, t):
-    # @njit
-    def f(x):
-        return obj_hour(x, par, sol, assets, savings, human_capital, init_c, t)
-    return f
-
 
 
 
@@ -232,10 +200,8 @@ def optimize_consumption(par, sol, h, a, s, k, init, t):
 
     bc_min, bc_max = budget_constraint(par, a, h, s, k, t)
 
-    f_obj = create_obj_c(par, sol, h, a, s, k, t)   
-
     init_c = np.min([init, bc_max])
-    optimal_c = golden_section_search(f_obj, par.h_min, par.h_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
+    optimal_c = golden_section_search_c(bc_min, bc_max, par, sol, h, a, s, k, t, x0=init_c)
 
     return optimal_c
 
@@ -297,53 +263,153 @@ def utility(par, c, h):
     return (c)**(1-par.sigma)/(1-par.sigma) - (h)**(1+par.gamma)/(1+par.gamma)
 
 # @njit
-def golden_section_search(f, a, b, x0=None, tol=1e-8, max_iter=1000):
+def f_last_njit(x, par, assets):
+    return -value_last_period(par, x, assets)
+
+
+# @njit
+def golden_section_search_last(a, b, par, assets, x0=None, tol=1e-8, max_iter=1000):
     """
-    1D golden-section search to minimize f(x) over [a,b],
-    optionally taking an initial guess x0 in [a,b].
+    Golden-section search specialized for the last-period objective.
+    We directly call 'f_last_njit(x, par, assets)' inside 
+    (no passing a function in).
     """
     phi = 0.5 * (3.0 - np.sqrt(5.0))  # ~0.618
-    # If no initial guess is given, proceed with standard initialization:
+
+    # Set up c and d
     if x0 is None:
-        c = a + phi * (b - a)
-        d = b - phi * (b - a)
+        c = a + phi*(b - a)
+        d = b - phi*(b - a)
     else:
-        # Clamp x0 to [a,b]
+        # clamp x0
         x0 = max(a, min(b, x0))
-
-        # Place c and d around x0 in a 'golden' way:
-        c = x0 - phi * (x0 - a)
-        d = x0 + phi * (b - x0)
-
-        # Keep c and d within [a,b]:
+        c = x0 - phi*(x0 - a)
+        d = x0 + phi*(b - x0)
         if c < a:
             c = a
         if d > b:
             d = b
-        # If we ended up with c >= x0 or d <= x0, revert to standard approach:
         if c >= x0 or d <= x0:
-            c = a + phi * (b - a)
-            d = b - phi * (b - a)
+            c = a + phi*(b - a)
+            d = b - phi*(b - a)
 
-    fc = f(c)
-    fd = f(d)
+    fc = f_last(c, par, assets)
+    fd = f_last(d, par, assets)
 
     for _ in range(max_iter):
         if fc < fd:
             b = d
             d = c
             fd = fc
-            c = a + phi * (b - a)
-            fc = f(c)
+            c = a + phi*(b - a)
+            fc = f_last_njit(c, par, assets)
         else:
             a = c
             c = d
             fc = fd
-            d = b - phi * (b - a)
-            fd = f(d)
+            d = b - phi*(b - a)
+            fd = f_last_njit(d, par, assets)
 
         if abs(b - a) < tol:
             break
 
-    # Return midpoint of final bracket
-    return 0.5 * (a + b)
+    return 0.5*(a + b)
+
+
+
+# @njit
+def golden_section_search_c(a, b, par, sol, hours, assets, savings, human_capital, t, x0=None, tol=1e-8, max_iter=1000):
+    """
+    Golden-section search specialized for the last-period objective.
+    We directly call 'f_last_njit(x, par, assets)' inside 
+    (no passing a function in).
+    """
+    phi = 0.5 * (3.0 - np.sqrt(5.0))  # ~0.618
+
+    # Set up c and d
+    if x0 is None:
+        c = a + phi*(b - a)
+        d = b - phi*(b - a)
+    else:
+        # clamp x0
+        x0 = max(a, min(b, x0))
+        c = x0 - phi*(x0 - a)
+        d = x0 + phi*(b - x0)
+        if c < a:
+            c = a
+        if d > b:
+            d = b
+        if c >= x0 or d <= x0:
+            c = a + phi*(b - a)
+            d = b - phi*(b - a)
+
+    fc = f_c(c, par, sol, hours, assets, savings, human_capital, t)
+    fd = f_c(d, par, sol, hours, assets, savings, human_capital, t)
+
+    for _ in range(max_iter):
+        if fc < fd:
+            b = d
+            d = c
+            fd = fc
+            c = a + phi*(b - a)
+            fc = f_last_njit(c, par, assets)
+        else:
+            a = c
+            c = d
+            fc = fd
+            d = b - phi*(b - a)
+            fd = f_last_njit(d, par, assets)
+
+        if abs(b - a) < tol:
+            break
+
+    return 0.5*(a + b)
+
+
+# @njit
+def golden_section_search_h(a, b, par, sol, hours, assets, savings, human_capital, t, x0=None, tol=1e-8, max_iter=1000):
+    """
+    Golden-section search specialized for the last-period objective.
+    We directly call 'f_last_njit(x, par, assets)' inside 
+    (no passing a function in).
+    """
+    phi = 0.5 * (3.0 - np.sqrt(5.0))  # ~0.618
+
+    # Set up c and d
+    if x0 is None:
+        c = a + phi*(b - a)
+        d = b - phi*(b - a)
+    else:
+        # clamp x0
+        x0 = max(a, min(b, x0))
+        c = x0 - phi*(x0 - a)
+        d = x0 + phi*(b - x0)
+        if c < a:
+            c = a
+        if d > b:
+            d = b
+        if c >= x0 or d <= x0:
+            c = a + phi*(b - a)
+            d = b - phi*(b - a)
+
+    fc = f_h(c, par, sol, hours, assets, savings, human_capital, t)
+    fd = f_h(d, par, sol, hours, assets, savings, human_capital, t)
+
+    for _ in range(max_iter):
+        if fc < fd:
+            b = d
+            d = c
+            fd = fc
+            c = a + phi*(b - a)
+            fc = f_last_njit(c, par, assets)
+        else:
+            a = c
+            c = d
+            fc = fd
+            d = b - phi*(b - a)
+            fd = f_last_njit(d, par, assets)
+
+        if abs(b - a) < tol:
+            break
+
+    return 0.5*(a + b)
