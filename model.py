@@ -29,7 +29,7 @@ class ModelClass(EconModelClass):
 
         # Time
         par.start_age = 30  # Time when agents enter the workforce
-        par.retirement_age = 97 - par.start_age # Time when agents enter pension
+        par.retirement_age = 65 - par.start_age # Time when agents enter pension
         par.T = 100 - par.start_age # time periods
         par.m = 10 # Years with retirement payments
 
@@ -48,8 +48,8 @@ class ModelClass(EconModelClass):
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
-        par.beta_1 = 0.001
-        par.beta_2 = 0.001    # or a small positive number
+        par.beta_1 = 0
+        par.beta_2 = 0    # or a small positive number
 
         par.w_0    = 1.0
 
@@ -73,7 +73,7 @@ class ModelClass(EconModelClass):
         par.h_max  = 1
 
         par.c_min  = 0.001
-        par.c_max  = np.inf
+        par.c_max  = 500
 
 
         par.stop_parameter = 0
@@ -136,32 +136,32 @@ class ModelClass(EconModelClass):
                         if t == par.T - 1:
                             hours = 0
 
-                            obj = lambda x: -self.value_last_period(x[0], assets)
+                            obj = lambda x: -self.value_last_period(x, assets)
 
                             bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
                             bounds = [(bc_min, bc_max)]
                             
                             init_c = par.c_min
-                            result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                            optimal_c = golden_section_search(obj, bc_min, bc_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
 
-                            sol.c[idx] = result.x[0]
+                            sol.c[idx] = optimal_c
                             sol.h[idx] = hours
-                            sol.V[idx] = -result.fun
+                            sol.V[idx] = self.value_last_period(optimal_c, assets)
 
                         elif par.retirement_age <= t:
                             hours = 0
 
-                            obj = lambda x: -self.value_function(x[0], hours, assets, savings, human_capital, t)
+                            obj = lambda x: -self.value_function(x, hours, assets, savings, human_capital, t)
 
                             bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
                             bounds = [(bc_min, bc_max)]
 
-                            init_c = np.min([result.x[0], bc_max])
-                            result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                            init_c = np.min([optimal_c, bc_max])
+                            optimal_c = golden_section_search(obj, bc_min, bc_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
 
-                            sol.c[idx] = result.x[0]
+                            sol.c[idx] = optimal_c
                             sol.h[idx] = hours
-                            sol.V[idx] = -result.fun
+                            sol.V[idx] = self.value_last_period(optimal_c, assets)
 
                         else:
                             init_c = sol.c[(t+1, a_idx, s_idx, k_idx)]
@@ -179,6 +179,9 @@ class ModelClass(EconModelClass):
 
                             def constraint_func(x):
                                 c, h = x
+                                # print(self.budget_constraint(assets, h, savings, human_capital, t)[1] - c)
+                                # print("h is:", h)
+                                # print("Budget constraint is:", self.budget_constraint(assets, h, savings, human_capital, t)[1])
                                 return self.budget_constraint(assets, h, savings, human_capital, t)[1] - c
 
                             constraints = [{'type':'ineq', 'fun': constraint_func}]
@@ -186,6 +189,7 @@ class ModelClass(EconModelClass):
                             bounds = [(par.c_min, par.c_max), (par.h_min, par.h_max)]
                             result = minimize(obj, init, bounds=bounds, constraints=constraints, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
+                            # print("c is", result.x[0])
                             sol.c[idx] = result.x[0]
                             sol.h[idx] = result.x[1]
                             sol.V[idx] = -result.fun
@@ -313,3 +317,62 @@ class ModelClass(EconModelClass):
                     pass
 
 
+
+
+def golden_section_search(f, a, b, x0=None, tol=1e-8, max_iter=1000):
+    """
+    1D golden-section search to minimize f(x) over [a,b],
+    optionally taking an initial guess x0 in [a,b].
+    """
+    phi = 0.5 * (3.0 - np.sqrt(5.0))  # ~0.618
+    # If no initial guess is given, proceed with standard initialization:
+    if x0 is None:
+        c = a + phi * (b - a)
+        d = b - phi * (b - a)
+    else:
+        # Clamp x0 to [a,b]
+        x0 = max(a, min(b, x0))
+
+        # Place c and d around x0 in a 'golden' way:
+        c = x0 - phi * (x0 - a)
+        d = x0 + phi * (b - x0)
+
+        # Keep c and d within [a,b]:
+        if c < a:
+            c = a
+        if d > b:
+            d = b
+        # If we ended up with c >= x0 or d <= x0, revert to standard approach:
+        if c >= x0 or d <= x0:
+            c = a + phi * (b - a)
+            d = b - phi * (b - a)
+
+    fc = f(c)
+    fd = f(d)
+
+    for _ in range(max_iter):
+        if fc < fd:
+            b = d
+            d = c
+            fd = fc
+            c = a + phi * (b - a)
+            fc = f(c)
+        else:
+            a = c
+            c = d
+            fc = fd
+            d = b - phi * (b - a)
+            fd = f(d)
+
+        if abs(b - a) < tol:
+            break
+
+    # Return midpoint of final bracket
+    return 0.5 * (a + b)
+
+
+
+def scale_parameters(par, lower_bound, upper_bound):
+    diff = upper_bound - lower_bound
+    diff[diff == 0] = 1
+    return (par - lower_bound) / diff
