@@ -4,7 +4,6 @@ from scipy.optimize import minimize
 from EconModel import EconModelClass, jit
 
 from numba import njit
-
 from consav.grids import nonlinspace
 from consav.linear_interp import interp_2d, interp_3d
 
@@ -22,7 +21,6 @@ class ModelClass(EconModelClass):
         par = self.par
 
         # Optimization settings
-        par.opt_method = 'L-BFGS-B'
         par.opt_tol = 1e-6
         par.opt_maxiter = 1000
 
@@ -123,185 +121,229 @@ class ModelClass(EconModelClass):
         par = self.par
         sol = self.sol
 
-        for t in reversed(range(par.T)):
-            print(f"We are in t = {t}")
-            par.stop_parameter = 0
 
-            for a_idx, assets in enumerate(par.a_grid):
-                for s_idx, savings in enumerate(par.s_grid):
-                    for k_idx, human_capital in enumerate(par.k_grid):
+        with jit(self) as model_jit:
 
-                        idx = (t, a_idx, s_idx, k_idx)
+            model_jit_par = model_jit.par
+            model_jit_sol = model_jit.sol
 
-                        if t == par.T - 1:
-                            hours = 0
+            for t in reversed(range(par.T)):
+                print(f"We are in t = {t}")
+                par.stop_parameter = 0
 
-                            obj = lambda x: -self.value_last_period(x[0], assets)
+                for a_idx, assets in enumerate(par.a_grid):
+                    for s_idx, savings in enumerate(par.s_grid):
+                        for k_idx, human_capital in enumerate(par.k_grid):
 
-                            bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
-                            bounds = [(bc_min, bc_max)]
-                            
-                            init_c = par.c_min
-                            result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                            idx = (t, a_idx, s_idx, k_idx)
 
-                            sol.c[idx] = result.x[0]
-                            sol.h[idx] = hours
-                            sol.V[idx] = -result.fun
+                            if t == par.T - 1:
+                                hours = 0
 
-                        elif par.retirement_age <= t:
-                            hours = 0
-
-                            obj = lambda x: -self.value_function(x[0], hours, assets, savings, human_capital, t)
-
-                            bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
-                            bounds = [(bc_min, bc_max)]
-
-                            init_c = np.min([result.x[0], bc_max])
-                            result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                            sol.c[idx] = result.x[0]
-                            sol.h[idx] = hours
-                            sol.V[idx] = -result.fun
-
-                        else:
-                            init_c = sol.c[(t+1, a_idx, s_idx, k_idx)]
-
-                            if par.retirement_age - 1 == t:
-                                init_h = par.h_max
+                                bc_min, bc_max = budget_constraint(model_jit_par, assets, hours, savings, human_capital, t)
+                                
                                 init_c = par.c_min
+
+                                f_obj = create_obj_last(model_jit_par, assets)
+                                optimal_c = golden_section_search(f_obj, bc_min, bc_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
+
+                                sol.c[idx] = optimal_c
+                                sol.h[idx] = hours
+                                sol.V[idx] = value_last_period(model_jit_par, optimal_c, assets)
+
+                            elif par.retirement_age <= t:
+                                hours = 0
+
+                                bc_min, bc_max = budget_constraint(model_jit_par, assets, hours, savings, human_capital, t)
+
+                                init_c = np.min([optimal_c, bc_max])
+
+                                f_obj = create_obj_c(model_jit_par, model_jit_sol, hours, assets, savings, human_capital, t)
+                                optimal_c = golden_section_search(f_obj, bc_min, bc_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
+
+                                sol.c[idx] = optimal_c
+                                sol.h[idx] = hours
+                                sol.V[idx] = value_function(model_jit_par, model_jit_sol, optimal_c, hours, assets, savings, human_capital, t)
+
                             else:
-                                init_h = result.x[0]
+                                init_c = sol.c[(t+1, a_idx, s_idx, k_idx)]
 
-                            obj = lambda x: self.optimize_consumption(x[0], assets, savings, human_capital, init_c, t)[0]
+                                if par.retirement_age - 1 == t:
+                                    init_h = par.h_max
+                                    init_c = par.c_min
+                                else:
+                                    init_h = optimal_c
 
-                            bounds = [(par.h_min, par.h_max)]
-                            result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                                f_obj = create_obj_hour(model_jit_par, model_jit_sol, assets, savings, human_capital, init_c, t)
 
-                            optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
+                                optimal_h = golden_section_search(f_obj, par.h_min, par.h_max, x0=init_h, tol=par.opt_tol, max_iter=par.opt_maxiter)
 
-                            sol.c[idx] = optimal_consumption
-                            sol.h[idx] = result.x[0]
-                            sol.V[idx] = -result.fun
+                                optimal_c = optimize_consumption(model_jit_par, model_jit_sol, optimal_h, assets, savings, human_capital, init_c, t)
 
-
-    def optimize_consumption(self, h, a, s, k, init, t):
-
-        bc_min, bc_max = self.budget_constraint(a, h, s, k, t)
-        bounds = [(bc_min, bc_max)]
-       
-        obj = lambda x: -self.value_function(x[0], h, a, s, k, t)
-
-        init_c = np.min([init, bc_max])
-        result = minimize(obj, init_c, bounds=bounds, method=self.par.opt_method, tol=self.par.opt_tol, options={'maxiter':self.par.opt_maxiter})
-
-        return result.fun, result.x[0]
+                                sol.c[idx] = optimal_c
+                                sol.h[idx] = optimal_h
+                                sol.V[idx] = value_function(model_jit_par, model_jit_sol, optimal_c, optimal_h, assets, savings, human_capital, t)
 
 
-    def budget_constraint(self, a, h, s, k, t):
-        par = self.par
 
-        if par.retirement_age + par.m <= t:
-            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + par.chi)
-        
-        elif par.retirement_age <= t < par.retirement_age + par.m:
-            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1/par.m)*s + par.chi)
 
+
+# @njit
+def obj_last(x, par, assets):
+    return -value_last_period(par, x, assets)
+
+# @njit
+def create_obj_last(par, assets):
+    # @njit
+    def f(x):
+        return obj_last(x, par, assets)
+    return f
+
+
+
+# @njit
+def obj_c(x, par, sol, hours, assets, savings, human_capital, t):
+    return -value_function(par, sol, x, hours, assets, savings, human_capital, t)
+
+# @njit
+def create_obj_c(par, sol, hours, assets, savings, human_capital, t):
+    # @njit
+    def f(x):
+        return obj_c(x, par, sol, hours, assets, savings, human_capital, t)
+    return f
+
+
+# @njit
+def obj_hour(x, par, sol, assets, savings, human_capital, init_c, t):
+    return optimize_consumption(par, sol, x, assets, savings, human_capital, init_c, t)
+
+# @njit
+def create_obj_hour(par, sol, assets, savings, human_capital, init_c, t):
+    # @njit
+    def f(x):
+        return obj_hour(x, par, sol, assets, savings, human_capital, init_c, t)
+    return f
+
+
+
+
+# @njit
+def optimize_consumption(par, sol, h, a, s, k, init, t):
+
+    bc_min, bc_max = budget_constraint(par, a, h, s, k, t)
+
+    f_obj = create_obj_c(par, sol, h, a, s, k, t)   
+
+    init_c = np.min([init, bc_max])
+    optimal_c = golden_section_search(f_obj, par.h_min, par.h_max, x0=init_c, tol=par.opt_tol, max_iter=par.opt_maxiter)
+
+    return optimal_c
+
+# @njit
+def budget_constraint(par, a, h, s, k, t):
+
+    if par.retirement_age + par.m <= t:
+        return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + par.chi)
+    
+    elif par.retirement_age <= t < par.retirement_age + par.m:
+        return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1/par.m)*s + par.chi)
+
+    else:
+        return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1-par.tau)*h*wage(par, k))
+
+# @njit
+def wage(par, k):
+    
+    return np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
+
+# @njit
+def value_function(par, sol, c, h, a, s, k, t):
+
+    V_next = sol.V[t+1]
+    
+    if par.retirement_age + par.m <= t:
+        a_next = (1.0+par.r_a)*a + par.chi - c
+        s_next = 0
+    
+    elif par.retirement_age <= t < par.retirement_age + par.m:
+        a_next = (1.0+par.r_a)*a + (1/par.m)*s + par.chi - c
+        s_next = (1-1/par.m)*s
+
+    else:
+        a_next = (1.0+par.r_a)*a + (1-par.tau)*h*wage(par, k) - c
+        s_next = (1+par.r_s)*s + par.tau*h*wage(par, k)
+
+    k_next = (1-par.delta)*k + h
+
+    V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
+
+    return utility(par.sigma, par.gamma, c, h) + (1-par.pi[t+1])*par.beta*V_next_interp + par.pi[t+1]*bequest(par.mu, par.a_bar, par.sigma, a_next)
+
+# @njit
+def bequest(mu, a_bar, sigma, a):
+
+    return mu*(a+a_bar)**(1-sigma) / (1-sigma)
+
+# @njit
+def value_last_period(par, c, a):
+    h = 0
+
+    a_next = (1+par.r_a)*a - c
+
+    return utility(par.sigma, par.gamma, c, h) + bequest(par.mu, par.a_bar, par.sigma, a_next)
+
+@njit
+def utility(sigma, gamma, c, h):
+    return (c)**(1-sigma)/(1-sigma) - (h)**(1+gamma)/(1+gamma)
+
+# @njit
+def golden_section_search(f, a, b, x0=None, tol=1e-8, max_iter=1000):
+    """
+    1D golden-section search to minimize f(x) over [a,b],
+    optionally taking an initial guess x0 in [a,b].
+    """
+    phi = 0.5 * (3.0 - np.sqrt(5.0))  # ~0.618
+    # If no initial guess is given, proceed with standard initialization:
+    if x0 is None:
+        c = a + phi * (b - a)
+        d = b - phi * (b - a)
+    else:
+        # Clamp x0 to [a,b]
+        x0 = max(a, min(b, x0))
+
+        # Place c and d around x0 in a 'golden' way:
+        c = x0 - phi * (x0 - a)
+        d = x0 + phi * (b - x0)
+
+        # Keep c and d within [a,b]:
+        if c < a:
+            c = a
+        if d > b:
+            d = b
+        # If we ended up with c >= x0 or d <= x0, revert to standard approach:
+        if c >= x0 or d <= x0:
+            c = a + phi * (b - a)
+            d = b - phi * (b - a)
+
+    fc = f(c)
+    fd = f(d)
+
+    for _ in range(max_iter):
+        if fc < fd:
+            b = d
+            d = c
+            fd = fc
+            c = a + phi * (b - a)
+            fc = f(c)
         else:
-            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k))
+            a = c
+            c = d
+            fc = fd
+            d = b - phi * (b - a)
+            fd = f(d)
 
+        if abs(b - a) < tol:
+            break
 
-    def utility(self, c, h):
-        par = self.par
-
-        return (c)**(1-par.sigma)/(1-par.sigma) - (h)**(1+par.gamma)/(1+par.gamma)
-    
-    def bequest(self, a):
-        par = self.par
-
-        return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
-    
-    def wage(self, k):
-        par = self.par
-
-        return np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
-    
-    def value_last_period(self, c, a):
-        par = self.par
-        h = 0
-
-        a_next = (1+par.r_a)*a - c
-
-        return self.utility(c, h) + self.bequest(a_next)
-    
-
-
-    def value_function(self, c, h, a, s, k, t):
-        par = self.par
-        sol = self.sol
-
-        V_next = sol.V[t+1]
-        
-
-        if par.retirement_age + par.m <= t:
-            a_next = (1.0+par.r_a)*a + par.chi - c
-            s_next = 0
-        
-        elif par.retirement_age <= t < par.retirement_age + par.m:
-            a_next = (1.0+par.r_a)*a + (1/par.m)*s + par.chi - c
-            s_next = (1-1/par.m)*s
-
-        else:
-            a_next = (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
-            s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
-
-        k_next = (1-par.delta)*k + h
-
-        V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
-
-        return self.utility(c, h) + (1-par.pi[t+1])*par.beta*V_next_interp + par.pi[t+1]*self.bequest(a_next)
-    
-
-    def simulate(self):
-
-        # a. unpack
-        par = self.par
-        sol = self.sol
-        sim = self.sim
-
-        # b. loop over individuals and time
-        for i in range(par.simN):
-
-            # i. initialize states
-            sim.a[i,0] = sim.a_init[i]
-            sim.s[i,0] = sim.s_init[i]
-            sim.k[i,0] = sim.k_init[i]
-
-            for t in range(par.simT):
-
-                # ii. interpolate optimal consumption and hours
-                sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
-                sim.h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
-
-                # iii. store next-period states
-                if t<par.retirement_age:
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
-                    sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t]
-                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t] + sim.h[i,t]
-
-                elif par.retirement_age <= t < par.retirement_age + par.m: 
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + 1/par.m*sim.s[i,t] - sim.c[i,t]
-                    sim.s[i,t+1] = (1-1/par.m)*sim.s[i,t]
-                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t] 
-                
-                elif par.retirement_age + par.m <= t < par.T-1:
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + par.chi - sim.c[i,t]
-                    sim.s[i,t+1] = 0
-                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t]
-                
-                else:
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    pass
-
+    # Return midpoint of final bracket
+    return 0.5 * (a + b)
