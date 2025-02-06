@@ -29,7 +29,7 @@ class ModelClass(EconModelClass):
 
         # Time
         par.start_age = 30  # Time when agents enter the workforce
-        par.retirement_age = 65 - par.start_age # Time when agents enter pension
+        par.retirement_age = 97 - par.start_age # Time when agents enter pension
         par.T = 100 - par.start_age # time periods
         par.m = 10 # Years with retirement payments
 
@@ -167,34 +167,41 @@ class ModelClass(EconModelClass):
                             init_c = sol.c[(t+1, a_idx, s_idx, k_idx)]
 
                             if par.retirement_age - 1 == t:
-                                init_h = par.h_max
                                 init_c = par.c_min
+                                init_h = par.h_max
                             else:
-                                init_h = result.x[0]
+                                init_c = result.x[0]
+                                init_h = result.x[1]
 
-                            obj = lambda x: self.optimize_consumption(x[0], assets, savings, human_capital, init_c, t)[0]
+                            obj = lambda x: -self.value_function(x[0], x[1], assets, savings, human_capital, t)
 
-                            bounds = [(par.h_min, par.h_max)]
-                            result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                            init = [init_c, init_h]
 
-                            optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
+                            def constraint_func(x):
+                                c, h = x
+                                return self.budget_constraint(assets, h, savings, human_capital, t)[1] - c
 
-                            sol.c[idx] = optimal_consumption
-                            sol.h[idx] = result.x[0]
+                            constraints = [{'type':'ineq', 'fun': constraint_func}]
+
+                            bounds = [(par.c_min, par.c_max), (par.h_min, par.h_max)]
+                            result = minimize(obj, init, bounds=bounds, constraints=constraints, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+
+                            sol.c[idx] = result.x[0]
+                            sol.h[idx] = result.x[1]
                             sol.V[idx] = -result.fun
 
 
-    def optimize_consumption(self, h, a, s, k, init, t):
+    # def optimize_consumption(self, h, a, s, k, init, t):
 
-        bc_min, bc_max = self.budget_constraint(a, h, s, k, t)
-        bounds = [(bc_min, bc_max)]
+    #     bc_min, bc_max = self.budget_constraint(a, h, s, k, t)
+    #     bounds = [(bc_min, bc_max)]
        
-        obj = lambda x: -self.value_function(x[0], h, a, s, k, t)
+    #     obj = lambda x: -self.value_function(x[0], h, a, s, k, t)
 
-        init_c = np.min([init, bc_max])
-        result = minimize(obj, init_c, bounds=bounds, method=self.par.opt_method, tol=self.par.opt_tol, options={'maxiter':self.par.opt_maxiter})
+    #     init_c = np.min([init, bc_max])
+    #     result = minimize(obj, init_c, bounds=bounds, method=self.par.opt_method, tol=self.par.opt_tol, options={'maxiter':self.par.opt_maxiter})
 
-        return result.fun, result.x[0]
+    #     return result.fun, result.x[0]
 
 
     def budget_constraint(self, a, h, s, k, t):
@@ -304,4 +311,5 @@ class ModelClass(EconModelClass):
                 else:
                     sim.w[i,t] = self.wage(sim.k[i,t])
                     pass
+
 
