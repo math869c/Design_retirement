@@ -277,12 +277,12 @@ def value_function(par, sol, c, h, a, s, k, t):
 
     V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
 
-    return utility(par.sigma, par.gamma, c, h) + (1-par.pi[t+1])*par.beta*V_next_interp + par.pi[t+1]*bequest(par.mu, par.a_bar, par.sigma, a_next)
+    return utility(par, c, h) + (1-par.pi[t+1])*par.beta*V_next_interp + par.pi[t+1]*bequest(par, a_next)
 
 # @njit
-def bequest(mu, a_bar, sigma, a):
+def bequest(par, a):
 
-    return mu*(a+a_bar)**(1-sigma) / (1-sigma)
+    return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
 
 # @njit
 def value_last_period(par, c, a):
@@ -290,11 +290,11 @@ def value_last_period(par, c, a):
 
     a_next = (1+par.r_a)*a - c
 
-    return utility(par.sigma, par.gamma, c, h) + bequest(par.mu, par.a_bar, par.sigma, a_next)
+    return utility(par, c, h) + bequest(par, a_next)
 
-@njit
-def utility(sigma, gamma, c, h):
-    return (c)**(1-sigma)/(1-sigma) - (h)**(1+gamma)/(1+gamma)
+# @njit
+def utility(par, c, h):
+    return (c)**(1-par.sigma)/(1-par.sigma) - (h)**(1+par.gamma)/(1+par.gamma)
 
 # @njit
 def golden_section_search(f, a, b, x0=None, tol=1e-8, max_iter=1000):
