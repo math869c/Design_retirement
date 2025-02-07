@@ -7,6 +7,7 @@ from numba import njit
 
 from consav.grids import nonlinspace
 from consav.linear_interp import interp_2d, interp_3d
+from consav.quadrature import log_normal_gauss_hermite
 
 class ModelClass(EconModelClass):
 
@@ -34,7 +35,7 @@ class ModelClass(EconModelClass):
         par.m = 10 # Years with retirement payments
 
         # Preferences
-        par.beta   = 0.96    # discount factor
+        par.beta   = 0.9    # discount factor
         par.sigma  = 3.0     # CRRA
         par.gamma  = 2.5    # labor disutility curvature
         par.mu     = 0.8
@@ -48,7 +49,7 @@ class ModelClass(EconModelClass):
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
-        par.beta_1 = 0.001
+        par.beta_1 = 0.01
         par.beta_2 = 0.001    # or a small positive number
 
         par.w_0    = 1.0
@@ -66,14 +67,23 @@ class ModelClass(EconModelClass):
         par.N_s    = 30
 
         par.k_min  = 0
-        par.k_max  = par.retirement_age - par.start_age
-        par.N_k    = 15
+        par.k_max  = 300
+        par.N_k    = 20
 
         par.h_min  = 0
         par.h_max  = 1
 
         par.c_min  = 0.001
         par.c_max  = np.inf
+
+        # Shocks
+        par.xi = 0.1
+        par.N_xi = 20
+        par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
+
+        # Simulation
+        par.simT = par.T # number of periods
+        par.simN = 100000 # number of individuals
 
 
         par.stop_parameter = 0
@@ -97,9 +107,6 @@ class ModelClass(EconModelClass):
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
 
-        # Simulation
-        par.simT = par.T # number of periods
-        par.simN = 1 # number of individuals
 
         shape = (par.simN,par.simT)
 
@@ -254,12 +261,30 @@ class ModelClass(EconModelClass):
             a_next = (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
             s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
 
-        k_next = (1-par.delta)*k + h
+        
+        
+        if t< par.retirement_age:
+            EV_next = 0.0
+            for ind in np.arange(par.N_xi):
+                k_next = ((1-par.delta)*k + h)*par.xi_v[ind]
+                V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
+                EV_next += V_next_interp*par.xi_p[ind]
+        else:
+            k_next = (1-par.delta)*k + h
+            V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
+            EV_next= V_next_interp
 
-        V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
 
-        return self.utility(c, h) + (1-par.pi[t+1])*par.beta*V_next_interp + par.pi[t+1]*self.bequest(a_next)
+        return self.utility(c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
     
+
+    def simulate_prep(self, deterministic=False):
+        par = self.par 
+        sim = self.sim
+        if deterministic:
+            sim.xi = np.ones((par.simN, par.simT))
+        else:
+            sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
     def simulate(self):
 
@@ -287,19 +312,19 @@ class ModelClass(EconModelClass):
                     sim.w[i,t] = self.wage(sim.k[i,t])
                     sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
                     sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t]
-                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t] + sim.h[i,t]
+                    sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
 
                 elif par.retirement_age <= t < par.retirement_age + par.m: 
                     sim.w[i,t] = self.wage(sim.k[i,t])
                     sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + 1/par.m*sim.s[i,t] - sim.c[i,t]
                     sim.s[i,t+1] = (1-1/par.m)*sim.s[i,t]
-                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t] 
+                    sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                 
                 elif par.retirement_age + par.m <= t < par.T-1:
                     sim.w[i,t] = self.wage(sim.k[i,t])
                     sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + par.chi - sim.c[i,t]
                     sim.s[i,t+1] = 0
-                    sim.k[i,t+1] = (1-par.delta)*sim.k[i,t]
+                    sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                 
                 else:
                     sim.w[i,t] = self.wage(sim.k[i,t])
