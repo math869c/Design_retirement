@@ -49,8 +49,8 @@ class ModelClass(EconModelClass):
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
-        par.beta_1 = 0.0
-        par.beta_2 = 0.0    # or a small positive number
+        par.beta_1 = 0.001
+        par.beta_2 = 0.0001    # or a small positive number
 
         par.w_0    = 1.0
 
@@ -78,12 +78,12 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 5
+        par.N_xi = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
-        
+
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 1000 # number of individuals
+        par.simN = 10 # number of individuals
 
 
         par.stop_parameter = 0
@@ -107,7 +107,6 @@ class ModelClass(EconModelClass):
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
         sol.EV = np.nan + np.zeros(shape)
-
 
         shape = (par.simN,par.simT)
 
@@ -133,7 +132,9 @@ class ModelClass(EconModelClass):
 
         for t in reversed(range(par.T)):
             print(f"We are in t = {t}")
-            par.stop_parameter = 0
+            
+            if t < par.retirement_age:
+                sol.EV[t+1] = self.precompute_EV_next(t)
 
             for a_idx, assets in enumerate(par.a_grid):
                 for s_idx, savings in enumerate(par.s_grid):
@@ -175,8 +176,6 @@ class ModelClass(EconModelClass):
                             sol.V[idx] = -result.fun
 
                         else:
-                            sol.EV[t+1] = self.precompute_EV_next(assets, savings, human_capital, t)
-
                             init_c = sol.c[idx_next]
                             init_h = sol.h[idx_next]      
 
@@ -247,6 +246,9 @@ class ModelClass(EconModelClass):
         par = self.par
         sol = self.sol
 
+        # V_next = sol.V[t+1]
+        
+
         if par.retirement_age + par.m <= t:
             a_next = (1.0+par.r_a)*a + par.chi - c
             s_next = 0
@@ -259,8 +261,8 @@ class ModelClass(EconModelClass):
             a_next = (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
             s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
 
-        k_next = (1-par.delta)*k + h
-
+        k_next = (1-par.delta)*k + h        
+        
         if t < par.retirement_age:
             EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.EV[t+1], a_next, s_next, k_next)
 
@@ -270,20 +272,29 @@ class ModelClass(EconModelClass):
         return self.utility(c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
     
 
-    def precompute_EV_next(self, a, s, k, t):
+    def precompute_EV_next(self, t):
 
-        sol = self.sol
         par = self.par
+        sol = self.sol
 
         V_next = sol.V[t+1]
 
-        EV_val = 0.0
-        for idx in range(par.N_xi):
-            k_next = k*par.xi_v[idx]  # placeholders for h=0.0
-            V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a, s, k_next)
-            EV_val += V_next_interp * par.xi_p[idx]
+        EV = np.zeros((len(par.a_grid), len(par.s_grid), len(par.k_grid)))
 
-        return EV_val
+        for i_a, a_next in enumerate(par.a_grid):
+            for i_s, s_next in enumerate(par.s_grid):
+                for i_k, k_next in enumerate(par.k_grid):
+
+                    EV_val = 0.0
+                    for idx in range(par.N_xi):
+                        k_next = k_next*par.xi_v[idx]  # placeholders for h=0.0
+                        V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
+                        EV_val += V_next_interp * par.xi_p[idx]
+
+                    # Store
+                    EV[i_a, i_s, i_k] = EV_val
+
+        return EV
 
 
 
