@@ -9,8 +9,6 @@ from consav.grids import nonlinspace
 from consav.linear_interp import interp_2d, interp_3d
 from consav.quadrature import log_normal_gauss_hermite
 
-import multiprocessing as mp
-
 class ModelClass(EconModelClass):
 
     def settings(self):
@@ -62,15 +60,15 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 200
         par.a_min  = 0
-        par.N_a    = 30
+        par.N_a    = 10
 
         par.s_max  = 200
         par.s_min  = 0
-        par.N_s    = 30
+        par.N_s    = 10
 
         par.k_min  = 0
         par.k_max  = 300
-        par.N_k    = 20
+        par.N_k    = 10
 
         par.h_min  = 0
         par.h_max  = 1
@@ -86,6 +84,7 @@ class ModelClass(EconModelClass):
         # Simulation
         par.simT = par.T # number of periods
         par.simN = 100000 # number of individuals
+
 
 
     def allocate(self):
@@ -129,86 +128,73 @@ class ModelClass(EconModelClass):
         par = self.par
         sol = self.sol
 
-        def worker_process(args):
-            t, a_idx = args
-            results_for_this_a_idx = []
-            assets = par.a_grid[a_idx]
-
-            for s_idx, savings in enumerate(par.s_grid):
-                for k_idx, human_capital in enumerate(par.k_grid):
-
-                    idx = (t, a_idx, s_idx, k_idx)
-
-                    if t == par.T - 1:
-                        hours = 0
-
-                        obj = lambda x: -self.value_last_period(x[0], assets)
-
-                        bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
-                        bounds = [(bc_min, bc_max)]
-                        
-                        init_c = par.c_min
-                        result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                        c_val = result.x[0]
-                        h_val = hours
-                        V_val = -result.fun
-
-                    elif par.retirement_age <= t:
-                        hours = 0
-
-                        obj = lambda x: -self.value_function(x[0], hours, assets, savings, human_capital, t)
-
-                        bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
-                        bounds = [(bc_min, bc_max)]
-
-                        init_c = np.min([result.x[0], bc_max])
-                        result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                        c_val = result.x[0]
-                        h_val = hours
-                        V_val = -result.fun
-
-                    else:
-                        init_c = sol.c[(t+1, a_idx, s_idx, k_idx)]
-
-                        if par.retirement_age - 1 == t:
-                            init_h = par.h_max
-                            init_c = par.c_min
-                        else:
-                            init_h = result.x[0]
-
-                        obj = lambda x: self.optimize_consumption(x[0], assets, savings, human_capital, init_c, t)[0]
-
-                        bounds = [(par.h_min, par.h_max)]
-                        result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                        h_val = result.x[0]
-
-                        _, optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
-
-                        c_val = optimal_consumption
-                        V_val = -result.fun
-                    
-                    results_for_this_a_idx.append((idx, c_val, h_val, V_val))
-
-            return results_for_this_a_idx
-
-
         for t in reversed(range(par.T)):
             print(f"We are in t = {t}")
+            par.stop_parameter = 0
+        
 
-            worker_args = [(t, a_idx) for a_idx in range(len(par.a_grid))]
+            for a_idx, assets in enumerate(par.a_grid):
+                self.sub_state_calculator(t, a_idx, assets)
 
-            with mp.Pool(processes = mp.cpu_count(2)) as pool:
-                worker_results = pool.map(worker_process, worker_args)
+    def sub_state_calculator(self, t, a_idx, assets):
 
-            for one_a_idx_result in worker_results:
-                for idx, c_val, h_val, V_val in one_a_idx_result:
-                    sol.c[idx] = c_val
-                    sol.h[idx] = h_val
-                    sol.V[idx] = V_val
+        par = self.par
+        sol = self.sol
 
+        for s_idx, savings in enumerate(par.s_grid):
+            for k_idx, human_capital in enumerate(par.k_grid):
+
+                idx = (t, a_idx, s_idx, k_idx)
+
+                if t == par.T - 1:
+                    hours = 0
+
+                    obj = lambda x: -self.value_last_period(x[0], assets)
+
+                    bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
+                    bounds = [(bc_min, bc_max)]
+                    
+                    init_c = par.c_min
+                    result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+
+                    sol.c[idx] = result.x[0]
+                    sol.h[idx] = hours
+                    sol.V[idx] = -result.fun
+
+                elif par.retirement_age <= t:
+                    hours = 0
+
+                    obj = lambda x: -self.value_function(x[0], hours, assets, savings, human_capital, t)
+
+                    bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
+                    bounds = [(bc_min, bc_max)]
+
+                    init_c = np.min([bc_min, bc_max])
+                    result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+
+                    sol.c[idx] = result.x[0]
+                    sol.h[idx] = hours
+                    sol.V[idx] = -result.fun
+
+                else:
+                    init_c = sol.c[(t+1, a_idx, s_idx, k_idx)]
+
+                    if par.retirement_age - 1 == t:
+                        init_h = par.h_max
+                        init_c = par.c_min
+                    else:
+                        init_h = result.x[0]
+
+                    obj = lambda x: self.optimize_consumption(x[0], assets, savings, human_capital, init_c, t)[0]
+
+                    bounds = [(par.h_min, par.h_max)]
+                    result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+
+                    optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
+
+                    sol.c[idx] = optimal_consumption
+                    sol.h[idx] = result.x[0]
+                    sol.V[idx] = -result.fun
 
 
     def optimize_consumption(self, h, a, s, k, init, t):
