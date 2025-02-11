@@ -49,8 +49,8 @@ class ModelClass(EconModelClass):
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
-        par.beta_1 = 0.00
-        par.beta_2 = 0.00    # or a small positive number
+        par.beta_1 = 0.0
+        par.beta_2 = 0.0    # or a small positive number
 
         par.w_0    = 1.0
 
@@ -68,7 +68,7 @@ class ModelClass(EconModelClass):
 
         par.k_min  = 0
         par.k_max  = 300
-        par.N_k    = 5
+        par.N_k    = 2
 
         par.h_min  = 0
         par.h_max  = 1
@@ -80,10 +80,10 @@ class ModelClass(EconModelClass):
         par.xi = 0.1
         par.N_xi = 5
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
-
+        
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 10 # number of individuals
+        par.simN = 1000 # number of individuals
 
 
         par.stop_parameter = 0
@@ -107,6 +107,7 @@ class ModelClass(EconModelClass):
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
         sol.EV = np.nan + np.zeros(shape)
+
 
         shape = (par.simN,par.simT)
 
@@ -132,9 +133,7 @@ class ModelClass(EconModelClass):
 
         for t in reversed(range(par.T)):
             print(f"We are in t = {t}")
-            
-            if t < par.retirement_age:
-                sol.EV[t+1] = self.precompute_EV_next(t)
+            par.stop_parameter = 0
 
             for a_idx, assets in enumerate(par.a_grid):
                 for s_idx, savings in enumerate(par.s_grid):
@@ -146,7 +145,7 @@ class ModelClass(EconModelClass):
                         if t == par.T - 1:
                             hours = 0
 
-                            obj = lambda x: -self.value_last_period(x[0], assets)
+                            obj = lambda consumption: -self.value_last_period(consumption[0], assets)
 
                             bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
                             bounds = [(bc_min, bc_max)]
@@ -159,14 +158,16 @@ class ModelClass(EconModelClass):
                             sol.V[idx] = -result.fun
 
                         elif par.retirement_age <= t:
+
                             hours = 0
 
-                            obj = lambda x: -self.value_function(x[0], hours, assets, savings, human_capital, t)
+                            obj = lambda consumption: -self.value_function(consumption[0], hours, assets, savings, human_capital, t)
 
                             bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
                             bounds = [(bc_min, bc_max)]
 
                             init_c = np.min([sol.c[idx_next], bc_max])
+                            
                             result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
                             sol.c[idx] = result.x[0]
@@ -174,19 +175,22 @@ class ModelClass(EconModelClass):
                             sol.V[idx] = -result.fun
 
                         else:
+                            sol.EV[t+1] = self.precompute_EV_next(assets, savings, human_capital, t)
+
                             init_c = sol.c[idx_next]
                             init_h = sol.h[idx_next]      
 
-                            obj = lambda x: self.optimize_consumption(x[0], assets, savings, human_capital, init_c, t)[0]
+                            obj = lambda hour: self.optimize_consumption(hour[0], assets, savings, human_capital, init_c, t)[0]
 
                             bounds = [(par.h_min, par.h_max)]
                             result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
+                            sol.h[idx] = result.x[0]
+                            sol.V[idx] = -result.fun
+
                             optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
 
                             sol.c[idx] = optimal_consumption
-                            sol.h[idx] = result.x[0]
-                            sol.V[idx] = -result.fun
 
 
     def optimize_consumption(self, h, a, s, k, init, t):
@@ -194,7 +198,7 @@ class ModelClass(EconModelClass):
         bc_min, bc_max = self.budget_constraint(a, h, s, k, t)
         bounds = [(bc_min, bc_max)]
        
-        obj = lambda x: -self.value_function(x[0], h, a, s, k, t)
+        obj = lambda c: -self.value_function(c[0], h, a, s, k, t)
 
         init_c = np.min([init, bc_max])
         result = minimize(obj, init_c, bounds=bounds, method=self.par.opt_method, tol=self.par.opt_tol, options={'maxiter':self.par.opt_maxiter})
@@ -243,9 +247,6 @@ class ModelClass(EconModelClass):
         par = self.par
         sol = self.sol
 
-        # V_next = sol.V[t+1]
-        
-
         if par.retirement_age + par.m <= t:
             a_next = (1.0+par.r_a)*a + par.chi - c
             s_next = 0
@@ -258,11 +259,10 @@ class ModelClass(EconModelClass):
             a_next = (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
             s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
 
-        k_next = (1-par.delta)*k + h        
-        
+        k_next = (1-par.delta)*k + h
+
         if t < par.retirement_age:
             EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.EV[t+1], a_next, s_next, k_next)
-
 
         else:
             EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.V[t+1], a_next, s_next, k_next)
@@ -270,29 +270,20 @@ class ModelClass(EconModelClass):
         return self.utility(c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
     
 
-    def precompute_EV_next(self, t):
+    def precompute_EV_next(self, a, s, k, t):
 
-        par = self.par
         sol = self.sol
+        par = self.par
 
         V_next = sol.V[t+1]
 
-        EV = np.zeros((len(par.a_grid), len(par.s_grid), len(par.k_grid)))
+        EV_val = 0.0
+        for idx in range(par.N_xi):
+            k_next = k*par.xi_v[idx]  # placeholders for h=0.0
+            V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a, s, k_next)
+            EV_val += V_next_interp * par.xi_p[idx]
 
-        for i_a, a_next in enumerate(par.a_grid):
-            for i_s, s_next in enumerate(par.s_grid):
-                for i_k, k_next in enumerate(par.k_grid):
-
-                    EV_val = 0.0
-                    for idx in range(par.N_xi):
-                        k_next = k_next*par.xi_v[idx]  # placeholders for h=0.0
-                        V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
-                        EV_val += V_next_interp * par.xi_p[idx]
-
-                    # Store
-                    EV[i_a, i_s, i_k] = EV_val
-
-        return EV
+        return EV_val
 
 
 
