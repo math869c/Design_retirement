@@ -50,7 +50,7 @@ class ModelClass(EconModelClass):
         par.delta  = 0.07    # human capital depreciation
 
         par.beta_1 = 0.01
-        par.beta_2 = 0.001    # or a small positive number
+        par.beta_2 = 0.02    # or a small positive number
 
         par.w_0    = 1.0
 
@@ -83,7 +83,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 100000 # number of individuals
+        par.simN = 1000 # number of individuals
 
 
         par.stop_parameter = 0
@@ -122,6 +122,7 @@ class ModelClass(EconModelClass):
         sim.s_init = np.zeros(par.simN)
         sim.k_init = np.zeros(par.simN)
         sim.w_init = np.ones(par.simN)*par.w_0
+        sim.s_payment = np.zeros(par.simN)
 
 
 
@@ -249,8 +250,9 @@ class ModelClass(EconModelClass):
 
         
         elif par.retirement_age <= t < par.retirement_age + par.m:
-            a_next = (1.0+par.r_a)*a + (1/par.m)*s + par.chi - c
-            s_next = (1-1/par.m)*s
+            s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s # skaleres op for den oprindelige s, naar man gaar på pension.
+            a_next = (1.0+par.r_a)*a + s_retirement/par.m + par.chi - c
+            s_next = s-s_retirement/par.m 
 
         else:
             a_next = (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
@@ -302,6 +304,8 @@ class ModelClass(EconModelClass):
                 # ii. interpolate optimal consumption and hours
                 sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
                 sim.h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
+                if t == par.retirement_age:
+                    sim.s_payment[i] = sim.s[i,t]/par.m
 
                 # iii. store next-period states
                 if t<par.retirement_age:
@@ -312,8 +316,8 @@ class ModelClass(EconModelClass):
 
                 elif par.retirement_age <= t < par.retirement_age + par.m: 
                     sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + 1/par.m*sim.s[i,t] - sim.c[i,t]
-                    sim.s[i,t+1] = (1-1/par.m)*sim.s[i,t]
+                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + sim.s_payment[i] - sim.c[i,t]
+                    sim.s[i,t+1] = sim.s[i,t] - sim.s_payment[i]
                     sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                 
                 elif par.retirement_age + par.m <= t < par.T-1:
