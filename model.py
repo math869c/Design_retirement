@@ -35,17 +35,17 @@ class ModelClass(EconModelClass):
         par.m = 10 # Years with retirement payments
 
         # Preferences
-        par.beta   = 0.9    # discount factor
+        par.beta   = 0.995    # discount factor
         par.sigma  = 3.0     # CRRA
         par.gamma  = 2.5    # labor disutility curvature
-        par.mu     = 0.8
-        par.a_bar  = 10.0
+        par.mu     = 0.0
+        par.a_bar  = 1.0
 
         par.r_a    = 0.02
         par.r_s    = 0.04
-        par.H      = 0.1
+        par.H      = 0.0
  
-        par.tau    = 0.10    # 10% pension contribution
+        par.tau    = 0.0    # 10% pension contribution
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
@@ -58,17 +58,20 @@ class ModelClass(EconModelClass):
         par.pi     = 1 - ((ages - par.start_age) / (par.T + par.start_age - par.start_age))**2
 
         # Grids
-        par.a_max  = 200
+        par.a_max  = 3
         par.a_min  = 0
-        par.N_a    = 5
+        par.N_a    = 10
+        par.a_sp   = 2
 
-        par.s_max  = 200
+        par.s_max  = 10
         par.s_min  = 0
-        par.N_s    = 5
+        par.N_s    = 10
+        par.s_sp   = 1
 
         par.k_min  = 0
-        par.k_max  = 300
+        par.k_max  = 35
         par.N_k    = 2
+        par.k_sp   = 1
 
         par.h_min  = 0
         par.h_max  = 1
@@ -83,8 +86,8 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 1000 # number of individuals
-        par.simN = 1000 # number of individuals
+        par.simN = 1 # number of individuals
+        par.simN = 1 # number of individuals
 
 
         par.stop_parameter = 0
@@ -99,9 +102,9 @@ class ModelClass(EconModelClass):
 
         par.simT = par.T
 
-        par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, 1.1)
-        par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, 1.1)
-        par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, 1.1)
+        par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, 2)
+        par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, 2)
+        par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, 1)
 
         shape = (par.T, par.N_a, par.N_s, par.N_k)
         sol.c = np.nan + np.zeros(shape)
@@ -150,6 +153,7 @@ class ModelClass(EconModelClass):
 
                             bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
                             bounds = [(bc_min, bc_max)]
+                            # print(f"Period {t} bc", bc_max)
                             
                             init_c = (bc_max - bc_min)/2
                             result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
@@ -165,9 +169,10 @@ class ModelClass(EconModelClass):
 
                             bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
                             bounds = [(bc_min, bc_max)]
+                            # print(f"Period {t} bc", bc_max)
+
 
                             init_c = np.min([sol.c[idx_next], bc_max])
-                            
                             result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
                             sol.c[idx] = result.x[0]
@@ -208,13 +213,14 @@ class ModelClass(EconModelClass):
         par = self.par
 
         if par.retirement_age + par.m <= t:
-            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + par.chi)
+            return par.c_min, np.max([par.c_min*2, (1+par.r_a)*a + par.chi])
         
         elif par.retirement_age <= t < par.retirement_age + par.m:
-            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1/par.m)*s + par.chi)
+            s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s
+            return par.c_min, np.max([par.c_min*2, (1+par.r_a)*a + s_retirement/par.m + par.chi])
 
         else:
-            return par.c_min, max(par.c_min*2, (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k))
+            return par.c_min, np.max([par.c_min*2, (1+par.r_a)*a + (1-par.tau)*h*self.wage(k)])
 
 
     def utility(self, c, h):
@@ -249,26 +255,26 @@ class ModelClass(EconModelClass):
         
 
         if par.retirement_age + par.m <= t:
-            a_next = (1.0+par.r_a)*a + par.chi - c
+            a_next = (1+par.r_a)*a + par.chi - c
             s_next = 0
         
         elif par.retirement_age <= t < par.retirement_age + par.m:
             s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s # skaleres op for den oprindelige s, naar man gaar på pension.
-            a_next = (1.0+par.r_a)*a + s_retirement/par.m + par.chi - c
+            a_next = (1+par.r_a)*a + s_retirement/par.m + par.chi - c
             s_next = s-s_retirement/par.m 
 
         else:
-            a_next = (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
+            a_next = (1+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
             s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
 
-        
-        
         if t < par.retirement_age:
             EV_next = 0.0
             for idx in np.arange(par.N_xi):
                 k_next = ((1-par.delta)*k + h)*par.xi_v[idx]
                 V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
                 EV_next += V_next_interp*par.xi_p[idx]
+
+
         else:
             k_next = (1-par.delta)*k + h
             V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
@@ -310,21 +316,21 @@ class ModelClass(EconModelClass):
                     sim.s_payment[i] = sim.s[i,t]/par.m
 
                 # iii. store next-period states
-                if t<par.retirement_age:
+                if t < par.retirement_age:
                     sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
+                    sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
                     sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t]
                     sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
 
                 elif par.retirement_age <= t < par.retirement_age + par.m: 
                     sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + sim.s_payment[i] - sim.c[i,t]
+                    sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + sim.s_payment[i] + par.chi - sim.c[i,t]
                     sim.s[i,t+1] = sim.s[i,t] - sim.s_payment[i]
                     sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                 
                 elif par.retirement_age + par.m <= t < par.T-1:
                     sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1.0+par.r_a)*sim.a[i,t] + par.chi - sim.c[i,t]
+                    sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + par.chi - sim.c[i,t]
                     sim.s[i,t+1] = 0
                     sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                 
