@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
 
 from EconModel import EconModelClass, jit
@@ -41,8 +42,8 @@ class ModelClass(EconModelClass):
         par.mu     = 0.0
         par.a_bar  = 1.0
 
-        par.r_a    = 0.02
-        par.r_s    = 0.04
+        par.r_a    = 0.04
+        par.r_s    = 0.02
         par.H      = 0.0
  
         par.tau    = 0.0    # 10% pension contribution
@@ -55,10 +56,10 @@ class ModelClass(EconModelClass):
         par.w_0    = 1.0
 
         ages       = np.arange(par.start_age, par.T + par.start_age + 1)
-        par.pi     = 1 - ((ages - par.start_age) / (par.T + par.start_age - par.start_age))**2
+        par.pi     = np.concatenate((np.ones(4), np.array(pd.read_excel('overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])))
 
         # Grids
-        par.a_max  = 3
+        par.a_max  = 5
         par.a_min  = 0
         par.N_a    = 10
         par.a_sp   = 2
