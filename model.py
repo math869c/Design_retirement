@@ -36,42 +36,46 @@ class ModelClass(EconModelClass):
         par.m = 10 # Years with retirement payments
 
         # Preferences
-        par.beta   = 0.995    # discount factor
+        par.beta   = 0.90    # discount factor
         par.sigma  = 3.0     # CRRA
         par.gamma  = 2.5    # labor disutility curvature
         par.mu     = 0.0
         par.a_bar  = 1.0
 
-        par.r_a    = 0.04
-        par.r_s    = 0.02
+        par.r_a    = 0.02
+        par.r_s    = 0.04
         par.H      = 0.0
  
         par.tau    = 0.0    # 10% pension contribution
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
-        par.beta_1 = 0.00
-        par.beta_2 = 0.00    # or a small positive number
+        par.beta_1 = 0.01
+        par.beta_2 = 0.001    # or a small positive number
 
-        par.w_0    = 1.0
+        par.w_0    = 30.0
 
         ages       = np.arange(par.start_age, par.T + par.start_age + 1)
-        par.pi     = np.concatenate((np.ones(4), np.array(pd.read_excel('overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])))
+        par.pi     = 1 - np.concatenate((np.ones(8), 
+                                     np.array(pd.read_excel('overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
+                                     np.zeros(1)))
+        # par.pi     = np.zeros((par.T))
+
 
         # Grids
-        par.a_max  = 5
+        par.a_max  = 150
         par.a_min  = 0
         par.N_a    = 10
         par.a_sp   = 2
 
         par.s_max  = 10
         par.s_min  = 0
-        par.N_s    = 10
+        par.N_s    = 2
         par.s_sp   = 1
 
         par.k_min  = 0
-        par.k_max  = 35
-        par.N_k    = 2
+        par.k_max  = 10
+        par.N_k    = 10
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -82,7 +86,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 1
+        par.N_xi = 5
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
@@ -99,7 +103,6 @@ class ModelClass(EconModelClass):
 
         par = self.par
         sol = self.sol
-        sim = self.sim
 
         par.simT = par.T
 
@@ -112,6 +115,12 @@ class ModelClass(EconModelClass):
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
 
+        self.allocate_sim()
+
+
+    def allocate_sim(self):
+        par = self.par
+        sim = self.sim
 
         shape = (par.simN,par.simT)
 
