@@ -49,8 +49,8 @@ class ModelClass(EconModelClass):
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
-        par.beta_1 = 0.01
-        par.beta_2 = 0.02    # or a small positive number
+        par.beta_1 = 0.00
+        par.beta_2 = 0.00    # or a small positive number
 
         par.w_0    = 1.0
 
@@ -60,15 +60,15 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 200
         par.a_min  = 0
-        par.N_a    = 10
+        par.N_a    = 5
 
         par.s_max  = 200
         par.s_min  = 0
-        par.N_s    = 10
+        par.N_s    = 5
 
         par.k_min  = 0
         par.k_max  = 300
-        par.N_k    = 10
+        par.N_k    = 2
 
         par.h_min  = 0
         par.h_max  = 1
@@ -78,11 +78,12 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 5
+        par.N_xi = 1
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
         par.simT = par.T # number of periods
+        par.simN = 1000 # number of individuals
         par.simN = 1000 # number of individuals
 
 
@@ -165,7 +166,8 @@ class ModelClass(EconModelClass):
                             bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
                             bounds = [(bc_min, bc_max)]
 
-                            init_c = min([sol.c[idx_next], bc_max])
+                            init_c = np.min([sol.c[idx_next], bc_max])
+                            
                             result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
                             sol.c[idx] = result.x[0]
@@ -174,18 +176,19 @@ class ModelClass(EconModelClass):
 
                         else:
                             init_c = sol.c[idx_next]
-                            init_h = sol.h[idx_next]
+                            init_h = sol.h[idx_next]      
 
                             obj = lambda hour: self.optimize_consumption(hour[0], assets, savings, human_capital, init_c, t)[0]
 
                             bounds = [(par.h_min, par.h_max)]
                             result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
+                            sol.h[idx] = result.x[0]
+                            sol.V[idx] = -result.fun
+
                             optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
 
                             sol.c[idx] = optimal_consumption
-                            sol.h[idx] = result.x[0]
-                            sol.V[idx] = -result.fun
 
 
     def optimize_consumption(self, h, a, s, k, init, t):
@@ -195,7 +198,7 @@ class ModelClass(EconModelClass):
        
         obj = lambda c: -self.value_function(c[0], h, a, s, k, t)
 
-        init_c = min([init, bc_max])
+        init_c = np.min([init, bc_max])
         result = minimize(obj, init_c, bounds=bounds, method=self.par.opt_method, tol=self.par.opt_tol, options={'maxiter':self.par.opt_maxiter})
 
         return result.fun, result.x[0]
@@ -244,10 +247,10 @@ class ModelClass(EconModelClass):
 
         V_next = sol.V[t+1]
         
+
         if par.retirement_age + par.m <= t:
             a_next = (1.0+par.r_a)*a + par.chi - c
             s_next = 0
-
         
         elif par.retirement_age <= t < par.retirement_age + par.m:
             s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s # skaleres op for den oprindelige s, naar man gaar på pension.
@@ -258,14 +261,14 @@ class ModelClass(EconModelClass):
             a_next = (1.0+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
             s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
 
-
+        
+        
         if t < par.retirement_age:
             EV_next = 0.0
             for idx in np.arange(par.N_xi):
                 k_next = ((1-par.delta)*k + h)*par.xi_v[idx]
                 V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
                 EV_next += V_next_interp*par.xi_p[idx]
-
         else:
             k_next = (1-par.delta)*k + h
             V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
@@ -282,7 +285,6 @@ class ModelClass(EconModelClass):
             sim.xi = np.ones((par.simN, par.simT))
         else:
             sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
-
 
     def simulate(self):
 
