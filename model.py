@@ -7,7 +7,7 @@ from EconModel import EconModelClass, jit
 from numba import njit
 
 from consav.grids import nonlinspace
-from consav.linear_interp import interp_2d, interp_3d
+from consav.linear_interp import interp_1d, interp_2d, interp_3d
 from consav.quadrature import log_normal_gauss_hermite
 
 class ModelClass(EconModelClass):
@@ -41,17 +41,18 @@ class ModelClass(EconModelClass):
         par.gamma  = 2.5    # labor disutility curvature
         par.mu     = 0.0
         par.a_bar  = 1.0
+        par.c_bar  = 0.001
 
         par.r_a    = 0.02
         par.r_s    = 0.04
         par.H      = 0.0
  
-        par.tau    = 0.0    # 10% pension contribution
+        par.tau    = 0.10   # 10% pension contribution
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
         par.beta_1 = 0.01
-        par.beta_2 = 0.001    # or a small positive number
+        par.beta_2 = 0.00    # or a small positive number
 
         par.w_0    = 30.0
 
@@ -66,17 +67,14 @@ class ModelClass(EconModelClass):
         par.a_max  = 150
         par.a_min  = 0
         par.N_a    = 10
-        par.a_sp   = 2
 
         par.s_max  = 10
         par.s_min  = 0
-        par.N_s    = 2
-        par.s_sp   = 1
+        par.N_s    = 10
 
-        par.k_min  = 0
         par.k_max  = 10
-        par.N_k    = 10
-        par.k_sp   = 1
+        par.k_min  = 0
+        par.N_k    = 5
 
         par.h_min  = 0
         par.h_max  = 1
@@ -86,7 +84,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 5
+        par.N_xi = 1
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
@@ -150,37 +148,52 @@ class ModelClass(EconModelClass):
             par.stop_parameter = 0
 
             for a_idx, assets in enumerate(par.a_grid):
-                for s_idx, savings in enumerate(par.s_grid):
-                    for k_idx, human_capital in enumerate(par.k_grid):
+                
+                idx_s_place,idx_k_place =0,0
+                idx = (t, a_idx, np.newaxis, np.newaxis)
+                idx_next = (t+1, a_idx, idx_s_place, idx_k_place)
 
-                        idx = (t, a_idx, s_idx, k_idx)
-                        idx_next = (t+1, a_idx, s_idx, k_idx)
+                if t == par.T - 1:
+                    # Analytical solution in the last period
+                    if par.mu != 0.0:
+                        # With bequest motive
+                        sol.c[idx] = (1/(1-par.mu**(-1/par.sigma))) * ((1+par.r_a)*assets+par.chi+par.a_bar) + par.c_bar
+                        a_next = (1+par.r_a)*assets+par.chi+par.a_bar -sol.c[a_idx,np.newaxis,np.newaxis]
+                    else: 
+                        # No bequest motive
+                        sol.c[idx] = (1+par.r_a)*assets+par.chi + par.c_bar
+                        a_next = par.a_bar
+                    sol.h[idx] = 0
+                    sol.V[idx] = self.value_next_period_after_reti(sol.c[idx],a_next)
 
-                        if t == par.T - 1:
+                
+                elif par.retirement_age +par.m <= t:
+
+                    obj = lambda consumption: -self.value_function_after_pay(consumption[0], assets, t)
+
+                    bc_min, bc_max = par.c_min, np.max([par.c_min*2, (1+par.r_a)*assets + par.chi])
+                    bounds = [(bc_min, bc_max)]
+
+                    init_c = np.min([sol.c[idx_next], bc_max])
+                    result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+
+                    sol.c[idx] = result.x[0]
+                    sol.h[idx] = 0.0
+                    sol.V[idx] = -result.fun
+
+                else:
+                    for s_idx, savings in enumerate(par.s_grid):
+                        idx = (t, a_idx, s_idx, np.newaxis)
+                        idx_next = (t+1, a_idx, s_idx, idx_k_place)
+
+                        if par.retirement_age <= t:
                             hours = 0
 
-                            obj = lambda consumption: -self.value_last_period(consumption[0], assets)
-
-                            bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
-                            bounds = [(bc_min, bc_max)]
-                            # print(f"Period {t} bc", bc_max)
+                            obj = lambda consumption: -self.value_function_under_pay(consumption[0], assets, savings, t)
                             
-                            init_c = (bc_max - bc_min)/2
-                            result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                            sol.c[idx] = result.x[0]
-                            sol.h[idx] = hours
-                            sol.V[idx] = -result.fun
-
-                        elif par.retirement_age <= t:
-                            hours = 0
-
-                            obj = lambda consumption: -self.value_function(consumption[0], hours, assets, savings, human_capital, t)
-
-                            bc_min, bc_max = self.budget_constraint(assets, hours, savings, human_capital, t)
+                            s_retirement = (par.m/(par.m-(t-par.retirement_age))) * savings
+                            bc_min, bc_max = par.c_min, np.max([par.c_min*2, (1+par.r_a)*assets + s_retirement/par.m + par.chi])
                             bounds = [(bc_min, bc_max)]
-                            # print(f"Period {t} bc", bc_max)
-
 
                             init_c = np.min([sol.c[idx_next], bc_max])
                             result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
@@ -190,20 +203,24 @@ class ModelClass(EconModelClass):
                             sol.V[idx] = -result.fun
 
                         else:
-                            init_c = sol.c[idx_next]
-                            init_h = sol.h[idx_next]      
+                            for k_idx, human_capital in enumerate(par.k_grid):
+                                idx = (t, a_idx, s_idx, k_idx)
+                                idx_next = (t+1, a_idx, s_idx, k_idx)
 
-                            obj = lambda hour: self.optimize_consumption(hour[0], assets, savings, human_capital, init_c, t)[0]
+                                init_c = sol.c[idx_next]
+                                init_h = sol.h[idx_next]      
 
-                            bounds = [(par.h_min, par.h_max)]
-                            result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                                obj = lambda hour: self.optimize_consumption(hour[0], assets, savings, human_capital, init_c, t)[0]
 
-                            sol.h[idx] = result.x[0]
-                            sol.V[idx] = -result.fun
+                                bounds = [(par.h_min, par.h_max)]
+                                result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
-                            optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
+                                sol.h[idx] = result.x[0]
+                                sol.V[idx] = -result.fun
 
-                            sol.c[idx] = optimal_consumption
+                                optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
+
+                                sol.c[idx] = optimal_consumption
 
 
     def optimize_consumption(self, h, a, s, k, init, t):
@@ -248,7 +265,7 @@ class ModelClass(EconModelClass):
 
         return np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
     
-    def value_last_period(self, c, a):
+    def value_next_period_after_reti(self, c, a):
         par = self.par
         h = 0
 
@@ -256,6 +273,32 @@ class ModelClass(EconModelClass):
 
         return self.utility(c, h) + self.bequest(a_next)
     
+    # Value functions med forskellige state inputs
+    def value_function_after_pay(self, c, a, t):
+        par = self.par
+        sol = self.sol
+
+        hours = 0.0
+        V_next = sol.V[t+1,:,0,0]
+        a_next = (1+par.r_a)*a + par.chi - c
+        EV_next = interp_1d(par.a_grid, V_next, a_next)
+        
+        return self.utility(c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
+
+    def value_function_under_pay(self, c, a, s, t):
+        par = self.par
+        sol = self.sol
+
+        hours = 0.0
+        V_next = sol.V[t+1,:,:,0]
+        s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s # skaleres op for den oprindelige s, naar man gaar på pension.
+        a_next = (1+par.r_a)*a + s_retirement/par.m + par.chi - c
+        s_next = s-s_retirement/par.m 
+        
+        EV_next = interp_2d(par.a_grid,par.s_grid, V_next, a_next,s_next)
+
+
+        return self.utility(c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
 
     def value_function(self, c, h, a, s, k, t):
         par = self.par
