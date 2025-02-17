@@ -47,12 +47,12 @@ class ModelClass(EconModelClass):
         par.r_s    = 0.04
         par.H      = 0.0
  
-        par.tau    = 0.10   # 10% pension contribution
+        par.tau    = 0.0    # 10% pension contribution
         par.chi    = 0.0     # public pension replacement
         par.delta  = 0.07    # human capital depreciation
 
         par.beta_1 = 0.01
-        par.beta_2 = 0.00    # or a small positive number
+        par.beta_2 = 0.001    # or a small positive number
 
         par.w_0    = 30.0
 
@@ -67,14 +67,17 @@ class ModelClass(EconModelClass):
         par.a_max  = 150
         par.a_min  = 0
         par.N_a    = 10
+        par.a_sp   = 2
 
         par.s_max  = 10
         par.s_min  = 0
-        par.N_s    = 10
+        par.N_s    = 2
+        par.s_sp   = 1
 
-        par.k_max  = 10
         par.k_min  = 0
-        par.N_k    = 5
+        par.k_max  = 10
+        par.N_k    = 10
+        par.k_sp   = 1
 
         par.h_min  = 0
         par.h_max  = 1
@@ -84,7 +87,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 1
+        par.N_xi = 5
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
