@@ -146,13 +146,14 @@ class ModelClass(EconModelClass):
         par = self.par
         sol = self.sol
 
+        idx_s_place, idx_k_place = 0, 0
+
         for t in reversed(range(par.T)):
             print(f"We are in t = {t}")
             par.stop_parameter = 0
 
             for a_idx, assets in enumerate(par.a_grid):
-                
-                idx_s_place,idx_k_place =0,0
+
                 idx = (t, a_idx, np.newaxis, np.newaxis)
                 idx_next = (t+1, a_idx, idx_s_place, idx_k_place)
 
@@ -174,7 +175,7 @@ class ModelClass(EconModelClass):
 
                     obj = lambda consumption: -self.value_function_after_pay(consumption[0], assets, t)
 
-                    bc_min, bc_max = par.c_min, np.max([par.c_min*2, (1+par.r_a)*assets + par.chi])
+                    bc_min, bc_max = self.budget_constraint(assets, 0, 0, 0, t)
                     bounds = [(bc_min, bc_max)]
 
                     init_c = np.min([sol.c[idx_next], bc_max])
@@ -194,8 +195,7 @@ class ModelClass(EconModelClass):
 
                             obj = lambda consumption: -self.value_function_under_pay(consumption[0], assets, savings, t)
                             
-                            s_retirement = (par.m/(par.m-(t-par.retirement_age))) * savings
-                            bc_min, bc_max = par.c_min, np.max([par.c_min*2, (1+par.r_a)*assets + s_retirement/par.m + par.chi])
+                            bc_min, bc_max = self.budget_constraint(assets, 0, savings, 0, t)
                             bounds = [(bc_min, bc_max)]
 
                             init_c = np.min([sol.c[idx_next], bc_max])
@@ -309,19 +309,8 @@ class ModelClass(EconModelClass):
 
         V_next = sol.V[t+1]
         
-
-        if par.retirement_age + par.m <= t:
-            a_next = (1+par.r_a)*a + par.chi - c
-            s_next = 0
-        
-        elif par.retirement_age <= t < par.retirement_age + par.m:
-            s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s # skaleres op for den oprindelige s, naar man gaar på pension.
-            a_next = (1+par.r_a)*a + s_retirement/par.m + par.chi - c
-            s_next = s-s_retirement/par.m 
-
-        else:
-            a_next = (1+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
-            s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
+        a_next = (1+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
+        s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
 
         if t < par.retirement_age:
             EV_next = 0.0
@@ -329,12 +318,6 @@ class ModelClass(EconModelClass):
                 k_next = ((1-par.delta)*k + h)*par.xi_v[idx]
                 V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
                 EV_next += V_next_interp*par.xi_p[idx]
-
-
-        else:
-            k_next = (1-par.delta)*k + h
-            V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
-            EV_next= V_next_interp
 
 
         return self.utility(c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
