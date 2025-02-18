@@ -1,4 +1,4 @@
-from numba import njit, prange, typeof
+from numba import njit, prange
 import numpy as np 
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
 from consav.golden_section_search import optimizer
@@ -26,7 +26,7 @@ def budget_constraint(par, sol_V, a, h, s, k, t):
     else:
         return par.c_min, max(par.c_min*2, (1+par.r_a)*a + (1-par.tau)*h*wage(par, sol_V, k))
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def utility(par, sol_V,  c, h):
 
     return (c)**(1-par.sigma)/(1-par.sigma) - (h)**(1+par.gamma)/(1+par.gamma)
@@ -75,32 +75,26 @@ def value_function_under_pay(par, sol_V,  c, a, s, t):
     return utility(par, sol_V, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
 
 @jit_if_enabled()
-def value_function(par, sol_V,  c, h, a, s, k, t):
-
+def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
     V_next = sol_V[t+1]
     
     a_next = (1+par.r_a)*a + (1-par.tau)*h*wage(par, sol_V, k) - c
     s_next = (1+par.r_s)*s + par.tau*h*wage(par, sol_V, k)
+    k_next = k_next = ((1-par.delta)*k + h)
 
-    if t < par.retirement_age:
-        EV_next = 0.0
-        for idx in np.arange(par.N_xi):
-            k_next = ((1-par.delta)*k + h)*par.xi_v[idx]
-            V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
-            EV_next += V_next_interp*par.xi_p[idx]
-
+    EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
 
     return utility(par, sol_V, c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
 
 
 @jit_if_enabled()
-def obj_consumption(c, par, sol_V, h, a, s, k, t):
-    return -value_function(par,sol_V, c, h, a, s, k, t)
+def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, t):
+    return -value_function(par, sol_V, sol_EV, c, h, a, s, k, t)
 
 
 @jit_if_enabled()
-def obj_hours(h, par, sol_V, a, s, k, t):
+def obj_hours(h, par, sol_V, sol_EV, a, s, k, t):
     """ 
     1. Given h, find c* that maximizes the value function
     2. Return -V(c*, h)
@@ -113,12 +107,12 @@ def obj_hours(h, par, sol_V, a, s, k, t):
         obj_consumption,     # your negative-value function
         bc_min, 
         bc_max,
-        args=(par, sol_V, h, a, s, k, t),
+        args=(par, sol_V, sol_EV, h, a, s, k, t),
         tol=par.opt_tol
     )
     
     # Return the negative of the maximum value at (h, c_star)
-    val_at_c_star = value_function(par, sol_V, c_star, h, a, s, k, t)
+    val_at_c_star = value_function(par, sol_V, sol_EV, c_star, h, a, s, k, t)
     return -val_at_c_star
 
 @jit_if_enabled()
@@ -130,6 +124,29 @@ def obj_consumption_after_pay(c, par, sol_V, a, t):
 def obj_consumption_under_pay(c, par, sol_V, a, s, t):
     """ negative of value_function_under_pay(par,sol_V,c,a,s,t) """
     return -value_function_under_pay(par, sol_V, c, a, s, t)
+
+@jit_if_enabled()
+def precompute_EV_next(par, sol_V, t):
+
+    V_next = sol_V[t+1]
+
+    EV = np.zeros((len(par.a_grid), len(par.s_grid), len(par.k_grid)))
+
+    for i_a, a_next in enumerate(par.a_grid):
+        for i_s, s_next in enumerate(par.s_grid):
+            for i_k, k_next in enumerate(par.k_grid):
+
+                EV_val = 0.0
+                for idx in range(par.N_xi):
+                    k_next = k_next*par.xi_v[idx]  # placeholders for h=0.0
+                    V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
+                    EV_val += V_next_interp * par.xi_p[idx]
+
+                # Store
+                EV[i_a, i_s, i_k] = EV_val
+
+    return EV
+
 
 
 @jit_if_enabled(parallel=True)
@@ -143,6 +160,9 @@ def main_solver_loop(par, sol):
 
     for t in range(par.T - 1, -1, -1):
         print(f"We are in t = {t}")
+
+        if t < par.retirement_age:
+            sol_EV = precompute_EV_next(par, sol_V, t)
 
         for a_idx in prange(len(par.a_grid)):
             assets = par.a_grid[a_idx]
@@ -214,7 +234,7 @@ def main_solver_loop(par, sol):
                                 obj_hours,         # the hours objective
                                 par.h_min,
                                 par.h_max,
-                                args=(par, sol_V, assets, savings, human_capital, t),
+                                args=(par, sol_V, sol_EV, assets, savings, human_capital, t),
                                 tol=par.opt_tol
                             )
 
@@ -223,13 +243,13 @@ def main_solver_loop(par, sol):
                                 obj_consumption,
                                 bc_min,
                                 bc_max,
-                                args=(par, sol_V, h_star, assets, savings, human_capital, t),
+                                args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
                                 tol=par.opt_tol
                             )
 
                             sol_h[idx] = h_star
                             sol_c[idx] = c_star
-                            sol_V[idx] = value_function(par, sol_V, c_star, h_star, assets, savings, human_capital, t)
+                            sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
 
 
     return sol_c, sol_h, sol_V
