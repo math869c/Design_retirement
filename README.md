@@ -11,21 +11,21 @@ Done:
 * Har tænkt over DC-EGM (Thomas siger det er den vej)
 * Clean up code
 * Send første udkast til model
+* 3d-interp, 2d-interp and 1d-interp
 
 First steps:
 
 - Numba njit
 - Tænk mere over DC-EGM (timer er diskrete?)
-- 3d-interp, 2d-interp and 1d-interp
 - Set reasonable parameters (kig i DST)
-  1. Timelønninger P
-  2. Dødssandsynligheder M
+  1. Timelønninger P done
+  2. Dødssandsynligheder M done
   3. Almindelig formue M/P
-  4. Pensionsformue M
-  5. Pensionsindbetalinger (Har vi)
+  4. Pensionsformue M DONE
+  5. Pensionsindbetalinger done
   6. Folkepensionssats P
   7. Kontanthjælp P
-  8. Arbejdstimer om året P
+  8. Arbejdstimer om året P done
 
 Next week:
 

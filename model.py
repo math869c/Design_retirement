@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
+from functions_njit import budget_constraint, utility, bequest, wage, value_next_period_after_reti, value_function_after_pay, value_function_under_pay, value_function, obj_consumption
+
 
 from EconModel import EconModelClass, jit
 
@@ -9,13 +11,13 @@ from numba import njit
 from consav.grids import nonlinspace
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
 from consav.quadrature import log_normal_gauss_hermite
+from consav.golden_section_search import optimizer
 
 class ModelClass(EconModelClass):
 
     def settings(self):
         """ fundamental settings """
-
-        pass
+        pass 
 
     def setup(self):
         """ set baseline parameters """
@@ -66,17 +68,17 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 150
         par.a_min  = 0
-        par.N_a    = 10
+        par.N_a    = 20
         par.a_sp   = 2
 
         par.s_max  = 10
         par.s_min  = 0
-        par.N_s    = 2
+        par.N_s    = 20
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 10
-        par.N_k    = 10
+        par.N_k    = 20
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -87,7 +89,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 5
+        par.N_xi = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
@@ -96,7 +98,8 @@ class ModelClass(EconModelClass):
         par.simN = 1 # number of individuals
 
 
-        par.stop_parameter = 0
+
+
 
 
     def allocate(self):
@@ -131,6 +134,8 @@ class ModelClass(EconModelClass):
         sim.s = np.nan + np.zeros(shape)
         sim.k = np.nan + np.zeros(shape)
         sim.w = np.nan + np.zeros(shape)
+        sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
+
 
         # e. initialization
         sim.a_init = np.ones(par.simN)*par.H
@@ -141,239 +146,164 @@ class ModelClass(EconModelClass):
 
 
 
+
     def solve(self):
 
-        par = self.par
-        sol = self.sol
+        with jit(self) as model:
 
-        idx_s_place, idx_k_place = 0, 0
+            par = model.par
+            sol = model.sol
 
-        for t in reversed(range(par.T)):
-            print(f"We are in t = {t}")
-            par.stop_parameter = 0
+            idx_s_place, idx_k_place = 0, 0
 
-            for a_idx, assets in enumerate(par.a_grid):
+            for t in reversed(range(par.T)):
+                print(f"We are in t = {t}")
 
-                idx = (t, a_idx, np.newaxis, np.newaxis)
-                idx_next = (t+1, a_idx, idx_s_place, idx_k_place)
 
-                if t == par.T - 1:
-                    # Analytical solution in the last period
-                    if par.mu != 0.0:
-                        # With bequest motive
-                        sol.c[idx] = (1/(1-par.mu**(-1/par.sigma))) * ((1+par.r_a)*assets+par.chi+par.a_bar) + par.c_bar
-                        a_next = (1+par.r_a)*assets+par.chi+par.a_bar -sol.c[a_idx,np.newaxis,np.newaxis]
-                    else: 
-                        # No bequest motive
-                        sol.c[idx] = (1+par.r_a)*assets+par.chi + par.c_bar
-                        a_next = par.a_bar
-                    sol.h[idx] = 0
-                    sol.V[idx] = self.value_next_period_after_reti(sol.c[idx],a_next)
+                for a_idx, assets in enumerate(par.a_grid):
 
-                
-                elif par.retirement_age +par.m <= t:
+                    idx = (t, a_idx, np.newaxis, np.newaxis)
+                    idx_next = (t+1, a_idx, idx_s_place, idx_k_place)
 
-                    obj = lambda consumption: -self.value_function_after_pay(consumption[0], assets, t)
+                    if t == par.T - 1:
+                        # Analytical solution in the last period
+                        if par.mu != 0.0:
+                            # With bequest motive
+                            sol.c[idx] = (1/(1-par.mu**(-1/par.sigma))) * ((1+par.r_a)*assets+par.chi+par.a_bar) + par.c_bar
+                            a_next = (1+par.r_a)*assets+par.chi+par.a_bar -sol.c[a_idx,np.newaxis,np.newaxis]
+                        else: 
+                            # No bequest motive
+                            sol.c[idx] = (1+par.r_a)*assets+par.chi + par.c_bar
+                            a_next = par.a_bar
+                        sol.h[idx] = 0
+                        sol.V[idx] = value_next_period_after_reti(par, sol, sol.c[idx],a_next)
 
-                    bc_min, bc_max = self.budget_constraint(assets, 0, 0, 0, t)
-                    bounds = [(bc_min, bc_max)]
+                    
+                    elif par.retirement_age +par.m <= t:
 
-                    init_c = np.min([sol.c[idx_next], bc_max])
-                    result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                        obj = lambda consumption: -value_function_after_pay(par, sol, consumption[0], assets, t)
 
-                    sol.c[idx] = result.x[0]
-                    sol.h[idx] = 0.0
-                    sol.V[idx] = -result.fun
+                        bc_min, bc_max = budget_constraint(par, sol, assets, 0.0, 0.0, 0.0, t)
+                        bounds = [(bc_min, bc_max)]
 
-                else:
-                    for s_idx, savings in enumerate(par.s_grid):
-                        idx = (t, a_idx, s_idx, np.newaxis)
-                        idx_next = (t+1, a_idx, s_idx, idx_k_place)
+                        init_c = np.min([sol.c[idx_next], bc_max])
+                        result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
-                        if par.retirement_age <= t:
-                            hours = 0
+                        sol.c[idx] = result.x[0]
+                        sol.h[idx] = 0.0
+                        sol.V[idx] = -result.fun
 
-                            obj = lambda consumption: -self.value_function_under_pay(consumption[0], assets, savings, t)
-                            
-                            bc_min, bc_max = self.budget_constraint(assets, 0, savings, 0, t)
-                            bounds = [(bc_min, bc_max)]
+                    else:
+                        for s_idx, savings in enumerate(par.s_grid):
+                            idx = (t, a_idx, s_idx, np.newaxis)
+                            idx_next = (t+1, a_idx, s_idx, idx_k_place)
 
-                            init_c = np.min([sol.c[idx_next], bc_max])
-                            result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                            if par.retirement_age <= t:
+                                hours = 0
 
-                            sol.c[idx] = result.x[0]
-                            sol.h[idx] = hours
-                            sol.V[idx] = -result.fun
+                                obj = lambda consumption: -value_function_under_pay(par, sol, consumption[0], assets, savings, t)
+                                
+                                bc_min, bc_max = budget_constraint(par,sol, assets, 0, savings, 0, t)
+                                bounds = [(bc_min, bc_max)]
 
-                        else:
-                            for k_idx, human_capital in enumerate(par.k_grid):
-                                idx = (t, a_idx, s_idx, k_idx)
-                                idx_next = (t+1, a_idx, s_idx, k_idx)
+                                init_c = np.min([sol.c[idx_next], bc_max])
+                                result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
 
-                                init_c = sol.c[idx_next]
-                                init_h = sol.h[idx_next]      
-
-                                obj = lambda hour: self.optimize_consumption(hour[0], assets, savings, human_capital, init_c, t)[0]
-
-                                bounds = [(par.h_min, par.h_max)]
-                                result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                                sol.h[idx] = result.x[0]
+                                sol.c[idx] = result.x[0]
+                                sol.h[idx] = hours
                                 sol.V[idx] = -result.fun
 
-                                optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
+                            else:
+                                for k_idx, human_capital in enumerate(par.k_grid):
+                                    idx = (t, a_idx, s_idx, k_idx)
+                                    idx_next = (t+1, a_idx, s_idx, k_idx)
 
-                                sol.c[idx] = optimal_consumption
+                                    init_c = sol.c[idx_next]
+                                    init_h = sol.h[idx_next]      
 
+                                    obj = lambda hour: self.optimize_consumption(hour[0], assets, savings, human_capital, init_c, t)[0]
+
+                                    bounds = [(par.h_min, par.h_max)]
+                                    result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+
+                                    sol.h[idx] = result.x[0]
+                                    sol.V[idx] = -result.fun
+
+                                    optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
+
+                                    sol.c[idx] = optimal_consumption
 
     def optimize_consumption(self, h, a, s, k, init, t):
+        par = self.par
+        sol = self.sol
 
-        bc_min, bc_max = self.budget_constraint(a, h, s, k, t)
+        bc_min, bc_max = budget_constraint(par,sol, a, h, s, k, t)
         bounds = [(bc_min, bc_max)]
        
-        obj = lambda c: -self.value_function(c[0], h, a, s, k, t)
+        # obj = lambda c: -value_function(par,sol, c, h, a, s, k, t)
 
-        init_c = np.min([init, bc_max])
-        result = minimize(obj, init_c, bounds=bounds, method=self.par.opt_method, tol=self.par.opt_tol, options={'maxiter':self.par.opt_maxiter})
+        # init_c = np.min([init, bc_max])
+        consumption = optimizer(obj_consumption, bc_min, bc_max, args=(par, sol, h, a, s, k, t), tol=self.par.opt_tol)
 
-        return result.fun, result.x[0]
+        result = -value_function(par, sol, consumption, h, a, s, k, t)
 
+        return result, consumption
 
-    def budget_constraint(self, a, h, s, k, t):
-        par = self.par
-
-        if par.retirement_age + par.m <= t:
-            return par.c_min, np.max([par.c_min*2, (1+par.r_a)*a + par.chi])
-        
-        elif par.retirement_age <= t < par.retirement_age + par.m:
-            s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s
-            return par.c_min, np.max([par.c_min*2, (1+par.r_a)*a + s_retirement/par.m + par.chi])
-
-        else:
-            return par.c_min, np.max([par.c_min*2, (1+par.r_a)*a + (1-par.tau)*h*self.wage(k)])
-
-
-    def utility(self, c, h):
-        par = self.par
-
-        return (c)**(1-par.sigma)/(1-par.sigma) - (h)**(1+par.gamma)/(1+par.gamma)
-    
-    def bequest(self, a):
-        par = self.par
-
-        return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
-    
-    def wage(self, k):
-        par = self.par
-
-        return np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
-    
-    def value_next_period_after_reti(self, c, a):
-        par = self.par
-        h = 0
-
-        a_next = (1+par.r_a)*a - c
-
-        return self.utility(c, h) + self.bequest(a_next)
-    
-    # Value functions med forskellige state inputs
-    def value_function_after_pay(self, c, a, t):
-        par = self.par
-        sol = self.sol
-
-        hours = 0.0
-        V_next = sol.V[t+1,:,0,0]
-        a_next = (1+par.r_a)*a + par.chi - c
-        EV_next = interp_1d(par.a_grid, V_next, a_next)
-        
-        return self.utility(c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
-
-    def value_function_under_pay(self, c, a, s, t):
-        par = self.par
-        sol = self.sol
-
-        hours = 0.0
-        V_next = sol.V[t+1,:,:,0]
-        s_retirement = (par.m/(par.m-(t-par.retirement_age))) * s # skaleres op for den oprindelige s, naar man gaar på pension.
-        a_next = (1+par.r_a)*a + s_retirement/par.m + par.chi - c
-        s_next = s-s_retirement/par.m 
-        
-        EV_next = interp_2d(par.a_grid,par.s_grid, V_next, a_next,s_next)
-
-
-        return self.utility(c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
-
-    def value_function(self, c, h, a, s, k, t):
-        par = self.par
-        sol = self.sol
-
-        V_next = sol.V[t+1]
-        
-        a_next = (1+par.r_a)*a + (1-par.tau)*h*self.wage(k) - c
-        s_next = (1+par.r_s)*s + par.tau*h*self.wage(k)
-
-        if t < par.retirement_age:
-            EV_next = 0.0
-            for idx in np.arange(par.N_xi):
-                k_next = ((1-par.delta)*k + h)*par.xi_v[idx]
-                V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_next)
-                EV_next += V_next_interp*par.xi_p[idx]
-
-
-        return self.utility(c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*self.bequest(a_next)
-    
-
-    def simulate_prep(self, deterministic=False):
-        par = self.par 
-        sim = self.sim
-        if deterministic:
-            sim.xi = np.ones((par.simN, par.simT))
-        else:
-            sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
+    # def simulate_prep(self, deterministic=False):
+    #     par = self.par 
+    #     sim = self.sim
+    #     if deterministic:
+    #         sim.xi = np.ones((par.simN, par.simT))
+    #     else:
+    #         sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
     def simulate(self):
 
-        # a. unpack
-        par = self.par
-        sol = self.sol
-        sim = self.sim
 
-        # b. loop over individuals and time
-        for i in range(par.simN):
 
-            # i. initialize states
-            sim.a[i,0] = sim.a_init[i]
-            sim.s[i,0] = sim.s_init[i]
-            sim.k[i,0] = sim.k_init[i]
+        with jit(self) as model:
 
-            for t in range(par.simT):
+            par = model.par
+            sol = model.sol
+            sim = model.sim
 
-                # ii. interpolate optimal consumption and hours
-                sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
-                sim.h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
-                if t == par.retirement_age:
-                    sim.s_payment[i] = sim.s[i,t]/par.m
+        
+            # b. loop over individuals and time
+            for i in range(par.simN):
 
-                # iii. store next-period states
-                if t < par.retirement_age:
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
-                    sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t]
-                    sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
+                # i. initialize states
+                sim.a[i,0] = sim.a_init[i]
+                sim.s[i,0] = sim.s_init[i]
+                sim.k[i,0] = sim.k_init[i]
 
-                elif par.retirement_age <= t < par.retirement_age + par.m: 
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + sim.s_payment[i] + par.chi - sim.c[i,t]
-                    sim.s[i,t+1] = sim.s[i,t] - sim.s_payment[i]
-                    sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
-                
-                elif par.retirement_age + par.m <= t < par.T-1:
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + par.chi - sim.c[i,t]
-                    sim.s[i,t+1] = 0
-                    sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
-                
-                else:
-                    sim.w[i,t] = self.wage(sim.k[i,t])
-                    pass
+                for t in range(par.simT):
+
+                    # ii. interpolate optimal consumption and hours
+                    sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
+                    sim.h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
+                    if t == par.retirement_age:
+                        sim.s_payment[i] = sim.s[i,t]/par.m
+
+                    # iii. store next-period states
+                    if t < par.retirement_age:
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
+                        sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t]
+                        sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
+
+                    elif par.retirement_age <= t < par.retirement_age + par.m: 
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + sim.s_payment[i] + par.chi - sim.c[i,t]
+                        sim.s[i,t+1] = sim.s[i,t] - sim.s_payment[i]
+                        sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
+                    
+                    elif par.retirement_age + par.m <= t < par.T-1:
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + par.chi - sim.c[i,t]
+                        sim.s[i,t+1] = 0
+                        sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
+                    
+                    else:
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        pass
 
