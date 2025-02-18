@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
-from functions_njit import budget_constraint, utility, bequest, wage, value_next_period_after_reti, value_function_after_pay, value_function_under_pay, value_function, obj_consumption
+from functions_njit import *
 
 
 from EconModel import EconModelClass, jit
@@ -68,17 +68,17 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 150
         par.a_min  = 0
-        par.N_a    = 20
+        par.N_a    = 10
         par.a_sp   = 2
 
         par.s_max  = 10
         par.s_min  = 0
-        par.N_s    = 20
+        par.N_s    = 10
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 10
-        par.N_k    = 20
+        par.N_k    = 10
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -146,7 +146,6 @@ class ModelClass(EconModelClass):
 
 
 
-
     def solve(self):
 
         with jit(self) as model:
@@ -155,6 +154,7 @@ class ModelClass(EconModelClass):
             sol = model.sol
 
             idx_s_place, idx_k_place = 0, 0
+            savings_place, human_capital_place, hours_place = 0, 0, 0
 
             for t in reversed(range(par.T)):
                 print(f"We are in t = {t}")
@@ -181,17 +181,19 @@ class ModelClass(EconModelClass):
                     
                     elif par.retirement_age +par.m <= t:
 
-                        obj = lambda consumption: -value_function_after_pay(par, sol, consumption[0], assets, t)
+                        bc_min, bc_max = budget_constraint(par, sol, assets, hours_place, savings_place, human_capital_place, t)
+                        
+                        c_star = optimizer(
+                            obj_consumption_after_pay,
+                            bc_min,
+                            bc_max,
+                            args=(par, sol, assets, t),
+                            tol=par.opt_tol
+                        )
 
-                        bc_min, bc_max = budget_constraint(par, sol, assets, 0.0, 0.0, 0.0, t)
-                        bounds = [(bc_min, bc_max)]
-
-                        init_c = np.min([sol.c[idx_next], bc_max])
-                        result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                        sol.c[idx] = result.x[0]
-                        sol.h[idx] = 0.0
-                        sol.V[idx] = -result.fun
+                        sol.c[idx] = c_star
+                        sol.h[idx] = hours_place
+                        sol.V[idx] = value_function_after_pay(par, sol, c_star, assets, t)
 
                     else:
                         for s_idx, savings in enumerate(par.s_grid):
@@ -199,19 +201,20 @@ class ModelClass(EconModelClass):
                             idx_next = (t+1, a_idx, s_idx, idx_k_place)
 
                             if par.retirement_age <= t:
-                                hours = 0
 
-                                obj = lambda consumption: -value_function_under_pay(par, sol, consumption[0], assets, savings, t)
+                                bc_min, bc_max = budget_constraint(par, sol, assets, hours_place, savings, human_capital_place, t)
                                 
-                                bc_min, bc_max = budget_constraint(par,sol, assets, 0, savings, 0, t)
-                                bounds = [(bc_min, bc_max)]
+                                c_star = optimizer(
+                                    obj_consumption_under_pay,
+                                    bc_min,
+                                    bc_max,
+                                    args=(par, sol, assets, savings, t),
+                                    tol=par.opt_tol
+                                )
 
-                                init_c = np.min([sol.c[idx_next], bc_max])
-                                result = minimize(obj, init_c, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
-
-                                sol.c[idx] = result.x[0]
-                                sol.h[idx] = hours
-                                sol.V[idx] = -result.fun
+                                sol.c[idx] = c_star 
+                                sol.h[idx] = hours_place
+                                sol.V[idx] = value_function_under_pay(par, sol, c_star, assets, savings, t)
 
                             else:
                                 for k_idx, human_capital in enumerate(par.k_grid):
@@ -221,41 +224,26 @@ class ModelClass(EconModelClass):
                                     init_c = sol.c[idx_next]
                                     init_h = sol.h[idx_next]      
 
-                                    obj = lambda hour: self.optimize_consumption(hour[0], assets, savings, human_capital, init_c, t)[0]
+                                    h_star = optimizer(
+                                        obj_hours,         # the hours objective
+                                        par.h_min,
+                                        par.h_max,
+                                        args=(par, sol, assets, savings, human_capital, t),
+                                        tol=par.opt_tol
+                                    )
 
-                                    bounds = [(par.h_min, par.h_max)]
-                                    result = minimize(obj, init_h, bounds=bounds, method=par.opt_method, tol=par.opt_tol, options={'maxiter':par.opt_maxiter})
+                                    bc_min, bc_max = budget_constraint(par, sol, assets, h_star, savings, human_capital, t)
+                                    c_star = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol, h_star, assets, savings, human_capital, t),
+                                        tol=par.opt_tol
+                                    )
 
-                                    sol.h[idx] = result.x[0]
-                                    sol.V[idx] = -result.fun
-
-                                    optimal_consumption = self.optimize_consumption(result.x[0], assets, savings, human_capital, init_c, t)[1]
-
-                                    sol.c[idx] = optimal_consumption
-
-    def optimize_consumption(self, h, a, s, k, init, t):
-        par = self.par
-        sol = self.sol
-
-        bc_min, bc_max = budget_constraint(par,sol, a, h, s, k, t)
-        bounds = [(bc_min, bc_max)]
-       
-        # obj = lambda c: -value_function(par,sol, c, h, a, s, k, t)
-
-        # init_c = np.min([init, bc_max])
-        consumption = optimizer(obj_consumption, bc_min, bc_max, args=(par, sol, h, a, s, k, t), tol=self.par.opt_tol)
-
-        result = -value_function(par, sol, consumption, h, a, s, k, t)
-
-        return result, consumption
-
-    # def simulate_prep(self, deterministic=False):
-    #     par = self.par 
-    #     sim = self.sim
-    #     if deterministic:
-    #         sim.xi = np.ones((par.simN, par.simT))
-    #     else:
-    #         sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
+                                    sol.h[idx] = h_star
+                                    sol.c[idx] = c_star
+                                    sol.V[idx] = value_function(par, sol, c_star, h_star, assets, savings, human_capital, t)
 
     def simulate(self):
 

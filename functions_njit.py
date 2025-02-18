@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np 
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
+from consav.golden_section_search import optimizer
 
 USE_JIT = True  # Set to False to disable JIT for debugging
 
@@ -96,3 +97,36 @@ def value_function(par, sol,  c, h, a, s, k, t):
 @jit_if_enabled()
 def obj_consumption(c, par, sol, h, a, s, k, t):
     return -value_function(par,sol, c, h, a, s, k, t)
+
+
+@jit_if_enabled()
+def obj_hours(h, par, sol, a, s, k, t):
+    """ 
+    1. Given h, find c* that maximizes the value function
+    2. Return -V(c*, h)
+    """
+    # Budget constraint for c given h
+    bc_min, bc_max = budget_constraint(par, sol, a, h, s, k, t)
+    
+    # 1D golden-section search over consumption
+    c_star = optimizer(
+        obj_consumption,     # your negative-value function
+        bc_min, 
+        bc_max,
+        args=(par, sol, h, a, s, k, t),
+        tol=par.opt_tol
+    )
+    
+    # Return the negative of the maximum value at (h, c_star)
+    val_at_c_star = value_function(par, sol, c_star, h, a, s, k, t)
+    return -val_at_c_star
+
+@njit
+def obj_consumption_after_pay(c, par, sol, a, t):
+    """ negative of value_function_after_pay(par,sol,c,a,t) """
+    return -value_function_after_pay(par, sol, c, a, t)
+
+@njit
+def obj_consumption_under_pay(c, par, sol, a, s, t):
+    """ negative of value_function_under_pay(par,sol,c,a,s,t) """
+    return -value_function_under_pay(par, sol, c, a, s, t)
