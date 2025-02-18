@@ -1,4 +1,4 @@
-from numba import njit
+from numba import njit, prange
 import numpy as np 
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
 from consav.golden_section_search import optimizer
@@ -6,12 +6,12 @@ from consav.golden_section_search import optimizer
 USE_JIT = True  # Set to False to disable JIT for debugging
 
 
-def jit_if_enabled(*args, **kwargs):
+def jit_if_enabled(parallel=False , fastmath=False):
     """ Apply @njit only if USE_JIT is True """
-    return njit(*args, **kwargs) if USE_JIT else (lambda f: f)
+    return njit(parallel=parallel) if USE_JIT else (lambda f: f)
 
 
-@jit_if_enabled()
+@jit_if_enabled(parallel=False)
 def budget_constraint(par, sol, a, h, s, k, t):
 
     if par.retirement_age + par.m <= t:
@@ -121,12 +121,116 @@ def obj_hours(h, par, sol, a, s, k, t):
     val_at_c_star = value_function(par, sol, c_star, h, a, s, k, t)
     return -val_at_c_star
 
-@njit
+@jit_if_enabled()
 def obj_consumption_after_pay(c, par, sol, a, t):
     """ negative of value_function_after_pay(par,sol,c,a,t) """
     return -value_function_after_pay(par, sol, c, a, t)
 
-@njit
+@jit_if_enabled()
 def obj_consumption_under_pay(c, par, sol, a, s, t):
     """ negative of value_function_under_pay(par,sol,c,a,s,t) """
     return -value_function_under_pay(par, sol, c, a, s, t)
+
+
+@jit_if_enabled(parallel=False)
+def main_solver_loop(par, sol):
+
+    idx_s_place, idx_k_place = 0, 0
+    savings_place, human_capital_place, hours_place = 0, 0, 0
+
+    for t in range(par.T - 1, -1, -1):
+        print(f"We are in t = {t}")
+
+        for a_idx in prange(len(par.a_grid)):
+            assets = par.a_grid[a_idx]
+
+            idx = (t, a_idx, np.newaxis, np.newaxis)
+            idx_next = (t+1, a_idx, idx_s_place, idx_k_place)
+
+            if t == par.T - 1:
+                # Analytical solution in the last period
+                if par.mu != 0.0:
+                    # With bequest motive
+                    a_next = (1+par.r_a)*assets+par.chi+par.a_bar -sol.c[idx]
+
+                    sol.c[idx] = (1/(1-par.mu**(-1/par.sigma))) * ((1+par.r_a)*assets+par.chi+par.a_bar) + par.c_bar
+                    sol.h[idx] = hours_place
+                    sol.V[idx] = value_next_period_after_reti(par, sol, sol.c[idx],a_next)
+                else: 
+                    # No bequest motive
+                    a_next = par.a_bar
+                    
+                    sol.c[idx] = (1+par.r_a)*assets+par.chi + par.c_bar
+                    sol.h[idx] = hours_place
+                    sol.V[idx] = value_next_period_after_reti(par, sol, sol.c[idx],a_next)
+
+            
+            elif par.retirement_age +par.m <= t:
+
+                bc_min, bc_max = budget_constraint(par, sol, assets, hours_place, savings_place, human_capital_place, t)
+                
+                c_star = optimizer(
+                    obj_consumption_after_pay,
+                    bc_min,
+                    bc_max,
+                    args=(par, sol, assets, t),
+                    tol=par.opt_tol
+                )
+
+                sol.c[idx] = c_star
+                sol.h[idx] = hours_place
+                sol.V[idx] = value_function_after_pay(par, sol, c_star, assets, t)
+
+            else:
+                for s_idx, savings in enumerate(par.s_grid):
+                    idx = (t, a_idx, s_idx, np.newaxis)
+                    idx_next = (t+1, a_idx, s_idx, idx_k_place)
+
+                    if par.retirement_age <= t:
+
+                        bc_min, bc_max = budget_constraint(par, sol, assets, hours_place, savings, human_capital_place, t)
+                        
+                        c_star = optimizer(
+                            obj_consumption_under_pay,
+                            bc_min,
+                            bc_max,
+                            args=(par, sol, assets, savings, t),
+                            tol=par.opt_tol
+                        )
+
+                        sol.c[idx] = c_star 
+                        sol.h[idx] = hours_place
+                        sol.V[idx] = value_function_under_pay(par, sol, c_star, assets, savings, t)
+
+                    else:
+                        for k_idx, human_capital in enumerate(par.k_grid):
+                            idx = (t, a_idx, s_idx, k_idx)
+                            idx_next = (t+1, a_idx, s_idx, k_idx)
+
+                            init_c = sol.c[idx_next]
+                            init_h = sol.h[idx_next]      
+
+                            h_star = optimizer(
+                                obj_hours,         # the hours objective
+                                par.h_min,
+                                par.h_max,
+                                args=(par, sol, assets, savings, human_capital, t),
+                                tol=par.opt_tol
+                            )
+
+                            bc_min, bc_max = budget_constraint(par, sol, assets, h_star, savings, human_capital, t)
+                            c_star = optimizer(
+                                obj_consumption,
+                                bc_min,
+                                bc_max,
+                                args=(par, sol, h_star, assets, savings, human_capital, t),
+                                tol=par.opt_tol
+                            )
+
+                            sol.h[idx] = h_star
+                            sol.c[idx] = c_star
+                            sol.V[idx] = value_function(par, sol, c_star, h_star, assets, savings, human_capital, t)
+
+        print(sol.c)
+
+    return sol.c, sol.h, sol.V

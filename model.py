@@ -68,17 +68,17 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 150
         par.a_min  = 0
-        par.N_a    = 10
+        par.N_a    = 20
         par.a_sp   = 2
 
         par.s_max  = 10
         par.s_min  = 0
-        par.N_s    = 10
+        par.N_s    = 20
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 10
-        par.N_k    = 10
+        par.N_k    = 20
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -153,101 +153,14 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            idx_s_place, idx_k_place = 0, 0
-            savings_place, human_capital_place, hours_place = 0, 0, 0
+            sol.c[:, :, :, :], sol.h[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol)
 
-            for t in reversed(range(par.T)):
-                print(f"We are in t = {t}")
+            
 
 
-                for a_idx, assets in enumerate(par.a_grid):
 
-                    idx = (t, a_idx, np.newaxis, np.newaxis)
-                    idx_next = (t+1, a_idx, idx_s_place, idx_k_place)
-
-                    if t == par.T - 1:
-                        # Analytical solution in the last period
-                        if par.mu != 0.0:
-                            # With bequest motive
-                            sol.c[idx] = (1/(1-par.mu**(-1/par.sigma))) * ((1+par.r_a)*assets+par.chi+par.a_bar) + par.c_bar
-                            a_next = (1+par.r_a)*assets+par.chi+par.a_bar -sol.c[a_idx,np.newaxis,np.newaxis]
-                        else: 
-                            # No bequest motive
-                            sol.c[idx] = (1+par.r_a)*assets+par.chi + par.c_bar
-                            a_next = par.a_bar
-                        sol.h[idx] = 0
-                        sol.V[idx] = value_next_period_after_reti(par, sol, sol.c[idx],a_next)
-
-                    
-                    elif par.retirement_age +par.m <= t:
-
-                        bc_min, bc_max = budget_constraint(par, sol, assets, hours_place, savings_place, human_capital_place, t)
-                        
-                        c_star = optimizer(
-                            obj_consumption_after_pay,
-                            bc_min,
-                            bc_max,
-                            args=(par, sol, assets, t),
-                            tol=par.opt_tol
-                        )
-
-                        sol.c[idx] = c_star
-                        sol.h[idx] = hours_place
-                        sol.V[idx] = value_function_after_pay(par, sol, c_star, assets, t)
-
-                    else:
-                        for s_idx, savings in enumerate(par.s_grid):
-                            idx = (t, a_idx, s_idx, np.newaxis)
-                            idx_next = (t+1, a_idx, s_idx, idx_k_place)
-
-                            if par.retirement_age <= t:
-
-                                bc_min, bc_max = budget_constraint(par, sol, assets, hours_place, savings, human_capital_place, t)
-                                
-                                c_star = optimizer(
-                                    obj_consumption_under_pay,
-                                    bc_min,
-                                    bc_max,
-                                    args=(par, sol, assets, savings, t),
-                                    tol=par.opt_tol
-                                )
-
-                                sol.c[idx] = c_star 
-                                sol.h[idx] = hours_place
-                                sol.V[idx] = value_function_under_pay(par, sol, c_star, assets, savings, t)
-
-                            else:
-                                for k_idx, human_capital in enumerate(par.k_grid):
-                                    idx = (t, a_idx, s_idx, k_idx)
-                                    idx_next = (t+1, a_idx, s_idx, k_idx)
-
-                                    init_c = sol.c[idx_next]
-                                    init_h = sol.h[idx_next]      
-
-                                    h_star = optimizer(
-                                        obj_hours,         # the hours objective
-                                        par.h_min,
-                                        par.h_max,
-                                        args=(par, sol, assets, savings, human_capital, t),
-                                        tol=par.opt_tol
-                                    )
-
-                                    bc_min, bc_max = budget_constraint(par, sol, assets, h_star, savings, human_capital, t)
-                                    c_star = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol, h_star, assets, savings, human_capital, t),
-                                        tol=par.opt_tol
-                                    )
-
-                                    sol.h[idx] = h_star
-                                    sol.c[idx] = c_star
-                                    sol.V[idx] = value_function(par, sol, c_star, h_star, assets, savings, human_capital, t)
 
     def simulate(self):
-
-
 
         with jit(self) as model:
 
