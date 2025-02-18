@@ -1,17 +1,12 @@
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
-from functions_njit import *
-
+from functions_njit import main_solver_loop, wage
 
 from EconModel import EconModelClass, jit
-
-from numba import njit
 
 from consav.grids import nonlinspace
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
 from consav.quadrature import log_normal_gauss_hermite
-from consav.golden_section_search import optimizer
 
 class ModelClass(EconModelClass):
 
@@ -26,7 +21,6 @@ class ModelClass(EconModelClass):
         par = self.par
 
         # Optimization settings
-        par.opt_method = 'L-BFGS-B'
         par.opt_tol = 1e-6
         par.opt_maxiter = 1000
 
@@ -94,12 +88,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 1 # number of individuals
-        par.simN = 1 # number of individuals
-
-
-
-
+        par.simN = 1000 # number of individuals
 
 
     def allocate(self):
@@ -154,8 +143,6 @@ class ModelClass(EconModelClass):
             sol = model.sol
 
             sol.c[:, :, :, :], sol.h[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol)
-
-            
 
 
 
