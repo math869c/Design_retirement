@@ -60,12 +60,9 @@ class ModelClass(EconModelClass):
 
         # par.w_0    = 215.033648*1924
 
-        ages       = np.arange(par.start_age, par.T + par.start_age + 1)
-        par.pi     = 1 - np.concatenate((np.ones(8), 
-                                     np.array(pd.read_excel('Data\overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
-                                     np.zeros(1)))
-        # par.pi     = np.zeros((par.T))
-
+        df = pd.read_csv('Data\overlevelses_ssh.csv')
+        par.pi = 1 - np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_r1)
+        par.pi[-1] = 1.0
 
         # Grids
         par.a_max  = 150

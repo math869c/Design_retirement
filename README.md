@@ -12,12 +12,7 @@ Done:
 * Clean up code
 * Send første udkast til model
 * 3d-interp, 2d-interp and 1d-interp
-
-First steps:
-
-- Numba njit
-- Tænk mere over DC-EGM (timer er diskrete?)
-- Set reasonable parameters (kig i DST)
+* Data for:
   1. Timelønninger P done
   2. Dødssandsynligheder M done
   3. Almindelig formue M/P
@@ -26,11 +21,17 @@ First steps:
   6. Folkepensionssats P
   7. Kontanthjælp P
   8. Arbejdstimer om året P done
+- Numba njit
+
+First steps:
+- Tænk mere over DC-EGM (timer er diskrete?)
+- Set reasonable parameters (kig i DST)
+
 
 Next week:
 
 - Modeuludvidelser (andre tilbagetrækningsformer, andre formuer, present bias, andre udbetalingsformer som rate, livrente, means-testing, endogene overlevelsessandsynligheder)
-- Mere empiri: Formue (både pension, formue og bolig), lønindkomst, arbejdstid, forbrug
+- Overvej andre counterfactuals 
 
 Next next week:
 
