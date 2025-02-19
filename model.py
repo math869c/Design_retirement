@@ -53,9 +53,16 @@ class ModelClass(EconModelClass):
 
         par.w_0    = 30.0
 
+        # par.delta  = 0.016804
+
+        # par.beta_1 = 0.030682
+        # par.beta_2 = -0.001128
+
+        # par.w_0    = 215.033648*1924
+
         ages       = np.arange(par.start_age, par.T + par.start_age + 1)
         par.pi     = 1 - np.concatenate((np.ones(8), 
-                                     np.array(pd.read_excel('overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
+                                     np.array(pd.read_excel('Data\overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
                                      np.zeros(1)))
         # par.pi     = np.zeros((par.T))
 
