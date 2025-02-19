@@ -8,6 +8,7 @@ from consav.grids import nonlinspace
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
 from consav.quadrature import log_normal_gauss_hermite
 
+
 class ModelClass(EconModelClass):
 
     def settings(self):

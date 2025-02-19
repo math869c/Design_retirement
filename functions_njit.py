@@ -1,14 +1,9 @@
 from numba import njit, prange
 import numpy as np 
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
-from consav.golden_section_search import optimizer
+from optimizers import optimizer, optimize_outer
 
-USE_JIT = True  # Set to False to disable JIT for debugging
-
-
-def jit_if_enabled(parallel=False , fastmath=False):
-    """ Apply @njit only if USE_JIT is True """
-    return njit(parallel=parallel) if USE_JIT else (lambda f: f)
+from jit_module import jit_if_enabled
 
 
 @jit_if_enabled(parallel=False)
@@ -94,7 +89,7 @@ def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, t):
 
 
 @jit_if_enabled()
-def obj_hours(h, par, sol_V, sol_EV, a, s, k, t):
+def obj_hours(h, par, sol_V, sol_EV, a, s, k, t, dist):
     """ 
     1. Given h, find c* that maximizes the value function
     2. Return -V(c*, h)
@@ -108,7 +103,7 @@ def obj_hours(h, par, sol_V, sol_EV, a, s, k, t):
         bc_min, 
         bc_max,
         args=(par, sol_V, sol_EV, h, a, s, k, t),
-        tol=par.opt_tol
+        tol=dist
     )
     
     # Return the negative of the maximum value at (h, c_star)
@@ -230,7 +225,7 @@ def main_solver_loop(par, sol):
 
                             idx = (t, a_idx, s_idx, k_idx)
 
-                            h_star = optimizer(
+                            h_star = optimize_outer(
                                 obj_hours,         # the hours objective
                                 par.h_min,
                                 par.h_max,
