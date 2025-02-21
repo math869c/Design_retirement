@@ -39,12 +39,12 @@ class ModelClass(EconModelClass):
         par.sigma  = 1.1     # Skal kalibreres
         par.gamma  = 1.1     # Skal kalibreres
         par.mu     = 0.2     # Skal kalibreres
-        par.a_bar  = 1.0
-        par.c_bar  = 0.001
+        par.a_bar  = 0.001
 
         par.r_a    = 0.02
         par.r_s    = 0.04
         par.H      = 135_000
+        par.upsilon = 0.4
 
         par.tau    = 0.15
         par.chi    = np.concatenate((
@@ -62,27 +62,28 @@ class ModelClass(EconModelClass):
         par.full_time_hours = 1924
         par.work_cost       = 1          # Skal kalibreres
 
-        ages       = np.arange(par.start_age, par.T + par.start_age + 1)
-        par.pi     = 1 - np.concatenate((np.ones(8), 
-                                     np.array(pd.read_excel('Data/overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
-                                     np.zeros(1)))
-        # par.pi     = np.zeros((par.T))
+        # par.pi     = 1 - np.concatenate((np.ones(8), 
+        #                              np.array(pd.read_excel('Data/overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
+        #                              np.zeros(1)))
 
-
+        df = pd.read_csv('Data\overlevelses_ssh.csv')
+        par.pi =  1- np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
+        par.pi[-1] = 1.0
+        
         # Grids
         par.a_max  = 2_000_000 
         par.a_min  = 0
-        par.N_a    = 20
+        par.N_a    = 40
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
         par.s_min  = 0
-        par.N_s    = 20
+        par.N_s    = 40
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 30
-        par.N_k    = 20
+        par.N_k    = 40
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -114,6 +115,7 @@ class ModelClass(EconModelClass):
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
 
         shape = (par.T, par.N_a, par.N_s, par.N_k)
+        sol.a = np.nan + np.zeros(shape)
         sol.c = np.nan + np.zeros(shape)
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
@@ -152,7 +154,7 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :], sol.h[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol)
+            sol.c[:, :, :, :], sol.a[:, :, :, :], sol.h[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol)
 
 
 
@@ -185,23 +187,27 @@ class ModelClass(EconModelClass):
                     # iii. store next-period states
                     if t < par.retirement_age:
                         sim.w[i,t] = wage(par, sol, sim.k[i,t])
-                        sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t]
-                        sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t]
+                        sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t])
+                        if sim.a[i,t+1] < 0:
+                            print("a", sim.a[i,t])
+                            print("w", (1-par.tau)*sim.h[i,t]*sim.w[i,t])
+                            print("c", sim.c[i,t])                            
+
+                        sim.s[i,t+1] = (1+par.r_s)*(sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t])
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
 
                     elif par.retirement_age <= t < par.retirement_age + par.m: 
                         sim.w[i,t] = wage(par, sol, sim.k[i,t])
-                        sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + sim.s_payment[i] + par.chi[t] - sim.c[i,t]
+                        sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + sim.s_payment[i] + par.chi[t] - sim.c[i,t])
                         sim.s[i,t+1] = sim.s[i,t] - sim.s_payment[i]
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                     
                     elif par.retirement_age + par.m <= t < par.T-1:
                         sim.w[i,t] = wage(par, sol, sim.k[i,t])
-                        sim.a[i,t+1] = (1+par.r_a)*sim.a[i,t] + par.chi[t] - sim.c[i,t]
+                        sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + par.chi[t] - sim.c[i,t])
                         sim.s[i,t+1] = 0
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                     
                     else:
                         sim.w[i,t] = wage(par, sol, sim.k[i,t])
-                        pass
 
