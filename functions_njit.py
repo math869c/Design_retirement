@@ -6,7 +6,7 @@ from optimizers import optimizer, optimize_outer
 from jit_module import jit_if_enabled
 
 
-@jit_if_enabled(parallel=False)
+@jit_if_enabled(fastmath=True)
 def budget_constraint(par, sol_V, a, h, s, k, t):
 
     if par.retirement_age + par.m <= t:
@@ -17,24 +17,24 @@ def budget_constraint(par, sol_V, a, h, s, k, t):
         return par.c_min, max(par.c_min*2, a + s_retirement/par.m  + par.chi[t])
 
     else:
-        return par.c_min, max(par.c_min*2, a + (1-par.tau)*h*wage(par, sol_V, k))
+        return par.c_min, max(par.c_min*2, a + (1-par.tau)*h*wage(par, sol_V, k, t))
 
 @jit_if_enabled(fastmath=True)
 def utility(par, sol_V,  c, h):
 
     return (c)**(1-par.sigma)/(1-par.sigma) - par.work_cost*(h)**(1+par.gamma)/(1+par.gamma)
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def bequest(par, sol_V,  a):
 
     return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
 
-@jit_if_enabled()
-def wage(par, sol_V,  k):
+@jit_if_enabled(fastmath=True)
+def wage(par, sol_V,  k, t):
 
-    return par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
+    return (1-par.upsilon)*par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*t**2)
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def value_next_period_after_reti(par, sol_V, c, a, t):
     h = 0.0
 
@@ -44,7 +44,7 @@ def value_next_period_after_reti(par, sol_V, c, a, t):
     return utility(par, sol_V, c, h) + bequest(par, sol_V, a_next)
 
 # Value functions med forskellige state inputs
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def value_function_after_pay(par, sol_V,  c, a, t):
 
     hours = 0.0
@@ -54,7 +54,7 @@ def value_function_after_pay(par, sol_V,  c, a, t):
     
     return utility(par, sol_V, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def value_function_under_pay(par, sol_V,  c, a, s, t):
 
     hours = 0.0
@@ -68,11 +68,11 @@ def value_function_under_pay(par, sol_V,  c, a, s, t):
 
     return utility(par, sol_V, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
-    a_next = (1+par.r_a)*(a + (1-par.tau)*h*wage(par, sol_V, k) - c)
-    s_next = (1+par.r_s)*(s + par.tau*h*wage(par, sol_V, k))
+    a_next = (1+par.r_a)*(a + (1-par.tau)*h*wage(par, sol_V, k, t) - c)
+    s_next = (1+par.r_s)*(s + par.tau*h*wage(par, sol_V, k, t))
     k_next = ((1-par.delta)*k + h)
 
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
@@ -80,12 +80,12 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
     return utility(par, sol_V, c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
 
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, t):
     return -value_function(par, sol_V, sol_EV, c, h, a, s, k, t)
 
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def obj_hours(h, par, sol_V, sol_EV, a, s, k, t, dist):
     """ 
     1. Given h, find c* that maximizes the value function
@@ -122,7 +122,7 @@ def obj_consumption_under_pay(c, par, sol_V, a, s, t):
     """ negative of value_function_under_pay(par,sol_V,c,a,s,t) """
     return -value_function_under_pay(par, sol_V, c, a, s, t)
 
-@jit_if_enabled()
+@jit_if_enabled(fastmath=True)
 def precompute_EV_next(par, sol_V, t):
 
     V_next = sol_V[t+1]
@@ -262,7 +262,7 @@ def main_solver_loop(par, sol):
 
                             sol_h[idx] = h_star
                             sol_c[idx] = c_star
-                            sol_a[idx] = assets + (1-par.tau)*sol_h[idx]*wage(par, sol_V, human_capital) - sol_c[idx]
+                            sol_a[idx] = assets + (1-par.tau)*sol_h[idx]*wage(par, sol_V, human_capital, t) - sol_c[idx]
                             sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
 
     return sol_c, sol_a, sol_h, sol_V

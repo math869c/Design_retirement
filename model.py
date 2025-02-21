@@ -47,18 +47,18 @@ class ModelClass(EconModelClass):
         par.upsilon = 0.4
 
         par.tau    = 0.15
-        par.chi    = np.concatenate((
+        par.chi    = (1-par.upsilon) * np.concatenate((
                         np.zeros(35), 
                         np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[:5], 
                         np.tile(np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[5], 35)
                     )) 
         
-        par.delta  = 0.016804
+        par.delta  = 0.101068
 
-        par.beta_1 = 0.030682
-        par.beta_2 = -0.001128
+        par.beta_1 = 0.028840
+        par.beta_2 = -0.000124
 
-        par.w_0             = 215.033648                           
+        par.w_0             = 193.736800                           
         par.full_time_hours = 1924
         par.work_cost       = 1          # Skal kalibreres
 
@@ -73,17 +73,17 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 2_000_000 
         par.a_min  = 0
-        par.N_a    = 40
+        par.N_a    = 20
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
         par.s_min  = 0
-        par.N_s    = 40
+        par.N_s    = 20
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 30
-        par.N_k    = 40
+        par.N_k    = 20
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -186,28 +186,23 @@ class ModelClass(EconModelClass):
 
                     # iii. store next-period states
                     if t < par.retirement_age:
-                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t], t)
                         sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + (1-par.tau)*sim.h[i,t]*sim.w[i,t] - sim.c[i,t])
-                        if sim.a[i,t+1] < 0:
-                            print("a", sim.a[i,t])
-                            print("w", (1-par.tau)*sim.h[i,t]*sim.w[i,t])
-                            print("c", sim.c[i,t])                            
-
                         sim.s[i,t+1] = (1+par.r_s)*(sim.s[i,t] + par.tau*sim.h[i,t]*sim.w[i,t])
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
 
                     elif par.retirement_age <= t < par.retirement_age + par.m: 
-                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t], t)
                         sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + sim.s_payment[i] + par.chi[t] - sim.c[i,t])
                         sim.s[i,t+1] = sim.s[i,t] - sim.s_payment[i]
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                     
                     elif par.retirement_age + par.m <= t < par.T-1:
-                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t], t)
                         sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + par.chi[t] - sim.c[i,t])
                         sim.s[i,t+1] = 0
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                     
                     else:
-                        sim.w[i,t] = wage(par, sol, sim.k[i,t])
+                        sim.w[i,t] = wage(par, sol, sim.k[i,t], t)
 
