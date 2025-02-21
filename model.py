@@ -35,10 +35,10 @@ class ModelClass(EconModelClass):
         par.scale_hour = 1924
 
         # Preferences
-        par.beta   = 0.98    # discount factor
-        par.sigma  = 3.0     # CRRA
-        par.gamma  = 2.5    # labor disutility curvature
-        par.mu     = 1.0
+        par.beta   = 0.98    # Skal kalibreres
+        par.sigma  = 1.9     # Skal kalibreres
+        par.gamma  = 2.5     # Skal kalibreres
+        par.mu     = 0.2     # Skal kalibreres
         par.a_bar  = 1.0
         par.c_bar  = 0.001
 
@@ -58,7 +58,9 @@ class ModelClass(EconModelClass):
         par.beta_1 = 0.030682
         par.beta_2 = -0.001128
 
-        par.w_0    = 215.033648
+        par.w_0             = 215.033648                           
+        par.full_time_hours = 1924
+        par.work_cost       = par.w_0*par.full_time_hours          # Skal kalibreres
 
         ages       = np.arange(par.start_age, par.T + par.start_age + 1)
         par.pi     = 1 - np.concatenate((np.ones(8), 
@@ -70,21 +72,21 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 2_000_000 
         par.a_min  = 0
-        par.N_a    = 40
+        par.N_a    = 20
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
         par.s_min  = 0
-        par.N_s    = 40
+        par.N_s    = 20
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 30
-        par.N_k    = 40
+        par.N_k    = 20
         par.k_sp   = 1
 
         par.h_min  = 0
-        par.h_max  = 1924
+        par.h_max  = 1.2
 
         par.c_min  = 0.001
         par.c_max  = np.inf

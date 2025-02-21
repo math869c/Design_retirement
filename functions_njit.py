@@ -24,7 +24,7 @@ def budget_constraint(par, sol_V, a, h, s, k, t):
 @jit_if_enabled(fastmath=True)
 def utility(par, sol_V,  c, h):
 
-    return (c)**(1-par.sigma)/(1-par.sigma) - (h)**(1+par.gamma)/(1+par.gamma)
+    return (c)**(1-par.sigma)/(1-par.sigma) - par.work_cost*(h)**(1+par.gamma)/(1+par.gamma)
 
 @jit_if_enabled()
 def bequest(par, sol_V,  a):
@@ -34,10 +34,10 @@ def bequest(par, sol_V,  a):
 @jit_if_enabled()
 def wage(par, sol_V,  k):
 
-    return np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
+    return par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
 
 @jit_if_enabled()
-def value_next_period_after_reti(par, sol_V,  c, a):
+def value_next_period_after_reti(par, sol_V, c, a):
     h = 0.0
 
     a_next = (1+par.r_a)*a - c
@@ -72,8 +72,6 @@ def value_function_under_pay(par, sol_V,  c, a, s, t):
 @jit_if_enabled()
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
-    V_next = sol_V[t+1]
-    
     a_next = (1+par.r_a)*a + (1-par.tau)*h*wage(par, sol_V, k) - c
     s_next = (1+par.r_s)*s + par.tau*h*wage(par, sol_V, k)
     k_next = ((1-par.delta)*k + h/par.h_max)
@@ -174,11 +172,12 @@ def main_solver_loop(par, sol):
                         # Analytical solution in the last period
                         if par.mu != 0.0:
                             # With bequest motive
+                            sol_c[idx] = (1/(1+(par.mu**(1/par.sigma)))) * ((1+par.r_a)*assets+par.chi[t]+par.a_bar) + par.c_bar
                             a_next = (1+par.r_a)*assets+par.chi[t]+par.a_bar - sol_c[idx]
 
-                            sol_c[idx] = (1/(1-par.mu**(-1/par.sigma))) * ((1+par.r_a)*assets+par.chi[t]+par.a_bar) + par.c_bar
                             sol_h[idx] = hours_place
-                            sol_V[idx] = value_next_period_after_reti(par, sol_V, sol_c[idx],a_next)
+                            sol_V[idx] = value_next_period_after_reti(par, sol_V, sol_c[idx], a_next)
+
                         else: 
                             # No bequest motive
                             a_next = par.a_bar
@@ -245,6 +244,5 @@ def main_solver_loop(par, sol):
                             sol_h[idx] = h_star
                             sol_c[idx] = c_star
                             sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
-
 
     return sol_c, sol_h, sol_V
