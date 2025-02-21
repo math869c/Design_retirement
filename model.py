@@ -60,7 +60,7 @@ class ModelClass(EconModelClass):
 
         par.w_0             = 193.736800                           
         par.full_time_hours = 1924
-        par.work_cost       = 1          # Skal kalibreres
+        par.work_cost       = 1.0          # Skal kalibreres
 
         # par.pi     = 1 - np.concatenate((np.ones(8), 
         #                              np.array(pd.read_excel('Data/overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
@@ -73,17 +73,17 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 2_000_000 
         par.a_min  = 0
-        par.N_a    = 20
+        par.N_a    = 30
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
         par.s_min  = 0
-        par.N_s    = 20
+        par.N_s    = 30
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 30
-        par.N_k    = 20
+        par.N_k    = 30
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -94,12 +94,12 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 1
+        par.N_xi = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 1 # number of individuals
+        par.simN = 1000 # number of individuals
 
 
     def allocate(self):
@@ -147,14 +147,14 @@ class ModelClass(EconModelClass):
 
 
 
-    def solve(self):
+    def solve(self, do_print = False):
 
         with jit(self) as model:
 
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :], sol.a[:, :, :, :], sol.h[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol)
+            sol.c[:, :, :, :], sol.a[:, :, :, :], sol.h[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol, do_print)
 
 
 

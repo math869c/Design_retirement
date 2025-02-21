@@ -147,7 +147,7 @@ def precompute_EV_next(par, sol_V, t):
 
 
 @jit_if_enabled(parallel=True)
-def main_solver_loop(par, sol):
+def main_solver_loop(par, sol, do_print = False):
 
     savings_place, human_capital_place, hours_place = 0, 0, 0
 
@@ -157,7 +157,8 @@ def main_solver_loop(par, sol):
     sol_V = sol.V
 
     for t in range(par.T - 1, -1, -1):
-        print(f"We are in t = {t}")
+        if do_print:
+            print(f"We are in t = {t}")
 
         if t < par.retirement_age:
             sol_EV = precompute_EV_next(par, sol_V, t)
