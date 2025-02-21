@@ -36,8 +36,8 @@ class ModelClass(EconModelClass):
 
         # Preferences
         par.beta   = 0.98    # Skal kalibreres
-        par.sigma  = 1.9     # Skal kalibreres
-        par.gamma  = 2.5     # Skal kalibreres
+        par.sigma  = 1.1     # Skal kalibreres
+        par.gamma  = 1.1     # Skal kalibreres
         par.mu     = 0.2     # Skal kalibreres
         par.a_bar  = 1.0
         par.c_bar  = 0.001
@@ -60,7 +60,7 @@ class ModelClass(EconModelClass):
 
         par.w_0             = 215.033648                           
         par.full_time_hours = 1924
-        par.work_cost       = par.w_0*par.full_time_hours          # Skal kalibreres
+        par.work_cost       = 1          # Skal kalibreres
 
         ages       = np.arange(par.start_age, par.T + par.start_age + 1)
         par.pi     = 1 - np.concatenate((np.ones(8), 

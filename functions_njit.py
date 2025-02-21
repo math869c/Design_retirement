@@ -37,10 +37,11 @@ def wage(par, sol_V,  k):
     return par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*k**2)
 
 @jit_if_enabled()
-def value_next_period_after_reti(par, sol_V, c, a):
+def value_next_period_after_reti(par, sol_V, c, a, t):
     h = 0.0
 
-    a_next = (1+par.r_a)*a - c
+    a_next = (1+par.r_a)*a + par.chi[t] - c
+    
 
     return utility(par, sol_V, c, h) + bequest(par, sol_V, a_next)
 
@@ -172,19 +173,15 @@ def main_solver_loop(par, sol):
                         # Analytical solution in the last period
                         if par.mu != 0.0:
                             # With bequest motive
-                            sol_c[idx] = (1/(1+(par.mu**(1/par.sigma)))) * ((1+par.r_a)*assets+par.chi[t]+par.a_bar) + par.c_bar
-                            a_next = (1+par.r_a)*assets+par.chi[t]+par.a_bar - sol_c[idx]
-
+                            sol_c[idx] = (1/(1+(par.mu**(1/par.sigma)))) * ((1+par.r_a)*assets+par.chi[t]) 
                             sol_h[idx] = hours_place
-                            sol_V[idx] = value_next_period_after_reti(par, sol_V, sol_c[idx], a_next)
+                            sol_V[idx] = value_next_period_after_reti(par, sol_V, sol_c[idx], assets, t)
 
                         else: 
-                            # No bequest motive
-                            a_next = par.a_bar
-                           
-                            sol_c[idx] = (1+par.r_a)*assets+par.chi[t] + par.c_bar
+                            # No bequest motive                          
+                            sol_c[idx] = (1+par.r_a)*assets+par.chi[t]
                             sol_h[idx] = hours_place
-                            sol_V[idx] = value_next_period_after_reti(par, sol_V, sol_c[idx],a_next)
+                            sol_V[idx] = value_next_period_after_reti(par, sol_V, sol_c[idx], assets, t)
 
                     elif par.retirement_age +par.m <= t:
 
