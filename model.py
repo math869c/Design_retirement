@@ -35,10 +35,10 @@ class ModelClass(EconModelClass):
         par.scale_hour = 1924
 
         # Preferences
-        par.beta   = 0.98    # Skal kalibreres
-        par.sigma  = 1.1     # Skal kalibreres
-        par.gamma  = 1.1     # Skal kalibreres
-        par.mu     = 0.2     # Skal kalibreres
+        par.beta   = 0.981    # Skal kalibreres
+        par.sigma  = 2.315     # Skal kalibreres
+        par.gamma  = 0.677     # Skal kalibreres
+        par.mu     = 0.607     # Skal kalibreres
         par.a_bar  = 0.001
 
         par.r_a    = 0.02
@@ -46,7 +46,7 @@ class ModelClass(EconModelClass):
         par.H      = 135_000
         par.upsilon = 0.4
 
-        par.tau    = 0.15
+        par.tau    = 0.10
         par.chi    = (1-par.upsilon) * np.concatenate((
                         np.zeros(35), 
                         np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[:5], 
@@ -60,7 +60,7 @@ class ModelClass(EconModelClass):
 
         par.w_0             = 193.736800                           
         par.full_time_hours = 1924
-        par.work_cost       = 1.0          # Skal kalibreres
+        par.work_cost       = 1          # Skal kalibreres
 
         # par.pi     = 1 - np.concatenate((np.ones(8), 
         #                              np.array(pd.read_excel('Data/overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
@@ -73,17 +73,17 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 2_000_000 
         par.a_min  = 0
-        par.N_a    = 30
+        par.N_a    = 20
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
         par.s_min  = 0
-        par.N_s    = 30
+        par.N_s    = 20
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 30
-        par.N_k    = 30
+        par.N_k    = 20
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -126,6 +126,8 @@ class ModelClass(EconModelClass):
     def allocate_sim(self):
         par = self.par
         sim = self.sim
+
+        np.random.seed(2025)
 
         shape = (par.simN,par.simT)
 
