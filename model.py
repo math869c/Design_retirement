@@ -35,10 +35,10 @@ class ModelClass(EconModelClass):
         par.scale_hour = 1924
 
         # Preferences
-        par.beta   = 0.981    # Skal kalibreres
-        par.sigma  = 2.315     # Skal kalibreres
-        par.gamma  = 0.677     # Skal kalibreres
-        par.mu     = 0.607     # Skal kalibreres
+        par.beta   = 0.970    # Skal kalibreres
+        par.sigma  = 1.037     # Skal kalibreres
+        par.gamma  = 1.140     # Skal kalibreres
+        par.mu     = 1.367     # Skal kalibreres
         par.a_bar  = 0.001
 
         par.r_a    = 0.02
@@ -59,8 +59,8 @@ class ModelClass(EconModelClass):
         par.beta_2 = -0.000124
 
         par.w_0             = 193.736800                           
-        par.full_time_hours = 1924
-        par.work_cost       = 1          # Skal kalibreres
+        par.full_time_hours = 1924.0
+        par.work_cost       = 1.000          # Skal kalibreres
 
         # par.pi     = 1 - np.concatenate((np.ones(8), 
         #                              np.array(pd.read_excel('Data/overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
@@ -168,7 +168,6 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
             sim = model.sim
-
         
             # b. loop over individuals and time
             for i in range(par.simN):
