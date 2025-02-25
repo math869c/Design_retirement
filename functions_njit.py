@@ -17,7 +17,7 @@ def budget_constraint(par, sol_V, a, h, s, k, t):
         return par.c_min, max(par.c_min*2, a + s_retirement/par.m  + par.chi[t])
 
     else:
-        return par.c_min, max(par.c_min*2, a + (1-par.tau)*h*wage(par, sol_V, k, t))
+        return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, sol_V, k, t))
 
 @jit_if_enabled(fastmath=True)
 def utility(par, sol_V,  c, h):
@@ -71,8 +71,8 @@ def value_function_under_pay(par, sol_V,  c, a, s, t):
 @jit_if_enabled(fastmath=True)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
-    a_next = (1+par.r_a)*(a + (1-par.tau)*h*wage(par, sol_V, k, t) - c)
-    s_next = (1+par.r_s)*(s + par.tau*h*wage(par, sol_V, k, t))
+    a_next = (1+par.r_a)*(a + (1-par.tau[t])*h*wage(par, sol_V, k, t) - c)
+    s_next = (1+par.r_s)*(s + par.tau[t]*h*wage(par, sol_V, k, t))
     k_next = ((1-par.delta)*k + h)
 
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
@@ -263,7 +263,7 @@ def main_solver_loop(par, sol, do_print = False):
 
                             sol_h[idx] = h_star
                             sol_c[idx] = c_star
-                            sol_a[idx] = assets + (1-par.tau)*sol_h[idx]*wage(par, sol_V, human_capital, t) - sol_c[idx]
+                            sol_a[idx] = assets + (1-par.tau[t])*sol_h[idx]*wage(par, sol_V, human_capital, t) - sol_c[idx]
                             sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
 
     return sol_c, sol_a, sol_h, sol_V
