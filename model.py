@@ -28,49 +28,52 @@ class ModelClass(EconModelClass):
 
         # Time
         par.start_age = 30  # Time when agents enter the workforce
-        par.retirement_age = 65 - par.start_age # Time when agents enter pension
         par.T = 100 - par.start_age # time periods
-        par.m = 10 # Years with retirement payments
+        
 
         par.scale_hour = 1924
 
+
+        
         # Preferences
         par.beta   = 0.926    # Skal kalibreres
         par.sigma  = 1.027     # Skal kalibreres
         par.gamma  = 1.107     # Skal kalibreres
         par.mu     = 1.405     # Skal kalibreres
         par.a_bar  = 0.001
-
+        
+        # assets 
         par.r_a    = 0.02
         par.r_s    = 0.04
         par.H      = 135_000
+        
+        # wage and human capital
         par.upsilon = 0.4
 
-        df = pd.read_csv('Data\\indbetalinger_koen.csv')
-        par.tau    = np.concatenate((np.array(df[df['gender'] == "Man"]['indbetalingsprocent']),
-                                              np.zeros(35)))
+        par.delta  = 0.101068
+        par.beta_1 = 0.028840
+        par.beta_2 = -0.000124
+        par.w_0             = 193.736800                           
+        par.full_time_hours = 1924.0
+        par.work_cost       = 1.000          # Skal kalibreres
 
+        # Retirement system 
+        par.retirement_age = 65 - par.start_age # Time when agents enter pension
+        par.m = 10 # Years with retirement payments
+        par.tau    = 0.10
         par.chi    = (1-par.upsilon) * np.concatenate((
                         np.zeros(35), 
                         np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[:5], 
                         np.tile(np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[5], 35)
                     )) 
-        
-        par.delta  = 0.101068
-        par.beta_1 = 0.028840
-        par.beta_2 = -0.000124
-        par.w_0             = 193.736800
+        par.share_lr = 2/3
 
-        par.full_time_hours = 1924.0
-        par.work_cost       = 1.000          # Skal kalibreres
-
-        # par.pi     = 1 - np.concatenate((np.ones(8), 
-        #                              np.array(pd.read_excel('Data/overlevelsesssh.xlsx',sheet_name='Sheet1', engine="openpyxl")['Mand_LVU'])[:-5]/100,
-        #                              np.zeros(1)))
-
-        df = pd.read_csv('Data\\overlevelses_ssh.csv')
+        # life time 
+        df = pd.read_csv('Data/overlevelses_ssh.csv')
         par.pi =  1- np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
         par.pi[-1] = 1.0
+        par.EL = round(sum(np.cumprod(1-par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age),0) # forventet livstid tilbage efter pension
+
         
         # Grids
         par.a_max  = 2_000_000 
@@ -145,9 +148,10 @@ class ModelClass(EconModelClass):
         # e. initialization
         sim.a_init = np.ones(par.simN)*par.H*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
         sim.s_init = np.zeros(par.simN)
-        sim.k_init = np.ones(par.simN)*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
-        # sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
-        sim.s_payment = np.zeros(par.simN)
+        sim.k_init = np.zeros(par.simN)
+        sim.w_init = np.ones(par.simN)*par.w_0
+        sim.s_lr_init = np.zeros(par.simN)
+        sim.s_rp_init = np.zeros(par.simN)
 
 
 
@@ -185,7 +189,8 @@ class ModelClass(EconModelClass):
                     sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
                     sim.h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
                     if t == par.retirement_age:
-                        sim.s_payment[i] = sim.s[i,t]/par.m
+                        sim.s_lr_init[i] = (sim.s[i,t]/par.EL) * par.share_lr
+                        sim.s_rp_init[i] = (sim.s[i,t]/par.m) * (1-par.share_lr)
 
                     # iii. store next-period states
                     if t < par.retirement_age:
@@ -199,14 +204,14 @@ class ModelClass(EconModelClass):
 
                     elif par.retirement_age <= t < par.retirement_age + par.m: 
                         sim.w[i,t] = wage(par, sol, sim.k[i,t], t)
-                        sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + sim.s_payment[i] + par.chi[t] - sim.c[i,t])
-                        sim.s[i,t+1] = sim.s[i,t] - sim.s_payment[i]
+                        sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + sim.s_lr_init[i] + sim.s_rp_init[i] + par.chi[t] - sim.c[i,t])
+                        sim.s[i,t+1] = sim.s[i,t] - (sim.s_lr_init[i] + sim.s_rp_init[i])
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                     
                     elif par.retirement_age + par.m <= t < par.T-1:
                         sim.w[i,t] = wage(par, sol, sim.k[i,t], t)
-                        sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + par.chi[t] - sim.c[i,t])
-                        sim.s[i,t+1] = 0
+                        sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + sim.s_lr_init[i] + par.chi[t] - sim.c[i,t])
+                        sim.s[i,t+1] = sim.s[i,t] - sim.s_lr_init[i]
                         sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
                     
                     else:
