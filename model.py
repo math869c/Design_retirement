@@ -35,10 +35,10 @@ class ModelClass(EconModelClass):
         par.scale_hour = 1924
 
         # Preferences
-        par.beta   = 0.970    # Skal kalibreres
-        par.sigma  = 1.037     # Skal kalibreres
-        par.gamma  = 1.140     # Skal kalibreres
-        par.mu     = 1.367     # Skal kalibreres
+        par.beta   = 0.926    # Skal kalibreres
+        par.sigma  = 1.027     # Skal kalibreres
+        par.gamma  = 1.107     # Skal kalibreres
+        par.mu     = 1.405     # Skal kalibreres
         par.a_bar  = 0.001
 
         par.r_a    = 0.02
