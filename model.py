@@ -87,7 +87,7 @@ class ModelClass(EconModelClass):
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
-        par.s_min  = 0
+        par.s_min  = -1_000_000
         par.N_s    = 20
         par.s_sp   = 1
 
@@ -210,14 +210,14 @@ class ModelClass(EconModelClass):
                     sim.chi_payment[:] = retirement_payment(par, sol, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
                     sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
                     sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:] - sim.c[:,t])
-                    sim.s[:,t+1] = sim.s[:,t] - (sim.s_lr_init[:] + sim.s_rp_init[:])
+                    sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - (sim.s_lr_init[:] + sim.s_rp_init[:]))
                     sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
                 
                 elif par.retirement_age + par.m <= t < par.T-1:
                     sim.chi_payment[:] = retirement_payment(par, sol, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
                     sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
                     sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.chi_payment[:] - sim.c[:,t])
-                    sim.s[:,t+1] = sim.s[:,t] - sim.s_lr_init[:]
+                    sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - sim.s_lr_init[:])
                     sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
                 
                 else:
