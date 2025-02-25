@@ -9,7 +9,7 @@ from jit_module import jit_if_enabled
 #######################################################################
 #######################################################################
 # Structure 
-#   1. essentiel functions for such as utility, bequest, and wage
+#   1. Essentiel functions for such as utility, bequest, and wage
 #   2. Value functions
 #   3. helping functions in solving and optimizing
 #   4. Objective functions 
@@ -18,7 +18,7 @@ from jit_module import jit_if_enabled
 #######################################################################
 #######################################################################
 
-# 1. essentiel functions for such as utility, bequest, and wage 
+# 1. Essentiel functions for such as utility, bequest, and wage 
 @jit_if_enabled(fastmath=True)
 def utility(par, sol_V,  c, h):
 
@@ -83,7 +83,7 @@ def value_next_period_after_reti(par, sol_V, c, a, t):
 
     return utility(par, sol_V, c, h) + bequest(par, sol_V, a_next)
 
-# 3. helping functions in solving and optimizing
+# 3. Helping functions in solving and optimizing
 @jit_if_enabled(fastmath=True)
 def budget_constraint(par, sol_V, a, h, s, k, t):
 
@@ -98,7 +98,7 @@ def budget_constraint(par, sol_V, a, h, s, k, t):
         return par.c_min, max(par.c_min*2, a + s_lr + s_rp  + par.chi[t])
 
     else:
-        return par.c_min, max(par.c_min*2, a + (1-par.tau)*h*wage(par, sol_V, k, t))
+        return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, sol_V, k, t))
 
 @jit_if_enabled(fastmath=True)
 def precompute_EV_next(par, sol_V, t):
@@ -203,8 +203,9 @@ def main_solver_loop(par, sol, do_print = False):
                             # With bequest motive
                             s_retirement = savings / (1 - ((t-par.retirement_age)/par.EL)*(par.share_lr)-(1-par.share_lr))
                             s_lr = par.share_lr * (s_retirement/par.EL) 
-                            sol_c[idx] = (1/(1+(par.mu**(1/par.sigma)))) * (assets + par.chi[t] + s_lr + par.a_bar)
-                            sol_a[idx] = assets + par.a_bar + par.chi[t] - sol_c[idx]
+
+                            sol_c[idx] = (1/(1+(par.mu*(1+par.r_a))**(-1/par.sigma)*(1+par.r_a))) * (par.mu*(1+par.r_a))**(-1/par.sigma) * ((1+par.r_a)*(assets+par.chi[t]+s_lr)+par.a_bar)
+                            sol_a[idx] = assets + par.a_bar + s_lr + par.chi[t] - sol_c[idx]
                             # if assets +par.chi[t] - sol_c[idx] < 0:
 
                             # bc_min, bc_max = budget_constraint(par, sol_V, assets, hours_place, savings, human_capital_place, t)

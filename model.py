@@ -60,7 +60,10 @@ class ModelClass(EconModelClass):
         # Retirement system 
         par.retirement_age = 65 - par.start_age # Time when agents enter pension
         par.m = 10 # Years with retirement payments
-        par.tau    = 0.10
+
+        df = pd.read_csv('Data\\indbetalinger_koen.csv')
+        par.tau = np.concatenate((np.array(df[df['gender'] == "Man"]['indbetalingsprocent']), np.zeros(35)))
+
         par.chi    = (1-par.upsilon) * np.concatenate((
                         np.zeros(35), 
                         np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[:5], 
