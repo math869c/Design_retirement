@@ -1,7 +1,7 @@
 from numba import njit, prange
 import numpy as np 
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
-from optimizers import optimizer, optimize_outer
+from optimizers import optimizer, optimize_outer, interp_3d_vec
 
 from jit_module import jit_if_enabled
 
@@ -14,6 +14,7 @@ from jit_module import jit_if_enabled
 #   3. helping functions in solving and optimizing
 #   4. Objective functions 
 #   5. Solving the model
+#   6. simulate the model
 #######################################################################
 #######################################################################
 #######################################################################
@@ -297,3 +298,49 @@ def main_solver_loop(par, sol, do_print = False):
                             sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
 
     return sol_c, sol_a, sol_h, sol_V
+
+
+# 6. simulate the model
+@jit_if_enabled(fastmath=True)
+def main_simulate_loop(par, sol, sim, do_print = False):
+    # Init simulations
+    sim.a[:,0] = sim.a_init[:]
+    sim.s[:,0] = sim.s_init[:]
+    sim.k[:,0] = sim.k_init[:]
+
+
+    for t in range(par.simT):
+
+        # ii. interpolate optimal consumption and hours
+        interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.c[:,t])
+        interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.h[:,t])
+        if t == par.retirement_age:
+            sim.s_lr_init[:] = (sim.s[:,t]/par.EL) * par.share_lr
+            sim.s_rp_init[:] = (sim.s[:,t]/par.m) * (1-par.share_lr)
+
+        # iii. store next-period states
+        if t < par.retirement_age:
+            # if t == 0:
+            #     sim.w[:,t] = sim.w_init[:]*par.full_time_hours*sim.h[:,t]
+            # else:
+            sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+            sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + (1-par.tau[t])*sim.h[:,t]*sim.w[:,t] - sim.c[:,t])
+            sim.s[:,t+1] = (1+par.r_s)*(sim.s[:,t] + par.tau[t]*sim.h[:,t]*sim.w[:,t])
+            sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t] + sim.h[:,t])*sim.xi[:,t]
+
+        elif par.retirement_age <= t < par.retirement_age + par.m: 
+            sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+            sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.s_rp_init[:] + par.chi[t] - sim.c[:,t])
+            sim.s[:,t+1] = sim.s[:,t] - (sim.s_lr_init[:] + sim.s_rp_init[:])
+            sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
+        
+        elif par.retirement_age + par.m <= t < par.T-1:
+            sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+            sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + par.chi[t] - sim.c[:,t])
+            sim.s[:,t+1] = sim.s[:,t] - sim.s_lr_init[:]
+            sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
+        
+        else:
+            sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+
+    return sim.a, sim.c, sim.h, sim.s, sim.k, sim.w

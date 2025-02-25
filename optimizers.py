@@ -7,6 +7,8 @@ Numba JIT compilled golden section search optimizer for a custom objective.
 import math
 import numpy as np
 from jit_module import jit_if_enabled
+from consav.linear_interp import interp_1d, interp_2d, interp_3d
+from numba import prange
 
 @jit_if_enabled()
 def optimizer(obj,a,b,args=(),tol=1e-6):
@@ -123,3 +125,24 @@ def optimize_outer(obj,a,b,args=(),tol=1e-6):
         return (a+d)/2
     else:
         return (c+b)/2
+    
+
+@jit_if_enabled(parallel=True, fastmath=True)
+def interp_3d_vec(grid1,grid2,grid3,value,xi1,xi2,xi3,yi):
+    """ 3d interpolation for vector of points
+        
+    Args:
+
+        grid1 (numpy.ndarray): 1d grid
+        grid2 (numpy.ndarray): 1d grid
+        grid3 (numpy.ndarray): 1d grid
+        value (numpy.ndarray): value array (3d)
+        xi1 (numpy.ndarray): input vector
+        xi2 (numpy.ndarray): input vector
+        xi3 (numpy.ndarray): input vector
+        yi (numpy.ndarray): output vector
+
+    """
+
+    for i in prange(yi.size):
+        yi[i] = interp_3d(grid1,grid2,grid3,value,xi1[i],xi2[i],xi3[i])

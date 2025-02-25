@@ -22,6 +22,9 @@ Done:
   7. Kontanthjælp P
   8. Arbejdstimer om året P done
 - Numba njit
+- livrente og ratepension
+- njit simulation
+- tilføjet tau
 
 First steps:
 - Tænk mere over DC-EGM (timer er diskrete?)
@@ -30,7 +33,7 @@ First steps:
 
 Next week:
 
-- Modeuludvidelser (andre tilbagetrækningsformer, andre formuer, present bias, andre udbetalingsformer som rate, livrente, means-testing, endogene overlevelsessandsynligheder)
+- Modeuludvidelser (andre tilbagetrækningsformer, andre formuer, present bias, means-testing, endogene overlevelsessandsynligheder)
 - Overvej andre counterfactuals 
 
 Next next week:
