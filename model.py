@@ -31,16 +31,18 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
                
         # Preferences
-        par.beta   = 0.926    # Skal kalibreres
-        par.sigma  = 1.027     # Skal kalibreres
-        par.gamma  = 1.107     # Skal kalibreres
-        par.mu     = 1.405     # Skal kalibreres
+        par.beta   = 0.982    # Skal kalibreres
+        par.sigma  = 1.060     # Skal kalibreres
+        par.gamma  = 3.877     # Skal kalibreres
+        par.mu     = 7.814     # Skal kalibreres
         par.a_bar  = 0.001
         
         # assets 
         par.r_a    = 0.02
-        par.r_s    = 0.04
+        par.r_s    = 0.009
         par.H      = 135_000
+        df = pd.read_csv("Data/formue_cohort.csv")
+        par.s_init = np.array(df[(df['KOEN']==1) & (df['ALDER']==30)]['FGCX'])
         
         # wage and human capital
         par.upsilon = 0.4
@@ -54,9 +56,9 @@ class ModelClass(EconModelClass):
         
         # Retirement system 
         par.retirement_age = 65 - par.start_age # Time when agents enter pension
-        par.m = 10 # Years with retirement payments
+        par.m = 12 # Years with retirement payments
 
-        df = pd.read_csv('Data\\indbetalinger_koen.csv')
+        df = pd.read_csv('Data/indbetalinger_koen.csv')
         par.tau = np.concatenate((np.array(df[df['gender'] == "Man"]['indbetalingsprocent']), np.zeros(35)))
 
         par.chi    = (1-par.upsilon) * np.concatenate((
@@ -83,17 +85,17 @@ class ModelClass(EconModelClass):
         # Grids
         par.a_max  = 2_000_000 
         par.a_min  = 0
-        par.N_a    = 20
+        par.N_a    = 10
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
         par.s_min  = -1_000_000
-        par.N_s    = 20
+        par.N_s    = 10
         par.s_sp   = 1
 
         par.k_min  = 0
         par.k_max  = 30
-        par.N_k    = 20
+        par.N_k    = 10
         par.k_sp   = 1
 
         par.h_min  = 0
@@ -152,7 +154,7 @@ class ModelClass(EconModelClass):
 
         # e. initialization
         sim.a_init = np.ones(par.simN)*par.H*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
-        sim.s_init = np.zeros(par.simN)
+        sim.s_init = np.ones(par.simN)* par.s_init
         sim.k_init = np.zeros(par.simN)
         sim.w_init = np.ones(par.simN)*par.w_0
         sim.s_lr_init = np.zeros(par.simN)
