@@ -226,9 +226,10 @@ def main_solver_loop(par, sol, do_print = False):
                             s_lr = par.share_lr * (s_retirement/par.EL) 
                             chi = retirement_payment(par, sol_V, assets, savings, s_lr, t)
 
-                            sol_c[idx] = (1/(1+(par.mu*(1+par.r_a))**(-1/par.sigma)*(1+par.r_a))) * (par.mu*(1+par.r_a))**(-1/par.sigma) * ((1+par.r_a)*(assets+chi+s_lr)+par.a_bar)
+                            sol_c[idx] = ((1/(1+(par.mu*(1+par.r_a))**(-1/par.sigma)*(1+par.r_a)))
+                                          * (par.mu*(1+par.r_a))**(-1/par.sigma) 
+                                          * ((1+par.r_a)*(assets+chi+s_lr)+par.a_bar))
                             sol_a[idx] = assets + par.a_bar + s_lr + chi - sol_c[idx]
-                            # if assets +par.chi[t] - sol_c[idx] < 0:
 
                             # bc_min, bc_max = budget_constraint(par, sol_V, assets, hours_place, savings, human_capital_place, t)
 
