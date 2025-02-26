@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from functions_njit import main_solver_loop, wage, main_simulate_loop, retirement_payment
+from functions_njit import main_solver_loop, wage, retirement_payment
 
 from EconModel import EconModelClass, jit
 
@@ -66,7 +66,7 @@ class ModelClass(EconModelClass):
                         np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[:5], 
                         np.tile(np.array(pd.read_excel("Data/public_pension.xlsx", skiprows=2, index_col=0)["pension"])[5], 35)
                     )) 
-        par.share_lr = 0.55
+        par.share_lr = 2/3
 
         # Means testing retirement payment
         par.chi_base = 87_576 # maks beløb, hvorefter ens indkomst trækkes fra 
@@ -203,24 +203,24 @@ class ModelClass(EconModelClass):
                     # if t == 0:
                     #     sim.w[:,t] = sim.w_init[:]*par.full_time_hours*sim.h[:,t]
                     # else:
-                    sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+                    sim.w[:,t] = wage(par, sim.k[:,t], t)
                     sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + (1-par.tau[t])*sim.h[:,t]*sim.w[:,t] - sim.c[:,t])
                     sim.s[:,t+1] = (1+par.r_s)*(sim.s[:,t] + par.tau[t]*sim.h[:,t]*sim.w[:,t])
                     sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t] + sim.h[:,t])*sim.xi[:,t]
 
                 elif par.retirement_age <= t < par.retirement_age + par.m: 
                     sim.chi_payment[:] = retirement_payment(par, sol, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
-                    sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+                    sim.w[:,t] = wage(par, sim.k[:,t], t)
                     sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:] - sim.c[:,t])
                     sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - (sim.s_lr_init[:] + sim.s_rp_init[:]))
                     sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
                 
                 elif par.retirement_age + par.m <= t < par.T-1:
                     sim.chi_payment[:] = retirement_payment(par, sol, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
-                    sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+                    sim.w[:,t] = wage(par, sim.k[:,t], t)
                     sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.chi_payment[:] - sim.c[:,t])
                     sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - sim.s_lr_init[:])
                     sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
                 
                 else:
-                    sim.w[:,t] = wage(par, sol, sim.k[:,t], t)
+                    sim.w[:,t] = wage(par, sim.k[:,t], t)
