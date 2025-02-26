@@ -51,7 +51,7 @@ def retirement_payment(par, sol_V, a, s, s_lr, t):
 
     # calculate reduced retirement payment
     exceed = np.maximum(0, income - par.chi_max)
-    extra_pension = np.maximum(0, par.chi_extra_start - exceed*par.reduction_rate)
+    extra_pension = np.maximum(0, par.chi_extra_start - exceed*par.rho)
 
     # return total retirement payment
     return (1-par.upsilon)*(base_payment + extra_pension)
@@ -67,7 +67,7 @@ def value_function_after_pay(par, sol_V,  c, a, s_lr, chi, t):
     EV_next = interp_1d(par.a_grid, V_next, a_next)
     
     
-    return utility(par, sol_V, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
+    return utility(par, sol_V, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, sol_V, a_next)
 
 @jit_if_enabled(fastmath=True)
 def value_function_under_pay(par, sol_V,  c, a, s, chi, t):
@@ -84,7 +84,7 @@ def value_function_under_pay(par, sol_V,  c, a, s, chi, t):
     EV_next = interp_2d(par.a_grid,par.s_grid, V_next, a_next,s_next)
 
 
-    return utility(par, sol_V, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
+    return utility(par, sol_V, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, sol_V, a_next)
 
 @jit_if_enabled(fastmath=True)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
@@ -95,7 +95,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
 
-    return utility(par, sol_V, c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, sol_V, a_next)
+    return utility(par, sol_V, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, sol_V, a_next)
 
 @jit_if_enabled(fastmath=True)
 def value_next_period_after_reti(par, sol_V, c, a, chi, t):
