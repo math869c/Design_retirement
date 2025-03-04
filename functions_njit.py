@@ -40,14 +40,17 @@ def retirement_payment(par, sol_V, a, s, s_lr, t):
     # Base payment
     base_payment = par.chi_base
 
+    # capital income
+    a_return = (par.r_a/(1+par.r_a)) * a
+
     # calculate income, currently without asset income
     if par.retirement_age +par.m< t:
-        income = s_lr
+        income = s_lr + a_return
     else: 
         s_retirement = s / (1-(t-par.retirement_age)*(par.share_lr*(1/par.EL)+(1-par.share_lr)*(1/par.m)))
         s_lr = par.share_lr * (s_retirement/par.EL)
         s_rp = (1-par.share_lr) * (s_retirement/par.m)
-        income = s_lr + s_rp
+        income = s_lr + s_rp + a_return
 
     # calculate reduced retirement payment
     exceed = np.maximum(0, income - par.chi_max)
