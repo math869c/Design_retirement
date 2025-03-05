@@ -9,7 +9,6 @@ Done:
 - Model shocks either as discrete or continous (also in simulation)
 - Send første udkast til model
 - Har tænkt over DC-EGM (Thomas siger det er den vej)
-- Clean up code
 - Send første udkast til model
 - 3d-interp, 2d-interp and 1d-interp
 - Data for:
@@ -21,13 +20,34 @@ Done:
   6. Folkepensionssats P
   7. Kontanthjælp P
   8. Arbejdstimer om året P done
+- Numba njit
+- livrente og ratepension
+- njit simulation
+- tilføjet tau
+- means-testing
+- første kalibrering
+- Vi kører kvinder og mænd
 
-* Numba njit
-* livrente og ratepension
-* njit simulation
-* tilføjet tau
-* means-testing
-* første kalibrering
+Immediate to do:
+- Clean up code
+- Opdatér datadefinitioner vi vil køre og skriv ind
+- Opdatér model-matematikken
+- Opdatér den måde, vi løser modellen på (numerisk optimering, parallelisering, pre-computed shocks, gauss-hermite, interpolering, analytisk sidste løsning)
+- Kalibrér renterne (proxy)
+- Find en god forklaring på par.m
+- Definer ét eller to velfærdsmål (indkomstækvivalent, forbrugsækvivalens, finanseffekt, replacement rate)
+
+
+Maybe to do:
+- Rente på pensionsformuen
+- EGM?
+- Effekstudie
+- Aldersopsparing
+
+
+
+
+
 
 First steps:
 
