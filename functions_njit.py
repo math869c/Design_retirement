@@ -39,6 +39,10 @@ def wage(par, k, t):
 def retirement_payment(par, sol_V, a, s, s_lr, t):
     base_payment = par.chi_base
 
+    # capital income
+    a_return = (par.r_a/(1+par.r_a)) * a
+
+    # calculate income, currently without asset income
     if par.retirement_age +par.m< t:
         income = s_lr + a_return
     else: 
@@ -62,7 +66,8 @@ def value_function_after_pay(par, sol_V,  c, a, s_lr, chi, t):
     a_next = (1+par.r_a)*(a + chi + s_lr - c)
     EV_next = interp_1d(par.a_grid, V_next, a_next)
     
-    return utility(par, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, a_next)
+    
+    return utility(par, sol_V, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, sol_V, a_next)
 
 @jit_if_enabled(fastmath=True)
 def value_function_under_pay(par, sol_V,  c, a, s, chi, t):
@@ -79,7 +84,7 @@ def value_function_under_pay(par, sol_V,  c, a, s, chi, t):
     EV_next = interp_2d(par.a_grid,par.s_grid, V_next, a_next,s_next)
 
 
-    return utility(par, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, a_next)
+    return utility(par, sol_V, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, sol_V, a_next)
 
 @jit_if_enabled(fastmath=True)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
@@ -90,7 +95,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
 
-    return utility(par, c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, a_next)
+    return utility(par, sol_V, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, sol_V, a_next)
 
 @jit_if_enabled(fastmath=True)
 def value_next_period_after_reti(par, sol_V, c, a, chi, t):
