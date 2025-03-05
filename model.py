@@ -43,6 +43,9 @@ class ModelClass(EconModelClass):
         par.H      = 135_000
         df = pd.read_csv("Data/formue_cohort.csv")
         par.s_init = np.array(df[(df['KOEN']==1) & (df['ALDER']==30)]['FGCX'])
+
+        # Unemployment
+        par.benefit = 10_000
         
         # wage and human capital
         par.upsilon = 0.4
@@ -85,12 +88,12 @@ class ModelClass(EconModelClass):
         
         # Grids
         par.a_max  = 2_000_000 
-        par.a_min  = 0
+        par.a_min  = 0.1
         par.N_a    = 10
         par.a_sp   = 1
 
         par.s_max  = 2_000_000
-        par.s_min  = -1_000_000
+        par.s_min  = 0.1
         par.N_s    = 10
         par.s_sp   = 1
 
@@ -99,7 +102,7 @@ class ModelClass(EconModelClass):
         par.N_k    = 10
         par.k_sp   = 1
 
-        par.h_min  = 0
+        par.h_min  = 0.19
         par.h_max  = 1.2
 
         par.c_min  = 0.001
@@ -112,7 +115,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 10000 # number of individuals
+        par.simN = 100 # number of individuals
 
 
     def allocate(self):
@@ -129,6 +132,7 @@ class ModelClass(EconModelClass):
 
         shape = (par.T, par.N_a, par.N_s, par.N_k)
         sol.a = np.nan + np.zeros(shape)
+        sol.ex = np.nan + np.zeros(shape)
         sol.c = np.nan + np.zeros(shape)
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
@@ -150,6 +154,7 @@ class ModelClass(EconModelClass):
         sim.s = np.nan + np.zeros(shape)
         sim.k = np.nan + np.zeros(shape)
         sim.w = np.nan + np.zeros(shape)
+        sim.ex = np.nan + np.zeros(shape)
         sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
 
@@ -171,7 +176,7 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :], sol.a[:, :, :, :], sol.h[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol, do_print)
+            sol.c[:, :, :, :], sol.a[:, :, :, :], sol.h[:, :, :, :], sol.ex[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol, do_print)
 
 
 
@@ -195,6 +200,8 @@ class ModelClass(EconModelClass):
                 # ii. interpolate optimal consumption and hours
                 interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.c[:,t])
                 interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.h[:,t])
+                
+
                 if t == par.retirement_age:
                     sim.s_lr_init[:] = (sim.s[:,t]/par.EL) * par.share_lr
                     sim.s_rp_init[:] = (sim.s[:,t]/par.m) * (1-par.share_lr)
@@ -204,20 +211,27 @@ class ModelClass(EconModelClass):
                     # if t == 0:
                     #     sim.w[:,t] = sim.w_init[:]*par.full_time_hours*sim.h[:,t]
                     # else:
-                    sim.w[:,t] = wage(par, sim.k[:,t], t)
-                    sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + (1-par.tau[t])*sim.h[:,t]*sim.w[:,t] - sim.c[:,t])
-                    sim.s[:,t+1] = (1+par.r_s)*(sim.s[:,t] + par.tau[t]*sim.h[:,t]*sim.w[:,t])
-                    sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t] + sim.h[:,t])*sim.xi[:,t]
+                    for i in range(par.simN):
+                        if sim.h[i,t] == 0:
+                            sim.w[:,t] = wage(par, sim.k[:,t], t)
+                            sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] +par.benefit - sim.c[:,t])
+                            sim.s[:,t+1] = (1+par.r_s)*sim.s[:,t]
+                            sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
+                        else:
+                            sim.w[:,t] = wage(par, sim.k[:,t], t)
+                            sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + (1-par.tau[t])*sim.h[:,t]*sim.w[:,t] - sim.c[:,t])
+                            sim.s[:,t+1] = (1+par.r_s)*(sim.s[:,t] + par.tau[t]*sim.h[:,t]*sim.w[:,t])
+                            sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t] + sim.h[:,t])*sim.xi[:,t]
 
                 elif par.retirement_age <= t < par.retirement_age + par.m: 
-                    sim.chi_payment[:] = retirement_payment(par, sol, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
+                    sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
                     sim.w[:,t] = wage(par, sim.k[:,t], t)
                     sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:] - sim.c[:,t])
                     sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - (sim.s_lr_init[:] + sim.s_rp_init[:]))
                     sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
                 
                 elif par.retirement_age + par.m <= t < par.T-1:
-                    sim.chi_payment[:] = retirement_payment(par, sol, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
+                    sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
                     sim.w[:,t] = wage(par, sim.k[:,t], t)
                     sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.chi_payment[:] - sim.c[:,t])
                     sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - sim.s_lr_init[:])
