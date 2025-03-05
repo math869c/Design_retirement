@@ -27,15 +27,17 @@ Done:
 - means-testing
 - første kalibrering
 - Vi kører kvinder og mænd
+- Opdatér model-matematikken
+- Clean up code
 
 Immediate to do:
 - Clean up code
 - Opdatér datadefinitioner vi vil køre og skriv ind
-- Opdatér model-matematikken
 - Opdatér den måde, vi løser modellen på (numerisk optimering, parallelisering, pre-computed shocks, gauss-hermite, interpolering, analytisk sidste løsning)
 - Kalibrér renterne (proxy)
 - Find en god forklaring på par.m
 - Definer ét eller to velfærdsmål (indkomstækvivalent, forbrugsækvivalens, finanseffekt, replacement rate)
+- indfør extensive margin
 
 
 Maybe to do:
@@ -43,6 +45,22 @@ Maybe to do:
 - EGM?
 - Effekstudie
 - Aldersopsparing
+
+
+Plan for at indfære extensive margin:
+del 1:
+- tilføj ekstra chocie-variable: binary om at arbejd eller ikke at arbejde.
+- ændre på hours, så den ikke længere går fra 0. bound for h: [7/37,1.2]
+- lav to value functions: 
+  1. klassisk med valg af timer
+  2. kun vlag af forbrug
+- vælg bedste value funktion og tilsvarende valg 
+
+del 2:
+- tilføj state om man har arbejde, hvor der er ssh for at blive fyret, og tilføjet state om ssh for at få job. Denne ssh afhænger også af dit valg og noget eksternt
+- Ssh er eksogene og afhænger kun af din alder. Derfor modellerer vi ikke arbejdsmarkedet
+- 
+
 
 
 

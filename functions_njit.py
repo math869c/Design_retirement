@@ -38,6 +38,7 @@ def wage(par, k, t):
 @jit_if_enabled(fastmath=True)
 def retirement_payment(par, sol_V, a, s, s_lr, t):
     base_payment = par.chi_base
+    a_return = a * par.r_a/(1+par.r_a)
 
     if par.retirement_age +par.m< t:
         income = s_lr + a_return
@@ -80,6 +81,18 @@ def value_function_under_pay(par, sol_V,  c, a, s, chi, t):
 
 
     return utility(par, c, hours) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, a_next)
+
+@jit_if_enabled(fastmath=True)
+def value_function_unemployed(par, sol_V, sol_EV, c, h, a, s, k, t):
+
+    a_next = (1+par.r_a)*(a - c)
+    s_next = (1+par.r_s)*s
+    k_next = (1-par.delta)*k 
+
+    EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
+
+    return utility(par, c, h) + (1-par.pi[t+1])*par.beta*EV_next + par.pi[t+1]*bequest(par, a_next)
+
 
 @jit_if_enabled(fastmath=True)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
@@ -143,6 +156,25 @@ def precompute_EV_next(par, sol_V, t):
 def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, t):
     return -value_function(par, sol_V, sol_EV, c, h, a, s, k, t)
 
+@jit_if_enabled(fastmath=True)
+def obj_consumption_unemployed(c, par, sol_V, sol_EV, h, a, s, k, t):
+    return -value_function_unemployed(par, sol_V, sol_EV, c, h, a, s, k, t)
+
+@jit_if_enabled()
+def obj_consumption_last_period(c, par, sol_V, a, chi, t):
+    """ negative of value_function_after_pay(par,sol_V,c,a,t) """
+    return -value_next_period_after_reti(par, sol_V, c, a, chi, t)
+
+@jit_if_enabled()
+def obj_consumption_after_pay(c, par, sol_V, a, s_lr, chi, t):
+    """ negative of value_function_after_pay(par,sol_V,c,a,t) """
+    return -value_function_after_pay(par, sol_V, c, a, s_lr, chi, t)
+
+@jit_if_enabled()
+def obj_consumption_under_pay(c, par, sol_V, a, s, chi, t):
+    """ negative of value_function_under_pay(par,sol_V,c,a,s,t) """
+    return -value_function_under_pay(par, sol_V, c, a, s, chi, t)
+
 
 @jit_if_enabled(fastmath=True)
 def obj_hours(h, par, sol_V, sol_EV, a, s, k, s_lr, chi, t, dist):
@@ -166,20 +198,6 @@ def obj_hours(h, par, sol_V, sol_EV, a, s, k, s_lr, chi, t, dist):
     val_at_c_star = value_function(par, sol_V, sol_EV, c_star, h, a, s, k, t)
     return -val_at_c_star
 
-@jit_if_enabled()
-def obj_consumption_last_period(c, par, sol_V, a, chi, t):
-    """ negative of value_function_after_pay(par,sol_V,c,a,t) """
-    return -value_next_period_after_reti(par, sol_V, c, a, chi, t)
-
-@jit_if_enabled()
-def obj_consumption_after_pay(c, par, sol_V, a, s_lr, chi, t):
-    """ negative of value_function_after_pay(par,sol_V,c,a,t) """
-    return -value_function_after_pay(par, sol_V, c, a, s_lr, chi, t)
-
-@jit_if_enabled()
-def obj_consumption_under_pay(c, par, sol_V, a, s, chi, t):
-    """ negative of value_function_under_pay(par,sol_V,c,a,s,t) """
-    return -value_function_under_pay(par, sol_V, c, a, s, chi, t)
 
 
 
@@ -294,27 +312,51 @@ def main_solver_loop(par, sol, do_print = False):
                             idx = (t, a_idx, s_idx, k_idx)
                             chi = 0.0 
                             
-                            h_star = optimize_outer(
-                                obj_hours,         # the hours objective
-                                par.h_min,
-                                par.h_max,
-                                args=(par, sol_V, sol_EV, assets, savings, human_capital, s_lr, chi, t),
-                                tol=par.opt_tol
-                            )
+                            for ex in (0,1):
+                                if ex== 0:
+                                    # en løsning uden uden timer
 
-                            bc_min, bc_max = budget_constraint(par, sol_V, assets, h_star, savings, human_capital, s_lr, chi, t)
-                            c_star = optimizer(
-                                obj_consumption,
-                                bc_min,
-                                bc_max,
-                                args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
-                                tol=par.opt_tol
-                            )
+                                    h=0.0
+                                    bc_min, bc_max = budget_constraint(par, sol_V, assets, h, savings, human_capital, s_lr, chi, t)
+                                    
+                                    c_star = optimizer(
+                                        obj_consumption_unemployed,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, h, assets, savings,human_capital, t),
+                                        tol=par.opt_tol
+                                    )
+                                    c_unemployed = c_star
+                                    a_unemployed = assets - c_unemployed
+                                    V_unemployed = value_function_unemployed(par, sol_V, sol_EV, c_star, h, assets, savings, human_capital, t)
 
-                            sol_h[idx] = h_star
-                            sol_c[idx] = c_star
-                            sol_a[idx] = assets + (1-par.tau[t])*sol_h[idx]*wage(par, human_capital, t) - sol_c[idx]
-                            sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                else: 
+                                    # løsning med timer
+                                    h_star = optimize_outer(
+                                        obj_hours,         # the hours objective
+                                        par.h_min,
+                                        par.h_max,
+                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, s_lr, chi, t),
+                                        tol=par.opt_tol
+                                    )
+
+                                    bc_min, bc_max = budget_constraint(par, sol_V, assets, h_star, savings, human_capital, s_lr, chi, t)
+                                    c_star = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                        tol=par.opt_tol
+                                    )
+                                    V_employed = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                            if V_unemployed > V_employed:
+
+
+                                sol_h[idx] = h_star
+                                sol_c[idx] = c_star
+                                sol_a[idx] = assets + (1-par.tau[t])*sol_h[idx]*wage(par, human_capital, t) - sol_c[idx]
+                                sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+
 
     return sol_c, sol_a, sol_h, sol_V
 
