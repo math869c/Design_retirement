@@ -40,15 +40,15 @@ def retirement_payment(par, sol_V, a, s, s_lr, t):
     base_payment = par.chi_base
 
     if par.retirement_age +par.m< t:
-        income = s_lr
+        income = s_lr + a_return
     else: 
         s_retirement = s / (1-(t-par.retirement_age)*(par.share_lr*(1/par.EL)+(1-par.share_lr)*(1/par.m)))
         s_lr = par.share_lr * (s_retirement/par.EL)
         s_rp = (1-par.share_lr) * (s_retirement/par.m)
-        income = s_lr + s_rp
+        income = s_lr + s_rp + a_return
 
     exceed = np.maximum(0, income - par.chi_max)
-    extra_pension = np.maximum(0, par.chi_extra_start - exceed*par.reduction_rate)
+    extra_pension = np.maximum(0, par.chi_extra_start - exceed*par.rho)
 
     return (1-par.upsilon)*(base_payment + extra_pension)
 
