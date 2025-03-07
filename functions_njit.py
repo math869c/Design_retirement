@@ -218,6 +218,7 @@ def main_solver_loop(par, sol, do_print = False):
     sol_a = sol.a
     sol_ex = sol.ex
     sol_c = sol.c
+    sol_c_un = sol.c_un
     sol_h = sol.h
     sol_V = sol.V
     
@@ -324,10 +325,9 @@ def main_solver_loop(par, sol, do_print = False):
                                     tol=par.opt_tol
                                 )
 
-                                unemployed = (value_function_unemployed(par, sol_V, sol_EV, c_star_u, h_unemployed, assets, savings, human_capital, t), c_star_u, h_unemployed, ex, assets)
-                                # if a_idx == 0 and s_idx == 0 and k_idx == 0:
-                                #     print(sol_EV)
-
+                                unemployed = (value_function_unemployed(par, sol_V, sol_EV, c_star_u, h_unemployed, assets, savings, human_capital, t), ex,  c_star_u)
+                                sol_c_un[idx]  = unemployed[2]
+                                
                             if ex== 1: 
                                 # løsning med timer
                                 h_star = optimize_outer(
@@ -347,25 +347,18 @@ def main_solver_loop(par, sol, do_print = False):
                                     tol=par.opt_tol
                                 )
 
-                                employed = (value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t), c_star, h_star, ex, assets)
-                                # if a_idx == 0 and s_idx == 0 and k_idx == 0:
-                                #     print(sol_EV)
+                                employed = (value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t), ex, c_star, h_star, assets)
 
-
+                                sol_c[idx]  = employed[2]
+                                sol_h[idx]  = employed[3]
+                                sol_a[idx]  = employed[4]
 
                                 if unemployed[0] > employed[0]:
                                     sol_V[idx]  = unemployed[0]
-                                    sol_c[idx]  = unemployed[1]
-                                    sol_h[idx]  = unemployed[2]
-                                    sol_ex[idx] = unemployed[3]
-                                    sol_a[idx]  = unemployed[4]
+                                    sol_ex[idx] = unemployed[1]
                                 else:
                                     sol_V[idx]  = employed[0]
-                                    sol_c[idx]  = employed[1]
-                                    sol_h[idx]  = employed[2]
-                                    sol_ex[idx] = employed[3]
-                                    sol_a[idx]  = employed[4]
+                                    sol_ex[idx] = employed[1]
 
-
-    return sol_c, sol_a, sol_h, sol_ex, sol_V
+    return sol_c, sol_c_un, sol_a, sol_h, sol_ex, sol_V
 
