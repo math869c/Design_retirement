@@ -115,7 +115,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 100 # number of individuals
+        par.simN = 1000 # number of individuals
 
 
     def allocate(self):
