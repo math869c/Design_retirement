@@ -39,7 +39,7 @@ class ModelClass(EconModelClass):
         
         # assets 
         par.r_a    = 0.02
-        par.r_s    = 0.009
+        par.r_s    = 0.02
         par.H      = 135_000
         df = pd.read_csv("Data/formue_cohort.csv")
         par.s_init = np.array(df[(df['KOEN']==1) & (df['ALDER']==30)]['FGCX'])
