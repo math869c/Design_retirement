@@ -23,7 +23,7 @@ from jit_module import jit_if_enabled
 @jit_if_enabled(fastmath=True)
 def utility(par, c, h):
 
-    return (c**(1-par.sigma))/(1-par.sigma) - par.work_cost*(h**(1+par.gamma))/(1+par.gamma)
+    return (c**(1-par.sigma))/(1-par.sigma)  - par.work_cost*(h**(1+par.gamma))/(1+par.gamma)
 
 @jit_if_enabled(fastmath=True)
 def bequest(par, a):
