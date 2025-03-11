@@ -94,7 +94,7 @@ class ModelClass(EconModelClass):
 
         # Grids
         par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 2_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.1, 2_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, -500_000, 2_000_000
         par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 30
 
         par.h_min  = 0.19
@@ -301,6 +301,9 @@ class ModelClass(EconModelClass):
                     interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.ex[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.ex[:,t])
                     sim.ex[:,t] = np.maximum(0, np.round(sim.ex[:,t]))
 
+                    count_ex_0 = 0
+                    count_ex_1 = 0
+
                     for i in range(par.simN):
                         if sim.ex[i,t] == 0: 
                             sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c_un[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
@@ -310,6 +313,7 @@ class ModelClass(EconModelClass):
                             sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] +par.benefit - sim.c[i,t])
                             sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t]
                             sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
+                            count_ex_0 += 1
 
                         else: 
                             sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
@@ -319,6 +323,7 @@ class ModelClass(EconModelClass):
                             sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + (1-par.tau[t])*sim.h[i,t]*sim.w[i,t] - sim.c[i,t])
                             sim.s[i,t+1] = (1+par.r_s)*(sim.s[i,t] + par.tau[t]*sim.h[i,t]*sim.w[i,t])
                             sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
+                            count_ex_1 += 1
 
 
                 # iii. store next-period states

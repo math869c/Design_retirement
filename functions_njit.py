@@ -359,6 +359,8 @@ def main_solver_loop(par, sol, do_print = False):
                                 else:
                                     sol_V[idx]  = employed[0]
                                     sol_ex[idx] = employed[1]
+        print(sol_EV)
+
 
     return sol_c, sol_c_un, sol_a, sol_h, sol_ex, sol_V
 
