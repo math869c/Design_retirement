@@ -50,10 +50,10 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.delta  = 0.101068
-        par.beta_1 = 0.028840
-        par.beta_2 = -0.000124
-        par.w_0             = 193.736800                           
+        par.delta  = 0.056530
+        par.beta_1 = 0.034810
+        par.beta_2 = -0.000227
+        par.w_0             = 208.682235                           
         par.full_time_hours = 1924.0
         par.work_cost       = 1.000          # Skal kalibreres
         
