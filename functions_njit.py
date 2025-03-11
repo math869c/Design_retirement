@@ -23,7 +23,7 @@ from jit_module import jit_if_enabled
 @jit_if_enabled(fastmath=True)
 def utility(par, c, h):
 
-    return (c**(1-par.sigma))/(1-par.sigma) - par.work_cost*(h**(1+par.gamma))/(1+par.gamma)
+    return (c**(1-par.sigma))/(1-par.sigma)  - par.work_cost*(h**(1+par.gamma))/(1+par.gamma)
 
 @jit_if_enabled(fastmath=True)
 def bequest(par, a):
@@ -359,6 +359,8 @@ def main_solver_loop(par, sol, do_print = False):
                                 else:
                                     sol_V[idx]  = employed[0]
                                     sol_ex[idx] = employed[1]
+        print(sol_EV)
+
 
     return sol_c, sol_c_un, sol_a, sol_h, sol_ex, sol_V
 
