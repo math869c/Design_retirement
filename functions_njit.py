@@ -23,7 +23,7 @@ from jit_module import jit_if_enabled
 @jit_if_enabled(fastmath=True)
 def utility(par, c, h):
 
-    return (c**(1-par.sigma))/(1-par.sigma) - par.work_cost*(h**(1+par.gamma))/(1+par.gamma)
+    return ((c+1)**(1-par.sigma))/(1-par.sigma) - par.work_cost*(h**(1+par.gamma))/(1+par.gamma)
 
 @jit_if_enabled(fastmath=True)
 def bequest(par, a):
@@ -67,6 +67,7 @@ def value_function_after_pay(par, sol_V, c, a, s, t):
     chi = retirement_payment(par, a, s, t)
 
     a_next = (1+par.r_a)*(a + chi + s_lr - c)
+
     EV_next = interp_1d(par.a_grid, V_next, a_next)
     
     return utility(par, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
@@ -115,10 +116,11 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 def value_next_period_after_reti(par, c, a, s, t):
     h = 0.0
 
+    s_lr, _ = calculate_retirement_payouts(par, s, t)
     chi = retirement_payment(par, a, s, t)
 
-    a_next = (1+par.r_a)*(a + chi - c)
-    
+    a_next = (1+par.r_a)*(a + chi + s_lr - c)
+
     return utility(par, c, h) + bequest(par, a_next)
 
 # 3. Helping functions in solving and optimizing
@@ -211,7 +213,12 @@ def obj_hours(h, par, sol_V, sol_EV, a, s, k, ex, t, dist):
 
 @jit_if_enabled(fastmath=True)
 def calculate_retirement_payouts(par, savings, t):
-    if t >= par.retirement_age + par.m:
+    if t >= par.retirement_age + par.EL:
+        s_retirement = -savings / (1 - ((t-par.retirement_age)/par.EL)*(par.share_lr)-(1-par.share_lr))
+        s_lr = par.share_lr * (s_retirement/par.EL) 
+        s_rp = (1-par.share_lr) * (s_retirement/par.m)
+    
+    elif t >= par.retirement_age + par.m:
         s_retirement = savings / (1 - ((t-par.retirement_age)/par.EL)*(par.share_lr)-(1-par.share_lr))
         s_lr = par.share_lr * (s_retirement/par.EL) 
         s_rp = (1-par.share_lr) * (s_retirement/par.m)
@@ -230,12 +237,12 @@ def calculate_last_period_consumption(par, assets, savings, t):
 
     if par.mu != 0.0:
         # With bequest motive
-        return ((1/(1+(par.mu*(1+par.r_a))**(-1/par.sigma)*(1+par.r_a)))
+        return max(((1/(1+(par.mu*(1+par.r_a))**(-1/par.sigma)*(1+par.r_a))) 
                 * (par.mu*(1+par.r_a))**(-1/par.sigma) 
-                * ((1+par.r_a)*(assets+chi+s_lr)+par.a_bar))
+                * ((1+par.r_a)*(assets+chi+s_lr)+par.a_bar)), 0)
     else: 
         # No bequest motive
-        return (1+par.r_a)*(assets+chi + s_lr)
+        return (assets + chi + s_lr)
 
 
 # 5. Solving the model
@@ -270,12 +277,13 @@ def main_solver_loop(par, sol, do_print = False):
                     idx = (t, a_idx, s_idx, k_idx)
                     
                     if t == par.T - 1:
+
+
                         # Analytical solution in the last period
                         sol_c[idx] = calculate_last_period_consumption(par, assets, savings, t)
                         sol_ex[idx] = ex_place
                         sol_h[idx] = hours_place
                         sol_V[idx] = value_next_period_after_reti(par, sol_c[idx], assets, savings, t)
-
 
                     elif par.retirement_age +par.m <= t:
 
@@ -359,6 +367,10 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_V[idx]  = V_employed
                                     sol_ex[idx] = 1
 
+                    # Print if any sol_V is nan
+                    # if np.isnan(sol_V[idx]):
+                    #     print(f"NaN value at t={t}, a={assets}, s={savings}, k={human_capital}, ex={ex_place}")
+                    #     assert False
 
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 

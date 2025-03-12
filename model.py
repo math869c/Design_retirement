@@ -33,8 +33,8 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
                
         # Preferences
-        par.beta   = 0.982    # Skal kalibreres
-        par.sigma  = 1.060     # Skal kalibreres
+        par.beta   = 0.99    # Skal kalibreres
+        par.sigma  = 1.2     # Skal kalibreres
         par.gamma  = 3.877     # Skal kalibreres
         par.mu     = 7.814     # Skal kalibreres
         par.a_bar  = 0.001
@@ -94,7 +94,7 @@ class ModelClass(EconModelClass):
 
         # Grids
         par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 2_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, -500_000, 2_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 2_000_000
         par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 30
 
         par.h_min  = 0.19
