@@ -254,16 +254,17 @@ def calculate_retirement_payouts(par, savings, t):
     return s_lr, s_rp
 
 @jit_if_enabled(fastmath=True)
-def calculate_last_period_consumption(par, assets, savings, chi, t):
+def calculate_last_period_consumption(par, assets, savings, t):
+    chi = retirement_payment(par, assets, savings, t)
+    s_lr, _ = calculate_retirement_payouts(par, savings, t)
+
     if par.mu != 0.0:
         # With bequest motive
-        s_lr, s_rp = calculate_retirement_payouts(par, savings, t)
         return ((1/(1+(par.mu*(1+par.r_a))**(-1/par.sigma)*(1+par.r_a)))
                 * (par.mu*(1+par.r_a))**(-1/par.sigma) 
                 * ((1+par.r_a)*(assets+chi+s_lr)+par.a_bar))
     else: 
         # No bequest motive
-        s_lr, s_rp = calculate_retirement_payouts(par, savings, t)
         return (1+par.r_a)*(assets+chi + s_lr)
 
 
@@ -300,20 +301,14 @@ def main_solver_loop(par, sol, do_print = False):
                     
                     if t == par.T - 1:
                         # Analytical solution in the last period
-                        s_lr, s_rp = calculate_retirement_payouts(par, savings, t)
-                        chi = retirement_payment(par, assets, savings, t)
-
-                        sol_c[idx] = calculate_last_period_consumption(par, assets, savings, chi, t)
-                        sol_a[idx] = assets + par.a_bar + s_lr + chi - sol_c[idx]
+                        sol_c[idx] = calculate_last_period_consumption(par, assets, savings, t)
                         sol_ex[idx] = ex_place
                         sol_h[idx] = hours_place
                         sol_V[idx] = value_next_period_after_reti(par, sol_c[idx], assets, savings, t)
 
 
                     elif par.retirement_age +par.m <= t:
-                        s_lr, s_rp = calculate_retirement_payouts(par, savings, t)
-                        chi = retirement_payment(par, assets, savings, t)
-                        
+
                         bc_min, bc_max = budget_constraint(par, hours_place, assets, savings, human_capital_place, ex_place, t) #er s_lr ok her i stedet for svaings? Det virker, bare lidt grimt
 
                         c_star = optimizer(
@@ -326,13 +321,10 @@ def main_solver_loop(par, sol, do_print = False):
 
                         sol_c[idx] = c_star
                         sol_ex[idx] = ex_place
-                        sol_a[idx] = assets + chi + s_lr - sol_c[idx]
                         sol_h[idx] = hours_place
                         sol_V[idx] = value_function_after_pay(par, sol_V, c_star, assets, savings, t)
 
                     elif par.retirement_age <= t:
-                        s_lr, s_rp = calculate_retirement_payouts(par, savings, t)
-                        chi = retirement_payment(par, assets, savings, t)
 
                         bc_min, bc_max = budget_constraint(par, hours_place, assets, savings, human_capital_place, ex_place, t)
                         
@@ -346,7 +338,6 @@ def main_solver_loop(par, sol, do_print = False):
 
                         sol_c[idx] = c_star 
                         sol_ex[idx] = ex_place
-                        sol_a[idx] = assets + chi + s_lr + s_rp - sol_c[idx]
                         sol_h[idx] = hours_place
                         sol_V[idx] = value_function_under_pay(par, sol_V, c_star, assets, savings, t)
 
@@ -365,8 +356,8 @@ def main_solver_loop(par, sol, do_print = False):
                                     tol=par.opt_tol
                                 )
 
-                                unemployed = (value_function_unemployed(par, sol_V, sol_EV, c_star_u, h_unemployed, assets, savings, human_capital, t), ex, c_star_u)
-                                sol_c_un[idx]  = unemployed[2]
+                                V_unemployed = value_function_unemployed(par, sol_V, sol_EV, c_star_u, h_unemployed, assets, savings, human_capital, t)
+                                sol_c_un[idx]  = c_star_u
                                 
                             if ex== 1: 
                                 # løsning med timer
@@ -387,20 +378,19 @@ def main_solver_loop(par, sol, do_print = False):
                                     tol=par.opt_tol
                                 )
 
-                                employed = (value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t), ex, c_star, h_star, assets)
+                                V_employed = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                sol_c[idx]  = c_star
+                                sol_h[idx]  = h_star
 
-                                sol_c[idx]  = employed[2]
-                                sol_h[idx]  = employed[3]
-                                sol_a[idx]  = employed[4]
-
-                                if unemployed[0] > employed[0]:
-                                    sol_V[idx]  = unemployed[0]
-                                    sol_ex[idx] = unemployed[1]
+                                if V_unemployed > V_employed:
+                                    sol_V[idx]  = V_unemployed
+                                    sol_ex[idx] = 0
                                 else:
-                                    sol_V[idx]  = employed[0]
-                                    sol_ex[idx] = employed[1]
+                                    sol_V[idx]  = V_employed
+                                    sol_ex[idx] = 1
 
-    return sol_c, sol_c_un, sol_a, sol_h, sol_ex, sol_V
+
+    return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 
 # 6. simulation:
 @jit_if_enabled(parallel=True)
