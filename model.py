@@ -85,7 +85,7 @@ class ModelClass(EconModelClass):
 
         par.pi =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
         par.pi[-1] = 0.0
-        par.EL = round(sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age),0) # forventet livstid tilbage efter pension
+        par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
 
         # welfare measurements 
         par.replacement_rate_bf_start = 10
@@ -339,7 +339,7 @@ class ModelClass(EconModelClass):
                         sim.s_rp_init[:] = (sim.s[:,t]/par.m) * (1-par.share_lr)
 
                     if par.retirement_age <= t < par.retirement_age + par.m: 
-                        sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
+                        sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], t)
                         sim.w[:,t] = wage(par, sim.k[:,t], t)
                         sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:] - sim.c[:,t])
                         sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - (sim.s_lr_init[:] + sim.s_rp_init[:]))
@@ -347,7 +347,7 @@ class ModelClass(EconModelClass):
 
                     
                     elif par.retirement_age + par.m <= t < par.T-1:
-                        sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], sim.s_lr_init[:], t)
+                        sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], t)
                         sim.w[:,t] = wage(par, sim.k[:,t], t)
                         sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.chi_payment[:] - sim.c[:,t])
                         sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - sim.s_lr_init[:])
