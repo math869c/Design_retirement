@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from functions_njit import main_solver_loop, wage, retirement_payment, utility, bequest
+from functions_njit import main_solver_loop, wage, retirement_payment, utility, bequest, main_simulation_loop
 
 from EconModel import EconModelClass, jit
 
@@ -109,7 +109,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 1000 # number of individuals
+        par.simN = 10000 # number of individuals
 
 
     def allocate(self):
@@ -150,6 +150,7 @@ class ModelClass(EconModelClass):
         sim.k = np.nan + np.zeros(shape)
         sim.w = np.nan + np.zeros(shape)
         sim.ex = np.nan + np.zeros(shape)
+        sim.chi_payment = np.nan + np.zeros(shape)
         sim.U = np.nan + np.zeros(par.simT)
         sim.EV = np.zeros(1)
         sim.xi = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
@@ -162,9 +163,108 @@ class ModelClass(EconModelClass):
         sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
         sim.s_lr_init = np.zeros(par.simN)
         sim.s_rp_init = np.zeros(par.simN)
-        sim.chi_payment = np.zeros(par.simN)
         sim.replacement_rate = np.zeros(par.simN)
         sim.consumption_replacement_rate = np.zeros(par.simN)
+
+    # Welfare measurements for simulation 
+    
+    def expected_lifetime_utility(self, utility_matrix):
+        '''Can be used without policy changes'''
+        par = self.par  
+        sim = self.sim
+        
+        beta_vector = par.beta**np.arange(par.T)
+        beta_pi = beta_vector*par.pi
+        return (utility_matrix@beta_pi).mean()
+
+    def utility_consumption(self, par, c):
+        return (c**(1-par.sigma))/(1-par.sigma)
+
+    def find_consumption_equivalence(self, theta, theta_names, do_print= False, the_method = 'brentq'):
+        ''' Can be used to measure the impact of policy changes'''
+        par = self.par
+        sim = self.sim
+        
+        # overview of changes 
+        if do_print:
+            for idx, name in enumerate(theta_names):
+                print(f'The original value of {name}: {par.__dict__[name]}, the new value will be: {theta[idx]}')
+            print(f'Consumption utility before parameter changes: {sim.EV[0]}')
+
+        # Set previous consumption, so it does not update with new values
+        avg_c_bf = sim.c[:,:].mean(axis=0).copy() 
+        phi_lower = -0.5
+        phi_upper =  1.0  
+
+        # Utility after policy change
+        for i, name in enumerate(theta_names):
+            setattr(self.par, name, theta[i])
+        self.solve()
+        self.simulate()
+        new_EV = sim.EV.copy()
+        if do_print:
+            print(f'Consumption utility after parameter changes: {sim.EV[0]}')
+
+        def objective(phi, avg_c_bf, new_EV):
+            utility_matrix_compensate = self.utility_consumption(par, (1 + phi) * avg_c_bf)
+            utility_compensate = self.expected_lifetime_utility(utility_matrix_compensate)
+
+            return new_EV - utility_compensate
+        
+        # Check if bounds are below and above 0, else update 
+        f_lower, f_upper = objective(phi_lower, avg_c_bf, new_EV), objective(phi_upper, avg_c_bf, new_EV)
+        expansion_factor = 2.0
+        while f_lower * f_upper > 0:  # No sign change → expand range
+            phi_lower /= expansion_factor
+            phi_upper *= expansion_factor
+            f_lower, f_upper = objective(phi_lower, avg_c_bf, new_EV), objective(phi_upper, avg_c_bf, new_EV)
+            print(f"Expanding range: phi_lower={phi_lower}, phi_upper={phi_upper}")
+
+            if abs(phi_lower) > 1e5 or abs(phi_upper) > 1e5:  # Prevent infinite expansion
+                raise ValueError("Could not find a valid bracket for root-finding.")
+        
+        # Find root
+        result = root_scalar(objective, bracket=[phi_lower, phi_upper], args=(avg_c_bf, new_EV), method=the_method)
+
+        if result.converged:
+            if do_print:
+                print(f'Consumption at every age before the policy change must change with {round(result.root*100,1)} pct. to keep the same utility')
+            return result.root
+        else:
+            raise ValueError("Root-finding for phi did not converge")
+
+
+    def replacement_rate_fct_uden_njit(self):
+        '''Can be used without policy changes'''
+        par = self.par
+        sim = self.sim
+
+        start_before = par.retirement_age-par.replacement_rate_bf_start
+        end_before = par.retirement_age-par.replacement_rate_bf_end
+        after_retirement = par.retirement_age +par.replacement_rate_af_start
+        income_before =  ((1-par.tau[start_before:end_before])*sim.h[:,start_before:end_before]*sim.w[:, start_before:end_before] +\
+            (par.r_a/(1+par.r_a))* sim.a[:,start_before:end_before]).mean(axis=1) 
+        income_after = sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:,start_before:end_before].mean(axis=1)  +\
+            (par.r_a/(1+par.r_a))* sim.a[:,after_retirement]
+
+        return income_after/income_before
+
+    def consumption_replacement_rate_fct_uden_njit(self):
+        '''Can be used without policy changes'''
+        par = self.par
+        sim = self.sim
+
+        start_before = par.retirement_age-par.replacement_rate_bf_start
+        end_before = par.retirement_age-par.replacement_rate_bf_end
+        after_retirement = par.retirement_age +par.replacement_rate_af_start
+        consumption_before =  sim.c[:,start_before:end_before].mean(axis=1)
+        consumption_after = sim.c[:,after_retirement]
+
+        return consumption_after/consumption_before
+
+
+
+            
 
 
     # Solve the model
@@ -177,6 +277,14 @@ class ModelClass(EconModelClass):
 
             sol.c[:, :, :, :], sol.c_un[:, :, :, :], sol.h[:, :, :, :], sol.ex[:, :, :, :], sol.V[:, :, :, :] = main_solver_loop(par, sol, do_print)
 
+    def simulate_njit(self):
+        with jit(self) as model:
+
+            par = model.par
+            sol = model.sol
+            sim = model.sim 
+            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:]= main_simulation_loop(par, sol, sim)
+          
 
     # Simulate the model
     def simulate(self):
@@ -202,9 +310,6 @@ class ModelClass(EconModelClass):
                     interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.ex[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.ex[:,t])
                     sim.ex[:,t] = np.maximum(0, np.round(sim.ex[:,t]))
 
-                    count_ex_0 = 0
-                    count_ex_1 = 0
-
                     for i in range(par.simN):
                         if sim.ex[i,t] == 0: 
                             sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c_un[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
@@ -214,7 +319,6 @@ class ModelClass(EconModelClass):
                             sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] +par.benefit - sim.c[i,t])
                             sim.s[i,t+1] = (1+par.r_s)*sim.s[i,t]
                             sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
-                            count_ex_0 += 1
 
                         else: 
                             sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
@@ -224,7 +328,6 @@ class ModelClass(EconModelClass):
                             sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + (1-par.tau[t])*sim.h[i,t]*sim.w[i,t] - sim.c[i,t])
                             sim.s[i,t+1] = (1+par.r_s)*(sim.s[i,t] + par.tau[t]*sim.h[i,t]*sim.w[i,t])
                             sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t] + sim.h[i,t])*sim.xi[i,t]
-                            count_ex_1 += 1
 
 
                 # iii. store next-period states
@@ -240,17 +343,17 @@ class ModelClass(EconModelClass):
                         sim.s_rp_init[:] = (sim.s[:,t]/par.m) * (1-par.share_lr)
 
                     if par.retirement_age <= t < par.retirement_age + par.m: 
-                        sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], t)
+                        sim.chi_payment[:,t] = retirement_payment(par, sim.a[:,t], sim.s[:,t], t)
                         sim.w[:,t] = wage(par, sim.k[:,t], t)
-                        sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:] - sim.c[:,t])
+                        sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:,t] - sim.c[:,t])
                         sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - (sim.s_lr_init[:] + sim.s_rp_init[:]))
                         sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
 
                     
                     elif par.retirement_age + par.m <= t < par.T-1:
-                        sim.chi_payment[:] = retirement_payment(par, sim.a[:,t], sim.s[:,t], t)
+                        sim.chi_payment[:,t] = retirement_payment(par, sim.a[:,t], sim.s[:,t], t)
                         sim.w[:,t] = wage(par, sim.k[:,t], t)
-                        sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.chi_payment[:] - sim.c[:,t])
+                        sim.a[:,t+1] = (1+par.r_a)*(sim.a[:,t] + sim.s_lr_init[:] + sim.chi_payment[:,t] - sim.c[:,t])
                         sim.s[:,t+1] = np.maximum(0, sim.s[:,t] - sim.s_lr_init[:])
                         sim.k[:,t+1] = ((1-par.delta)*sim.k[:,t])*sim.xi[:,t]
                         
@@ -261,5 +364,5 @@ class ModelClass(EconModelClass):
             # Welfare 
             utility_matrix = self.utility_consumption(par, sim.c[:,:].mean(axis=0))  
             sim.EV[0] = model.expected_lifetime_utility(utility_matrix)
-            sim.replacement_rate[:] = model.replacement_rate_fct()
-            sim.consumption_replacement_rate[:] = model.consumption_replacement_rate_fct()
+            sim.replacement_rate[:] = model.replacement_rate_fct_uden_njit()
+            sim.consumption_replacement_rate[:] = model.consumption_replacement_rate_fct_uden_njit()
