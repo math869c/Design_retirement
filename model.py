@@ -261,11 +261,7 @@ class ModelClass(EconModelClass):
         consumption_after = sim.c[:,after_retirement]
 
         return consumption_after/consumption_before
-
-
-
-            
-
+    
 
     # Solve the model
     def solve(self, do_print = False):
