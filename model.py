@@ -121,7 +121,27 @@ class ModelClass(EconModelClass):
         par.simT = par.T
 
         par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, par.a_sp)
-        par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
+        par.s_grid = [
+            nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp) if t < par.retirement_age 
+            else nonlinspace(par.s_min, 
+                            par.s_max 
+                            - (par.s_max/par.m) * (t - par.retirement_age) * (1-par.share_lr)
+                            - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr, 
+                            par.N_s, par.s_sp) 
+                            if par.retirement_age <= t < par.retirement_age + par.m
+            else nonlinspace(par.s_min, 
+                            par.s_max
+                            - (par.s_max/par.m) * (par.m) * (1-par.share_lr)
+                            - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr, 
+                            par.N_s, par.s_sp) 
+                            if par.retirement_age + par.m <= t < par.retirement_age + par.EL
+            else -nonlinspace(par.s_min,
+                            - (par.s_max
+                            - (par.s_max/par.m) * (par.m) * (1-par.share_lr)
+                            - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr), 
+                            par.N_s, par.s_sp) 
+            for t in range(par.T)
+        ]
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
 
         shape = (par.T, par.N_a, par.N_s, par.N_k)
@@ -303,12 +323,12 @@ class ModelClass(EconModelClass):
                 # ii. interpolate optimal consumption and hours
                 
                 if t < par.retirement_age:
-                    interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.ex[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.ex[:,t])
+                    interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol.ex[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.ex[:,t])
                     sim.ex[:,t] = np.maximum(0, np.round(sim.ex[:,t]))
 
                     for i in range(par.simN):
                         if sim.ex[i,t] == 0: 
-                            sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c_un[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
+                            sim.c[i,t] = interp_3d(par.a_grid, par.s_grid[t], par.k_grid, sol.c_un[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
                             sim.h[i,t] = 0.0
                             sim.w[i,t] = wage(par, sim.k[i,t], t)
 
@@ -317,8 +337,8 @@ class ModelClass(EconModelClass):
                             sim.k[i,t+1] = ((1-par.delta)*sim.k[i,t])*sim.xi[i,t]
 
                         else: 
-                            sim.c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
-                            sim.h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
+                            sim.c[i,t] = interp_3d(par.a_grid, par.s_grid[t], par.k_grid, sol.c[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
+                            sim.h[i,t] = interp_3d(par.a_grid, par.s_grid[t], par.k_grid, sol.h[t], sim.a[i,t], sim.s[i,t], sim.k[i,t])
                             sim.w[i,t] = wage(par, sim.k[i,t], t)
                            
                             sim.a[i,t+1] = (1+par.r_a)*(sim.a[i,t] + (1-par.tau[t])*sim.h[i,t]*sim.w[i,t] - sim.c[i,t])
@@ -328,9 +348,9 @@ class ModelClass(EconModelClass):
 
                 # iii. store next-period states
                 else:
-                    interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.c[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.c[:,t])
-                    interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.h[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.h[:,t])
-                    interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol.ex[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.ex[:,t])
+                    interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol.c[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.c[:,t])
+                    interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol.h[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.h[:,t])
+                    interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol.ex[t], sim.a[:,t], sim.s[:,t], sim.k[:,t], sim.ex[:,t])
                     sim.ex[:,t] = np.maximum(0, np.round(sim.ex[:,t]))
 
 
