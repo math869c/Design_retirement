@@ -209,7 +209,7 @@ def calculate_retirement_payouts(par, savings, t):
         s_lr = par.share_lr * (s_retirement/par.EL) 
         s_rp = (1-par.share_lr) * (s_retirement/par.m)
     
-    elif t >= par.retirement_age + par.m:
+    elif t > par.retirement_age + par.m:
         s_retirement = savings / (1 - ((t-par.retirement_age)/par.EL)*(par.share_lr)-(1-par.share_lr))
         s_lr = par.share_lr * (s_retirement/par.EL) 
         s_rp = (1-par.share_lr) * (s_retirement/par.m)
