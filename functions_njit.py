@@ -53,24 +53,7 @@ def retirement_payment(par, a, s, t):
 
 # 2. Value functions
 @jit_if_enabled(fastmath=True)
-def value_function_after_pay(par, sol_V, c, a, s, t):
-
-    hours = 0.0
-    V_next = sol_V[t+1,:,:,0]
-
-    s_lr, _ = calculate_retirement_payouts(par, s, t)
-    chi = retirement_payment(par, a, s, t)
-
-    a_next = (1+par.r_a)*(a + chi + s_lr - c)
-    s_next = s
-
-    EV_next = interp_2d(par.a_grid,par.s_grid, V_next, a_next, s_next)
-    
-    return utility(par, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
-
-
-@jit_if_enabled(fastmath=True)
-def value_function_under_pay(par, sol_V, c, a, s, t):
+def value_function_after_retirement(par, sol_V, c, a, s, t):
 
     hours = 0.0
     V_next = sol_V[t+1,:,:,0]
@@ -78,7 +61,11 @@ def value_function_under_pay(par, sol_V, c, a, s, t):
     s_lr, s_rp = calculate_retirement_payouts(par, s, t)
     chi = retirement_payment(par, a, s, t)
 
-    a_next = (1+par.r_a)*(a + s_lr + s_rp + chi - c)
+    if t >= par.retirement_age + par.m:
+        a_next = (1+par.r_a)*(a + s_lr + chi - c)
+    else:
+        a_next = (1+par.r_a)*(a + s_lr + s_rp + chi - c)
+
     s_next = s
     
     EV_next = interp_2d(par.a_grid,par.s_grid, V_next, a_next, s_next)
@@ -179,7 +166,7 @@ def precompute_EV_next(par, sol_V, t):
 
                 EV_val = 0.0
                 for idx in range(par.N_xi):
-                    k_temp_ = k_next*par.xi_v[idx]  
+                    k_temp_ = k_next*par.xi_v[idx] 
                     V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid, V_next, a_next, s_next, k_temp_)
                     EV_val += V_next_interp * par.xi_p[idx]
 
@@ -203,8 +190,6 @@ def calculate_retirement_payouts(par, savings, t):
     
         return s_lr, s_rp
 
-
-
 @jit_if_enabled(fastmath=True)
 def calculate_last_period_consumption(par, assets, savings, t):
     chi = retirement_payment(par, assets, savings, t)
@@ -221,7 +206,6 @@ def calculate_last_period_consumption(par, assets, savings, t):
         return (assets + chi + s_lr)
 
 
-
 # 4. Objective functions 
 @jit_if_enabled(fastmath=True)
 def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, t):
@@ -234,13 +218,9 @@ def obj_consumption_unemployed(c, par, sol_V, sol_EV, h, a, s, k, t):
 
 
 @jit_if_enabled()
-def obj_consumption_after_pay(c, par, sol_V, a, s, t):
-    return -value_function_after_pay(par, sol_V, c, a, s, t)
+def obj_consumption_after_retirement(c, par, sol_V, a, s, t):
+    return -value_function_after_retirement(par, sol_V, c, a, s, t)
 
-
-@jit_if_enabled()
-def obj_consumption_under_pay(c, par, sol_V, a, s, t):
-    return -value_function_under_pay(par, sol_V, c, a, s, t)
 
 
 @jit_if_enabled(fastmath=True)
@@ -300,12 +280,13 @@ def main_solver_loop(par, sol, do_print = False):
                         sol_h[idx] = hours_place
                         sol_V[idx] = value_last_period(par, sol_c[idx], assets, savings, t)
 
-                    elif t >= par.retirement_age + par.m: # After retirement age, with "livrente"
+
+                    elif t >= par.retirement_age + 5: # After retirement age, with "ratepension"
 
                         bc_min, bc_max = budget_constraint(par, hours_place, assets, savings, human_capital_place, ex_place, t)
 
                         c_star = optimizer(
-                            obj_consumption_after_pay,
+                            obj_consumption_after_retirement,
                             bc_min,
                             bc_max,
                             args=(par, sol_V, assets, savings, t),
@@ -315,24 +296,7 @@ def main_solver_loop(par, sol, do_print = False):
                         sol_c[idx] = c_star
                         sol_ex[idx] = ex_place
                         sol_h[idx] = hours_place
-                        sol_V[idx] = value_function_after_pay(par, sol_V, c_star, assets, savings, t)
-
-                    elif t >= par.retirement_age + 5: # After retirement age, with "ratepension"
-
-                        bc_min, bc_max = budget_constraint(par, hours_place, assets, savings, human_capital_place, ex_place, t)
-                        
-                        c_star = optimizer(
-                            obj_consumption_under_pay,
-                            bc_min,
-                            bc_max,
-                            args=(par, sol_V, assets, savings, t),
-                            tol=par.opt_tol
-                        )
-
-                        sol_c[idx] = c_star 
-                        sol_ex[idx] = ex_place
-                        sol_h[idx] = hours_place
-                        sol_V[idx] = value_function_under_pay(par, sol_V, c_star, assets, savings, t)
+                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star, assets, savings, t)
 
 
                     else: # Before retirement age
@@ -389,7 +353,7 @@ def main_solver_loop(par, sol, do_print = False):
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 
 # 6. simulation:
-# @jit_if_enabled(parallel=True)
+@jit_if_enabled(parallel=True)
 def main_simulation_loop(par, sol, sim, do_print = False):
 
     sim_a = sim.a
