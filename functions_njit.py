@@ -166,13 +166,13 @@ def precompute_EV_next(par, sol_V, t):
 @jit_if_enabled(fastmath=True)
 def calculate_retirement_payouts(par, savings, t):
     if t >= par.retirement_age + par.m:
-        s_retirement = savings / (1 - ((t-par.retirement_age)/par.EL)*(par.share_lr)-(1-par.share_lr))
+        s_retirement = savings
         s_lr = par.share_lr * (s_retirement/par.EL) 
 
         return s_lr, np.zeros_like(s_lr) +np.nan
     
     else:
-        s_retirement = savings / (1 - (t-par.retirement_age)*(par.share_lr*(1/par.EL) + (1-par.share_lr)*(1/par.m)))
+        s_retirement = savings
         s_lr = par.share_lr * (s_retirement/par.EL) 
         s_rp = (1-par.share_lr) * (s_retirement/par.m) 
     
@@ -453,15 +453,16 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
         # iii. store next-period states
         else:
-            interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol_c[t], sim_a[:,t], sim_s[:,t], sim_k[:,t], sim_c[:,t])
-            interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol_h[t], sim_a[:,t], sim_s[:,t], sim_k[:,t], sim_h[:,t])
-            interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol_ex[t], sim_a[:,t], sim_s[:,t], sim_k[:,t], sim_ex[:,t])
-            sim_ex[:,t] = np.maximum(0, np.round(sim_ex[:,t]))
-
-
             if t == par.retirement_age:
-                sim_s_lr_init[:] = (sim_s[:,t]/par.EL) * par.share_lr
-                sim_s_rp_init[:] = (sim_s[:,t]/par.m) * (1-par.share_lr)
+                s_retirement = sim_s[:,t]
+
+                sim_s_lr_init[:] = (s_retirement/par.EL) * par.share_lr
+                sim_s_rp_init[:] = (s_retirement/par.m) * (1-par.share_lr)
+
+            interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol_c[t], sim_a[:,t], s_retirement, sim_k[:,t], sim_c[:,t])
+            interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol_h[t], sim_a[:,t], s_retirement, sim_k[:,t], sim_h[:,t])
+            interp_3d_vec(par.a_grid, par.s_grid[t], par.k_grid, sol_ex[t], sim_a[:,t], s_retirement, sim_k[:,t], sim_ex[:,t])
+            sim_ex[:,t] = np.maximum(0, np.round(sim_ex[:,t]))
 
             if par.retirement_age <= t < par.retirement_age + par.m: 
                 sim_chi_payment[:,t] = retirement_payment(par, sim_a[:,t], sim_s[:,t], t)
