@@ -33,15 +33,15 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
                
         # Preferences
-        par.beta   = 0.99    # Skal kalibreres
-        par.sigma  = 1.2     # Skal kalibreres
-        par.gamma  = 3.877     # Skal kalibreres
-        par.mu     = 7.814     # Skal kalibreres
+        par.beta   = 0.99594784    # Skal kalibreres
+        par.sigma  = 1.23151331     # Skal kalibreres
+        par.gamma  = 4.738944       # Skal kalibreres
+        par.mu     = 7.56180656     # Skal kalibreres
         par.a_bar  = 0.001
         
         # assets 
-        par.r_a    = 0.02
-        par.r_s    = 0.02
+        par.r_a    = 0.01028688 
+        par.r_s    = 0.0147198
         par.H      = 135_000
         df = pd.read_csv("Data/formue_cohort.csv")
         par.s_init = np.array(df[(df['KOEN']==1) & (df['ALDER']==30)]['FGCX'])
@@ -92,9 +92,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 1
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 20, 1.0, 0.1, 2_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 20, 1.0, 0.0, 2_000_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 20, 1.0, 0.0, 30
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 2_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 2_000_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 30
 
         par.h_min  = 0.19
         par.h_max  = 1.2

@@ -62,7 +62,7 @@ def unscale_params(scaled_theta, bounds):
 def moment_func(sim_data):
     # Compute age-averaged moments
     avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
-    avg_s_by_age = np.mean(sim_data.s, axis=0)  # Length 70
+    avg_s_by_age = np.clip(np.mean(sim_data.s, axis=0), 0, None)  # Length 70
     avg_h_by_age = np.mean(sim_data.h, axis=0)  # Length 70
 
     # Concatenate and return
