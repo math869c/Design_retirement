@@ -109,7 +109,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 10000 # number of individuals
+        par.simN = 10 # number of individuals
 
 
     def allocate(self):
@@ -142,10 +142,7 @@ class ModelClass(EconModelClass):
         #                     par.N_s, par.s_sp) 
         #     for t in range(par.T)
         # ]
-        par.s_grid = [
-            nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
-            for t in range(par.T)
-        ]
+        par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
 
         shape = (par.T, par.N_a, par.N_s, par.N_k)
