@@ -1,5 +1,4 @@
-__pycache__/functions_njit.cpython-312.pyc
-__pycache__/jit_module.cpython-312.pyc
-__pycache__/model.cpython-312.pyc
-__pycache__/optimizers.cpython-312.pyc
-__pycache__/WelfareMeasures.cpython-312.pyc
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
