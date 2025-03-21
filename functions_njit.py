@@ -33,14 +33,14 @@ def wage(par, k, t):
 
 
 @jit_if_enabled(fastmath=True)
-def retirement_payment(par, a, s, t):
+def retirement_payment(par, a, s, retirement_age, t):
     base_payment = par.chi_base
 
     a_return = (par.r_a/(1+par.r_a)) * a
 
-    s_lr, s_rp = calculate_retirement_payouts(par, s, t)
+    s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
 
-    if t >= par.retirement_age + par.m:
+    if t >= retirement_age + par.m:
         income = s_lr + a_return
     else: 
         income = s_lr + s_rp + a_return
@@ -53,41 +53,36 @@ def retirement_payment(par, a, s, t):
 
 # 2. Value functions
 @jit_if_enabled(fastmath=True)
-def value_function_after_retirement(par, sol_V, c, a, s, t):
+def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
 
+    retirement_age_idx = retirement_age - 30
     hours = 0.0
-    V_next = sol_V[t+1,:,:,0]
+    V_next = sol_V[t+1, :, :, 0, retirement_age_idx]
     
-    s_lr, s_rp = calculate_retirement_payouts(par, s, t)
-    chi = retirement_payment(par, a, s, t)
+    s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
+    chi = retirement_payment(par, a, s, retirement_age, t)
 
-    if t >= par.retirement_age + par.m:
+    if t >= retirement_age + par.m:
         a_next = (1+par.r_a)*(a + s_lr + chi - c)
     else:
         a_next = (1+par.r_a)*(a + s_lr + s_rp + chi - c)
 
     s_next = s
     
-    EV_next = interp_2d(par.a_grid,par.s_grid, V_next, a_next, s_next)
+    EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
 
     return utility(par, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=True)
-def value_function_unemployed(par, sol_V, sol_EV, c, h, a, s, k, t):
+def value_function_unemployed(par, sol_V, sol_EV, c, h, a, s, k, retirement_age, t):
 
-    s_lr, s_rp = calculate_retirement_payouts(par, s, t)
-    chi = retirement_payment(par, a, s, t)
+    s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
+    chi = retirement_payment(par, a, s, retirement_age, t)
 
-    if t >= par.retirement_age:
-        a_next = (1+par.r_a)*(a + par.benefit + s_lr + s_rp - c)
-        s_next = s
-        k_next = (1-par.delta)*k 
-
-    else:
-        a_next = (1+par.r_a)*(a + par.benefit - c)
-        s_next = (1+par.r_s)*s
-        k_next = (1-par.delta)*k 
+    a_next = (1+par.r_a)*(a + par.benefit + s_lr + s_rp + chi - c)
+    s_next = s
+    k_next = (1-par.delta)*k 
 
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
 
@@ -97,18 +92,9 @@ def value_function_unemployed(par, sol_V, sol_EV, c, h, a, s, k, t):
 @jit_if_enabled(fastmath=True)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
-    s_lr, s_rp = calculate_retirement_payouts(par, s, t)
-    chi = retirement_payment(par, a, s, t)
-
-    if t >= par.retirement_age:
-        a_next = (1+par.r_a)*(a + (1-par.tau[t])*h*wage(par, k, t) + chi + s_lr + s_rp - c)
-        s_next = s
-        k_next = (1-par.delta)*k
-
-    else:
-        a_next = (1+par.r_a)*(a + (1-par.tau[t])*h*wage(par, k, t) - c)
-        s_next = (1+par.r_s)*(s + par.tau[t]*h*wage(par, k, t))
-        k_next = ((1-par.delta)*k + h)
+    a_next = (1+par.r_a)*(a + (1-par.tau[t])*h*wage(par, k, t) - c)
+    s_next = (1+par.r_s)*(s + par.tau[t]*h*wage(par, k, t))
+    k_next = ((1-par.delta)*k + h)
 
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
 
@@ -116,11 +102,11 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
 
 @jit_if_enabled(fastmath=True)
-def value_last_period(par, c, a, s, t):
+def value_last_period(par, c, a, s, retirement_age, t):
     h = 0.0
 
-    s_lr, _ = calculate_retirement_payouts(par, s, t)
-    chi = retirement_payment(par, a, s, t)
+    s_lr, _ = calculate_retirement_payouts(par, s, retirement_age, t)
+    chi = retirement_payment(par, a, s, retirement_age, t)
 
     a_next = (1+par.r_a)*(a + chi + s_lr - c)
 
@@ -129,18 +115,18 @@ def value_last_period(par, c, a, s, t):
 
 # 3. Helper functions in solving and optimizing
 @jit_if_enabled(fastmath=True)
-def budget_constraint(par, h, a, s, k, ex, t):
+def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
 
-    chi = retirement_payment(par, a, s, t)
-    s_lr, s_rp = calculate_retirement_payouts(par, s, t)
+    chi = retirement_payment(par, a, s, retirement_age, t)
+    s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
 
-    if t >= par.retirement_age + par.m:
+    if t >= retirement_age + par.m:
         return par.c_min, max(par.c_min*2, a + chi + s_lr)
         
-    elif t >= par.retirement_age + 5:
+    elif t > retirement_age:
         return par.c_min, max(par.c_min*2, a + chi + s_lr + s_rp)
     
-    elif t >= par.retirement_age:
+    elif t == retirement_age:
         if ex==0:
             return par.c_min, max(par.c_min*2, a + chi + s_lr + s_rp)
         else:
@@ -154,9 +140,9 @@ def budget_constraint(par, h, a, s, k, ex, t):
 
 
 @jit_if_enabled(fastmath=True)
-def precompute_EV_next(par, sol_V, t):
+def precompute_EV_next(par, sol_V, retirement_idx, t):
 
-    V_next = sol_V[t+1]
+    V_next = sol_V[t+1, :, :, :, retirement_idx]
 
     EV = np.zeros((len(par.a_grid), len(par.s_grid), len(par.k_grid)))
 
@@ -176,8 +162,8 @@ def precompute_EV_next(par, sol_V, t):
 
 
 @jit_if_enabled(fastmath=True)
-def calculate_retirement_payouts(par, savings, t):
-    if t >= par.retirement_age + par.m:
+def calculate_retirement_payouts(par, savings, retirement_age, t):
+    if t >= retirement_age + par.m:
         s_retirement = savings
         s_lr = par.share_lr * (s_retirement/par.EL) 
 
@@ -191,9 +177,9 @@ def calculate_retirement_payouts(par, savings, t):
         return s_lr, s_rp
 
 @jit_if_enabled(fastmath=True)
-def calculate_last_period_consumption(par, assets, savings, t):
-    chi = retirement_payment(par, assets, savings, t)
-    s_lr, _ = calculate_retirement_payouts(par, savings, t)
+def calculate_last_period_consumption(par, assets, savings, retirement_age, t):
+    chi = retirement_payment(par, assets, savings, retirement_age, t)
+    s_lr, _ = calculate_retirement_payouts(par, savings, retirement_age, t)
 
     if par.mu != 0.0:
         # With bequest motive
@@ -218,15 +204,16 @@ def obj_consumption_unemployed(c, par, sol_V, sol_EV, h, a, s, k, t):
 
 
 @jit_if_enabled()
-def obj_consumption_after_retirement(c, par, sol_V, a, s, t):
-    return -value_function_after_retirement(par, sol_V, c, a, s, t)
+def obj_consumption_after_retirement(c, par, sol_V, a, s, retirement_age, t):
+    return -value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t)
 
 
 
 @jit_if_enabled(fastmath=True)
 def obj_hours(h, par, sol_V, sol_EV, a, s, k, ex, t, dist):
 
-    bc_min, bc_max = budget_constraint(par, h, a, s, k, ex, t)
+    retirement_age = np.nan
+    bc_min, bc_max = budget_constraint(par, h, a, s, k, retirement_age, ex, t)
     
     c_star = optimizer(
         obj_consumption,     
@@ -246,7 +233,7 @@ def obj_hours(h, par, sol_V, sol_EV, a, s, k, ex, t, dist):
 @jit_if_enabled(parallel=True)
 def main_solver_loop(par, sol, do_print = False):
 
-    human_capital_place, hours_place, ex_place = 0, 0, 0
+    human_capital_place, hours_place, ex_place = 0.0, 0.0, 0.0
 
     sol_a = sol.a
     sol_ex = sol.ex
@@ -259,96 +246,115 @@ def main_solver_loop(par, sol, do_print = False):
         if do_print:
             print(f"We are in t = {t}")
 
-        if t < par.retirement_age + 5:
-            sol_EV = precompute_EV_next(par, sol_V, t)
+        for retirement_age_idx, retirement_age in enumerate(np.arange(30, min(40, t))):
 
-        for a_idx in prange(len(par.a_grid)):
-            assets = par.a_grid[a_idx]
+            if t < retirement_age:
+                sol_EV = precompute_EV_next(par, sol_V, retirement_age_idx, t)
 
-            for s_idx in range(len(par.s_grid)):
-                savings = par.s_grid[s_idx]
+            for a_idx in prange(len(par.a_grid)):
+                assets = par.a_grid[a_idx]
 
-                for k_idx in range(len(par.k_grid)):
-                    human_capital = par.k_grid[k_idx]
+                for s_idx in range(len(par.s_grid)):
+                    savings = par.s_grid[s_idx]
 
-                    idx = (t, a_idx, s_idx, k_idx)
-                    
-                    if t == par.T - 1: # Last period
+                    for k_idx in range(len(par.k_grid)):
+                        human_capital = par.k_grid[k_idx]
 
-                        sol_c[idx] = calculate_last_period_consumption(par, assets, savings, t)
-                        sol_ex[idx] = ex_place
-                        sol_h[idx] = hours_place
-                        sol_V[idx] = value_last_period(par, sol_c[idx], assets, savings, t)
+                        idx = (t, a_idx, s_idx, k_idx, retirement_age_idx)
+                        idx_next = (t+1, a_idx, s_idx, k_idx, retirement_age_idx)
+                        
+                        if t == par.T - 1: # Last period
 
+                            sol_c[idx] = calculate_last_period_consumption(par, assets, savings, retirement_age, t)
+                            sol_ex[idx] = ex_place
+                            sol_h[idx] = hours_place
+                            sol_V[idx] = value_last_period(par, sol_c[idx], assets, savings, retirement_age, t)
 
-                    elif t >= par.retirement_age + 5: # After retirement age, with "ratepension"
+                        elif t > retirement_age: # After retirement age, with "ratepension"
 
-                        bc_min, bc_max = budget_constraint(par, hours_place, assets, savings, human_capital_place, ex_place, t)
+                            bc_min, bc_max = budget_constraint(par, hours_place, assets, savings, human_capital_place, retirement_age, ex_place, t)
 
-                        c_star = optimizer(
-                            obj_consumption_after_retirement,
-                            bc_min,
-                            bc_max,
-                            args=(par, sol_V, assets, savings, t),
-                            tol=par.opt_tol
-                        )
+                            c_star = optimizer(
+                                obj_consumption_after_retirement,
+                                bc_min,
+                                bc_max,
+                                args=(par, sol_V, assets, savings, retirement_age, t),
+                                tol=par.opt_tol
+                            )
 
-                        sol_c[idx] = c_star
-                        sol_ex[idx] = ex_place
-                        sol_h[idx] = hours_place
-                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star, assets, savings, t)
+                            sol_c[idx] = c_star
+                            sol_ex[idx] = ex_place
+                            sol_h[idx] = hours_place
+                            sol_V[idx] = value_function_after_retirement(par, sol_V, c_star, assets, savings, retirement_age, t)
 
+                        elif t == retirement_age and sol_ex[idx_next] == 0.0:  
+                            for ex in (0, 1):
+                                if ex == 0.0: # Unemployed
+                                    h_unemployed = 0.0
+                                    bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, retirement_age, ex, t)
 
-                    else: # Before retirement age
-                        for ex in (0, 1):
-                            if ex== 0: # Unemployed
-                                h_unemployed = 0.0
-                                bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, ex, t)
+                                    c_star_u = optimizer(
+                                        obj_consumption_after_retirement,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, assets, savings, retirement_age, t),
+                                        tol=par.opt_tol
+                                    )
 
-                                c_star_u = optimizer(
-                                    obj_consumption_unemployed,
-                                    bc_min,
-                                    bc_max,
-                                    args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
-                                    tol=par.opt_tol
-                                )
+                                    V_unemployed = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, retirement_age, t)
+                                    sol_c_un[idx]  = c_star_u
+                                    
+                                if ex== 1: # Employed
+                                    h_star = optimize_outer(
+                                        obj_hours,       
+                                        par.h_min,
+                                        par.h_max,
+                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, ex, t),
+                                        tol=par.opt_tol
+                                    )
 
-                                V_unemployed = value_function_unemployed(par, sol_V, sol_EV, c_star_u, h_unemployed, assets, savings, human_capital, t)
-                                sol_c_un[idx]  = c_star_u
-                                
-                            if ex== 1: # Employed
-                                h_star = optimize_outer(
-                                    obj_hours,       
-                                    par.h_min,
-                                    par.h_max,
-                                    args=(par, sol_V, sol_EV, assets, savings, human_capital, ex, t),
-                                    tol=par.opt_tol
-                                )
+                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, retirement_age, ex, t)
+                                    c_star = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                        tol=par.opt_tol
+                                    )
 
-                                bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, ex, t)
-                                c_star = optimizer(
-                                    obj_consumption,
-                                    bc_min,
-                                    bc_max,
-                                    args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
-                                    tol=par.opt_tol
-                                )
+                                    V_employed = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                    sol_c[idx]  = c_star
+                                    sol_h[idx]  = h_star
 
-                                V_employed = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
-                                sol_c[idx]  = c_star
-                                sol_h[idx]  = h_star
+                                    if V_unemployed > V_employed:
+                                        sol_V[idx]  = V_unemployed
+                                        sol_ex[idx] = 0.0
+                                    else:
+                                        sol_V[idx]  = V_employed
+                                        sol_ex[idx] = 1.0
 
-                                if V_unemployed > V_employed:
-                                    sol_V[idx]  = V_unemployed
-                                    sol_ex[idx] = 0
-                                else:
-                                    sol_V[idx]  = V_employed
-                                    sol_ex[idx] = 1
+                        else:
+                            h_star = optimize_outer(
+                                obj_hours,       
+                                par.h_min,
+                                par.h_max,
+                                args=(par, sol_V, sol_EV, assets, savings, human_capital, ex, t),
+                                tol=par.opt_tol
+                            )
 
-                    # Print if any sol_V is nan
-                    # if np.isnan(sol_V[idx]):
-                    #     print(f"NaN value at t={t}, a={assets}, s={savings}, k={human_capital}, ex={ex_place}")
-                    #     assert False
+                            bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, retirement_age, ex, t)
+                            c_star = optimizer(
+                                obj_consumption,
+                                bc_min,
+                                bc_max,
+                                args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                tol=par.opt_tol
+                            )
+
+                            sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                            sol_c[idx]  = c_star
+                            sol_h[idx]  = h_star
+
 
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 

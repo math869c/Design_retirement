@@ -121,31 +121,10 @@ class ModelClass(EconModelClass):
         par.simT = par.T
 
         par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, par.a_sp)
-        # par.s_grid = [
-        #     nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp) if t < par.retirement_age 
-        #     else nonlinspace(par.s_min, 
-        #                     par.s_max 
-        #                     - (par.s_max/par.m) * (t - par.retirement_age) * (1-par.share_lr)
-        #                     - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr, 
-        #                     par.N_s, par.s_sp) 
-        #                     if par.retirement_age <= t < par.retirement_age + par.m
-        #     else nonlinspace(par.s_min, 
-        #                     par.s_max
-        #                     - (par.s_max/par.m) * (par.m) * (1-par.share_lr)
-        #                     - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr, 
-        #                     par.N_s, par.s_sp) 
-        #                     if par.retirement_age + par.m <= t < par.retirement_age + par.EL
-        #     else -nonlinspace(par.s_min,
-        #                     - (par.s_max
-        #                     - (par.s_max/par.m) * (par.m) * (1-par.share_lr)
-        #                     - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr), 
-        #                     par.N_s, par.s_sp) 
-        #     for t in range(par.T)
-        # ]
         par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
 
-        shape = (par.T, par.N_a, par.N_s, par.N_k)
+        shape = (par.T, par.N_a, par.N_s, par.N_k, 10)
         sol.a = np.nan + np.zeros(shape)
         sol.ex = np.nan + np.zeros(shape)
         sol.c = np.nan + np.zeros(shape)
