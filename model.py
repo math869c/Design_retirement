@@ -92,9 +92,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 1
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 2_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 2_000_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 30
+        par.N_a, par.a_sp, par.a_min, par.a_max = 3, 1.0, 0.1, 2_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 3, 1.0, 0.0, 2_000_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 3, 1.0, 0.0, 30
 
         par.h_min  = 0.19
         par.h_max  = 1.2

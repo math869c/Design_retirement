@@ -58,6 +58,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
     retirement_age_idx = retirement_age - 30
     hours = 0.0
     V_next = sol_V[t+1, :, :, 0, retirement_age_idx]
+    print("Vnext inside function", V_next)
     
     s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
     chi = retirement_payment(par, a, s, retirement_age, t)
@@ -72,21 +73,6 @@ def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
     EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
 
     return utility(par, c, hours) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
-
-
-@jit_if_enabled(fastmath=True)
-def value_function_unemployed(par, sol_V, sol_EV, c, h, a, s, k, retirement_age, t):
-
-    s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
-    chi = retirement_payment(par, a, s, retirement_age, t)
-
-    a_next = (1+par.r_a)*(a + par.benefit + s_lr + s_rp + chi - c)
-    s_next = s
-    k_next = (1-par.delta)*k 
-
-    EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
-
-    return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=True)
@@ -198,11 +184,6 @@ def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, t):
     return -value_function(par, sol_V, sol_EV, c, h, a, s, k, t)
 
 
-@jit_if_enabled(fastmath=True)
-def obj_consumption_unemployed(c, par, sol_V, sol_EV, h, a, s, k, t):
-    return -value_function_unemployed(par, sol_V, sol_EV, c, h, a, s, k, t)
-
-
 @jit_if_enabled()
 def obj_consumption_after_retirement(c, par, sol_V, a, s, retirement_age, t):
     return -value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t)
@@ -210,9 +191,8 @@ def obj_consumption_after_retirement(c, par, sol_V, a, s, retirement_age, t):
 
 
 @jit_if_enabled(fastmath=True)
-def obj_hours(h, par, sol_V, sol_EV, a, s, k, ex, t, dist):
+def obj_hours(h, par, sol_V, sol_EV, a, s, k, retirement_age, ex, t, dist):
 
-    retirement_age = np.nan
     bc_min, bc_max = budget_constraint(par, h, a, s, k, retirement_age, ex, t)
     
     c_star = optimizer(
@@ -246,9 +226,12 @@ def main_solver_loop(par, sol, do_print = False):
         if do_print:
             print(f"We are in t = {t}")
 
-        for retirement_age_idx, retirement_age in enumerate(np.arange(30, min(40, t))):
 
-            if t < retirement_age:
+        retirement_ages = np.arange(30, min(40, t + 1)) if t >= 31 else np.arange(30, 31)
+
+        for retirement_age_idx, retirement_age in enumerate(retirement_ages):
+
+            if t <= retirement_age:
                 sol_EV = precompute_EV_next(par, sol_V, retirement_age_idx, t)
 
             for a_idx in prange(len(par.a_grid)):
@@ -286,6 +269,7 @@ def main_solver_loop(par, sol, do_print = False):
                             sol_ex[idx] = ex_place
                             sol_h[idx] = hours_place
                             sol_V[idx] = value_function_after_retirement(par, sol_V, c_star, assets, savings, retirement_age, t)
+                   
 
                         elif t == retirement_age and sol_ex[idx_next] == 0.0:  
                             for ex in (0, 1):
@@ -309,7 +293,7 @@ def main_solver_loop(par, sol, do_print = False):
                                         obj_hours,       
                                         par.h_min,
                                         par.h_max,
-                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, ex, t),
+                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, retirement_age, ex, t),
                                         tol=par.opt_tol
                                     )
 
@@ -333,12 +317,14 @@ def main_solver_loop(par, sol, do_print = False):
                                         sol_V[idx]  = V_employed
                                         sol_ex[idx] = 1.0
 
+                                    print(idx, sol_V[idx])
+
                         else:
                             h_star = optimize_outer(
                                 obj_hours,       
                                 par.h_min,
                                 par.h_max,
-                                args=(par, sol_V, sol_EV, assets, savings, human_capital, ex, t),
+                                args=(par, sol_V, sol_EV, assets, savings, human_capital, retirement_age, ex, t),
                                 tol=par.opt_tol
                             )
 
@@ -351,10 +337,10 @@ def main_solver_loop(par, sol, do_print = False):
                                 tol=par.opt_tol
                             )
 
+                            sol_ex[idx] = 1.0
                             sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
                             sol_c[idx]  = c_star
                             sol_h[idx]  = h_star
-
 
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 
