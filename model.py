@@ -10,6 +10,7 @@ from optimizers import interp_3d_vec
 from consav.quadrature import log_normal_gauss_hermite
 
 from scipy.optimize import root_scalar
+from help_functions_non_njit import draw_initial_values
 
 
 class ModelClass(EconModelClass):
@@ -55,7 +56,7 @@ class ModelClass(EconModelClass):
         par.delta  = 0.056530
         par.beta_1 = 0.034810
         par.beta_2 = -0.000227
-        par.w_0             = 208.682235                           
+        par.w_0             = 156.600466                           
         par.full_time_hours = 1924.0
         par.work_cost       = 1.000          # Skal kalibreres
         
@@ -121,27 +122,7 @@ class ModelClass(EconModelClass):
         par.simT = par.T
 
         par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, par.a_sp)
-        # par.s_grid = [
-        #     nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp) if t < par.retirement_age 
-        #     else nonlinspace(par.s_min, 
-        #                     par.s_max 
-        #                     - (par.s_max/par.m) * (t - par.retirement_age) * (1-par.share_lr)
-        #                     - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr, 
-        #                     par.N_s, par.s_sp) 
-        #                     if par.retirement_age <= t < par.retirement_age + par.m
-        #     else nonlinspace(par.s_min, 
-        #                     par.s_max
-        #                     - (par.s_max/par.m) * (par.m) * (1-par.share_lr)
-        #                     - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr, 
-        #                     par.N_s, par.s_sp) 
-        #                     if par.retirement_age + par.m <= t < par.retirement_age + par.EL
-        #     else -nonlinspace(par.s_min,
-        #                     - (par.s_max
-        #                     - (par.s_max/par.m) * (par.m) * (1-par.share_lr)
-        #                     - (par.s_max/par.EL) * (t - par.retirement_age) * par.share_lr), 
-        #                     par.N_s, par.s_sp) 
-        #     for t in range(par.T)
-        # ]
+
         par.s_grid = [
             nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
             for t in range(par.T)
@@ -181,10 +162,9 @@ class ModelClass(EconModelClass):
 
 
         # e. initialization
-        sim.a_init = np.ones(par.simN)*par.H*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
-        sim.s_init = np.ones(par.simN)* par.s_init
-        sim.k_init = np.zeros(par.simN)
-        sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
+        sim.a_init, sim.s_init,sim.w_init = draw_initial_values(par.simN)
+        sim.k_init = np.log(sim.w_init)
+        # sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
         sim.s_lr_init = np.zeros(par.simN)
         sim.s_rp_init = np.zeros(par.simN)
         sim.replacement_rate = np.zeros(par.simN)
