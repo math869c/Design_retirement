@@ -58,8 +58,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
     retirement_age_idx = retirement_age - 30
     hours = 0.0
     V_next = sol_V[t+1, :, :, 0, retirement_age_idx]
-    print("Vnext inside function", V_next)
-    
+
     s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
     chi = retirement_payment(par, a, s, retirement_age, t)
 
@@ -85,6 +84,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
 
     return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+
 
 
 @jit_if_enabled(fastmath=True)
@@ -116,11 +116,11 @@ def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
         if ex==0:
             return par.c_min, max(par.c_min*2, a + chi + s_lr + s_rp)
         else:
-            return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t) + chi + s_lr + s_rp)
+            return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t))
 
     else:
         if ex==0:
-            return par.c_min, max(par.c_min*2, a + par.benefit )
+            return par.c_min, max(par.c_min*2, a + par.benefit)
         else:
             return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t))
 
@@ -227,7 +227,7 @@ def main_solver_loop(par, sol, do_print = False):
             print(f"We are in t = {t}")
 
 
-        retirement_ages = np.arange(30, min(40, t + 1)) if t >= 31 else np.arange(30, 31)
+        retirement_ages = np.arange(30, min(41, t + 1)) if t >= 31 else np.arange(30, 31)
 
         for retirement_age_idx, retirement_age in enumerate(retirement_ages):
 
@@ -287,7 +287,7 @@ def main_solver_loop(par, sol, do_print = False):
 
                                     V_unemployed = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, retirement_age, t)
                                     sol_c_un[idx]  = c_star_u
-                                    
+
                                 if ex== 1: # Employed
                                     h_star = optimize_outer(
                                         obj_hours,       
@@ -307,6 +307,7 @@ def main_solver_loop(par, sol, do_print = False):
                                     )
 
                                     V_employed = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+
                                     sol_c[idx]  = c_star
                                     sol_h[idx]  = h_star
 
@@ -316,8 +317,6 @@ def main_solver_loop(par, sol, do_print = False):
                                     else:
                                         sol_V[idx]  = V_employed
                                         sol_ex[idx] = 1.0
-
-                                    print(idx, sol_V[idx])
 
                         else:
                             h_star = optimize_outer(
@@ -359,6 +358,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_s_init = sim.s_init
     sim_k_init = sim.k_init
     sim_xi = sim.xi
+    s_retirement = sim.s_retirement
+    retirement_age = sim.retirement_age
     sim_s_lr_init = sim.s_lr_init
     sim_s_rp_init = sim.s_rp_init
     sim_chi_payment = sim.chi_payment
@@ -376,84 +377,82 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     for t in range(par.simT):
 
         # ii. interpolate optimal consumption and hours
-        if t == par.retirement_age:
-            s_retirement = sim_s[:,t]
-
-            sim_s_lr_init[:] = (s_retirement/par.EL) * par.share_lr
-            sim_s_rp_init[:] = (s_retirement/par.m) * (1-par.share_lr)
-    
-        if t < par.retirement_age:
-            interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol_ex[t], sim_a[:,t], sim_s[:,t], sim_k[:,t], sim_ex[:,t])
-            sim_ex[:,t] = np.maximum(0, np.round(sim_ex[:,t]))
-
+        if t < 30:
             for i in prange(par.simN):
-                if sim_ex[i,t] == 0: 
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c_un[t], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                sim_w[i,t] = wage(par, sim_k[i,t], t)
+                sim_ex[i,t] = 1.0
+            
+                sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] - sim_c[i,t])
+                sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + par.tau[t]*sim_h[i,t]*sim_w[i,t])
+                sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]
+
+        elif t <= 40:
+            for i in prange(par.simN):
+                if sim_ex[i,t-1] == 1.0:
+                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,t-30], sim_a[i,t], sim_s[i,t], sim_k[i,t]) 
+                    sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                else:
+                    sim_ex[i,t] = 0.0
+
+                if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == 40): 
+                    retirement_age[i] = t - 30
+                    s_retirement[i] = sim_s[i,t]
+                    sim_s_lr_init[i] = (s_retirement[i]/par.EL) * par.share_lr
+                    sim_s_rp_init[i] = (s_retirement[i]/par.m) * (1-par.share_lr)
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
+
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c_un[t,:,:,:,int(retirement_age[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                     sim_h[i,t] = 0.0
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
 
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] +par.benefit - sim_c[i,t])
-                    sim_s[i,t+1] = (1+par.r_s)*sim_s[i,t]
+                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
+                    sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
+                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
+
+                elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,int(retirement_age[i])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_h[i,t] = 0.0
+                    sim_w[i,t] = wage(par, sim_k[i,t], t)
+
+                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
+                    sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 else: 
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
                 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + par.tau[t]*sim_h[i,t]*sim_w[i,t])
-                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]
+                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]          
 
-
-        # iii. store next-period states
-        elif t < par.retirement_age + 5:
-
-            interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol_ex[t], sim_a[:,t], s_retirement, sim_k[:,t], sim_ex[:,t])
-            sim_ex[:,t] = np.maximum(0, np.round(sim_ex[:,t]))
+        elif t > 40:
+            sim_ex[:,t] = 0.0
 
             for i in prange(par.simN):
-                if sim_ex[i,t] == 0: 
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c_un[t], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_h[i,t] = 0.0
-                    sim_w[i,t] = wage(par, sim_k[i,t], t)
+                sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,int(retirement_age[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,int(retirement_age[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])   
 
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] - sim_c[i,t])
+                if t < retirement_age[i] + par.m: 
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
+                    sim_w[i,t] = wage(par, sim_k[i,t], t)
+                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
-                else: 
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                elif par.T - 1 > t >= retirement_age[i] + par.m:
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
-                
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] - sim_c[i,t])
-                    sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
-                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]
-
-        else:
-            interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol_c[t], sim_a[:,t], s_retirement, sim_k[:,t], sim_c[:,t])
-            interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol_h[t], sim_a[:,t], s_retirement, sim_k[:,t], sim_h[:,t])
-            interp_3d_vec(par.a_grid, par.s_grid, par.k_grid, sol_ex[t], sim_a[:,t], s_retirement, sim_k[:,t], sim_ex[:,t])
-            sim_ex[:,t] = np.maximum(0, np.round(sim_ex[:,t]))
-
-            if par.retirement_age + 5 <= t < par.retirement_age + par.m: 
-                sim_chi_payment[:,t] = retirement_payment(par, sim_a[:,t], sim_s[:,t], t)
-                sim_w[:,t] = wage(par, sim_k[:,t], t)
-                sim_a[:,t+1] = (1+par.r_a)*(sim_a[:,t] + sim_s_lr_init[:] + sim_s_rp_init[:] + sim_chi_payment[:,t] - sim_c[:,t])
-                sim_s[:,t+1] = sim_s[:,t] - (sim_s_lr_init[:] + sim_s_rp_init[:])
-                sim_k[:,t+1] = ((1-par.delta)*sim_k[:,t])*sim_xi[:,t]
-
-            
-            elif par.retirement_age + par.m <= t < par.T-1:
-                sim_chi_payment[:,t] = retirement_payment(par, sim_a[:,t], sim_s[:,t], t)
-                sim_w[:,t] = wage(par, sim_k[:,t], t)
-                sim_a[:,t+1] = (1+par.r_a)*(sim_a[:,t] + sim_s_lr_init[:] + sim_chi_payment[:,t] - sim_c[:,t])
-                sim_s[:,t+1] = sim_s[:,t] - sim_s_lr_init[:]
-                sim_k[:,t+1] = ((1-par.delta)*sim_k[:,t])*sim_xi[:,t]
-                
-            else:
-                sim_w[:,t] = wage(par, sim_k[:,t], t)
+                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
+                    sim_s[i,t+1] = sim_s[i,t] - sim_s_lr_init[i]
+                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
+                    
+                else:
+                    sim_w[i,t] = wage(par, sim_k[i,t], t)
 
 
     return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_chi_payment

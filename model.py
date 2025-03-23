@@ -124,7 +124,7 @@ class ModelClass(EconModelClass):
         par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
 
-        shape = (par.T, par.N_a, par.N_s, par.N_k, 10)
+        shape = (par.T, par.N_a, par.N_s, par.N_k, 11)
         sol.a = np.nan + np.zeros(shape)
         sol.ex = np.nan + np.zeros(shape)
         sol.c = np.nan + np.zeros(shape)
@@ -161,6 +161,8 @@ class ModelClass(EconModelClass):
         sim.s_init = np.ones(par.simN)* par.s_init
         sim.k_init = np.zeros(par.simN)
         sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
+        sim.s_retirement = np.zeros(par.simN)
+        sim.retirement_age = np.zeros(par.simN)
         sim.s_lr_init = np.zeros(par.simN)
         sim.s_rp_init = np.zeros(par.simN)
         sim.replacement_rate = np.zeros(par.simN)
