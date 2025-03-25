@@ -85,7 +85,7 @@ class ModelClass(EconModelClass):
         par.pi =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
         par.pi[-1] = 0.0
         par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
-        par.pi = np.ones_like(par.pi)
+        # par.pi = np.ones_like(par.pi)
  
 
         # welfare measurements 
