@@ -83,9 +83,10 @@ class ModelClass(EconModelClass):
         df = pd.read_csv('Data/overlevelses_ssh.csv')
 
         par.pi =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
-        par.pi = np.ones_like(par.pi)
-        # par.pi[-1] = 0.0
+        par.pi[-1] = 0.0
         par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
+        par.pi = np.ones_like(par.pi)
+ 
 
         # welfare measurements 
         par.replacement_rate_bf_start = 10
@@ -93,9 +94,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 1
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 50, 1.0, 0.1, 3_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 50, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 50, 1.0, 0.0, 30
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 3_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 1_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 30
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -105,7 +106,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 1
+        par.N_xi = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
@@ -171,6 +172,7 @@ class ModelClass(EconModelClass):
         sim.s_rp_init = np.zeros(par.simN)
         sim.replacement_rate = np.zeros(par.simN)
         sim.consumption_replacement_rate = np.zeros(par.simN)
+        sim.income = np.zeros(par.simN)
             
 
 

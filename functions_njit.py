@@ -31,24 +31,32 @@ def bequest(par, a):
 def wage(par, k, t):
     return (1-par.upsilon)*par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*t**2)
 
-
 @jit_if_enabled(fastmath=True)
-def retirement_payment(par, a, s, retirement_age, t):
-    base_payment = par.chi_base
-
+def income_fct(par, a, s, k, h, retirement_age, t):
     a_return = (par.r_a/(1+par.r_a)) * a
 
     s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
 
     if t >= retirement_age + par.m:
-        income = s_lr + a_return
-    else: 
-        income = s_lr + s_rp + a_return
+        return s_lr + a_return
+    elif retirement_age <= t<retirement_age + par.m: 
+        return s_lr + s_rp + a_return
+    else:
+        return (1-par.tau[t])*h*wage(par, k, t)  + a_return
+
+
+
+@jit_if_enabled(fastmath=True)
+def retirement_payment(par, income, t):
+    base_payment = par.chi_base
 
     exceed = np.maximum(0, income - par.chi_max)
     extra_pension = np.maximum(0, par.chi_extra_start - exceed*par.rho)
 
-    return (1-par.upsilon)*(base_payment + extra_pension)
+    if t >= par.retirement_age:
+        return (1-par.upsilon)*(base_payment + extra_pension)
+    else:
+        return 0.0
 
 
 # 2. Value functions
@@ -59,8 +67,10 @@ def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
     hours = 0.0
     V_next = sol_V[t+1, :, :, 0, retirement_age_idx]
 
+    income = income_fct(par, a, s, 0.0, 0.0, retirement_age, t)
+
     s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
-    chi = retirement_payment(par, a, s, retirement_age, t)
+    chi = retirement_payment(par, income, t)
 
     if t >= retirement_age + par.m:
         a_next = (1+par.r_a)*(a + s_lr + chi - c)
@@ -92,7 +102,9 @@ def value_last_period(par, c, a, s, retirement_age, t):
     h = 0.0
 
     s_lr, _ = calculate_retirement_payouts(par, s, retirement_age, t)
-    chi = retirement_payment(par, a, s, retirement_age, t)
+    
+    income = income_fct(par, a, s, 0.0, 0.0, retirement_age, t)
+    chi = retirement_payment(par, income, t)
 
     a_next = (1+par.r_a)*(a + chi + s_lr - c)
 
@@ -103,7 +115,8 @@ def value_last_period(par, c, a, s, retirement_age, t):
 @jit_if_enabled(fastmath=True)
 def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
 
-    chi = retirement_payment(par, a, s, retirement_age, t)
+    income = income_fct(par, a, s, k, h, retirement_age, t)
+    chi = retirement_payment(par, income, t)
     s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
 
     if t >= retirement_age + par.m:
@@ -116,10 +129,10 @@ def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
         if ex==0:
             return par.c_min, max(par.c_min*2, a + chi + s_lr + s_rp)
         else:
-            return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t))
+            return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t) + chi)
 
     else:
-        return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t))
+        return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t) + chi)
 
 
 @jit_if_enabled(fastmath=True)
@@ -160,19 +173,20 @@ def calculate_retirement_payouts(par, savings, retirement_age, t):
         return s_lr, s_rp
 
 @jit_if_enabled(fastmath=True)
-def calculate_last_period_consumption(par, assets, savings, retirement_age, t):
-    chi = retirement_payment(par, assets, savings, retirement_age, t)
-    s_lr, _ = calculate_retirement_payouts(par, savings, retirement_age, t)
+def calculate_last_period_consumption(par, a, s, retirement_age, t):
+    income = income_fct(par, a, s, 0.0, 0.0, retirement_age, t)
+    chi = retirement_payment(par, income, t)
+    s_lr, _ = calculate_retirement_payouts(par, s, retirement_age, t)
 
     if par.mu != 0.0:
         # With bequest motive
         return max(((1/(1+(par.mu*(1+par.r_a))**(-1/par.sigma)*(1+par.r_a))) 
                     * (par.mu*(1+par.r_a))**(-1/par.sigma) 
-                    * ((1+par.r_a)*(assets+chi+s_lr)+par.a_bar)), 0)
+                    * ((1+par.r_a)*(a+chi+s_lr)+par.a_bar)), 0)
     
     else: 
         # No bequest motive
-        return (assets + chi + s_lr)
+        return (a + chi + s_lr)
 
 
 # 4. Objective functions 
@@ -355,6 +369,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_a_init = sim.a_init
     sim_s_init = sim.s_init
     sim_k_init = sim.k_init
+    sim_income = sim.income
     sim_xi = sim.xi
     s_retirement = sim.s_retirement
     retirement_age = sim.retirement_age
@@ -401,10 +416,11 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     s_retirement[i] = sim_s[i,t]
                     sim_s_lr_init[i] = (s_retirement[i]/par.EL) * par.share_lr
                     sim_s_rp_init[i] = (s_retirement[i]/par.m) * (1-par.share_lr)
-                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
+                    sim_h[i,t] = 0.0
+                    sim_income[i] = income_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_income[i], t)
 
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c_un[t,:,:,:,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_h[i,t] = 0.0
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
@@ -412,9 +428,10 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
-                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
-                    sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i])
                     sim_h[i,t] = 0.0
+                    sim_income[i] = income_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_income[i], t)
+                    sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i])
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
@@ -422,11 +439,12 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 else: 
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,t-30], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,t-30], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_income[i] = income_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_income[i], t)
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,t-30], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
-                
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] - sim_c[i,t])
+                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + par.tau[t]*sim_h[i,t]*sim_w[i,t])
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]          
 
@@ -438,14 +456,16 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 sim_h[i,t] = 0.0
 
                 if t < retirement_age[i] + par.m: 
-                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
+                    sim_income[i] = income_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_income[i], t)
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 elif par.T - 1 > t >= retirement_age[i] + par.m:
-                    sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
+                    sim_income[i] = income_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_chi_payment[i,t] = retirement_payment(par, sim_income[i], t)
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = sim_s[i,t] - sim_s_lr_init[i]
