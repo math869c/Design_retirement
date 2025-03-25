@@ -33,7 +33,7 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
                
         # Preferences
-        par.beta   = 0.99594784    # Skal kalibreres
+        par.beta   = 1.0    # Skal kalibreres
         par.sigma  = 1.23151331     # Skal kalibreres
         par.gamma  = 4.738944       # Skal kalibreres
         par.mu     = 7.56180656     # Skal kalibreres
@@ -83,7 +83,8 @@ class ModelClass(EconModelClass):
         df = pd.read_csv('Data/overlevelses_ssh.csv')
 
         par.pi =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
-        par.pi[-1] = 0.0
+        par.pi = np.ones_like(par.pi)
+        # par.pi[-1] = 0.0
         par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
 
         # welfare measurements 
@@ -92,9 +93,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 1
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 3, 1.0, 0.1, 2_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 3, 1.0, 0.0, 2_000_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 3, 1.0, 0.0, 30
+        par.N_a, par.a_sp, par.a_min, par.a_max = 50, 1.0, 0.1, 3_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 50, 1.0, 0.0, 1_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 50, 1.0, 0.0, 30
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -104,12 +105,12 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi = 0.1
-        par.N_xi = 10
+        par.N_xi = 1
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 10 # number of individuals
+        par.simN = 10000 # number of individuals
 
 
     def allocate(self):
@@ -131,6 +132,8 @@ class ModelClass(EconModelClass):
         sol.c_un = np.nan + np.zeros(shape)
         sol.h = np.nan + np.zeros(shape)
         sol.V = np.nan + np.zeros(shape)
+        sol.V_employed = np.nan + np.zeros(shape)
+        sol.V_unemployed = np.nan + np.zeros(shape)
 
         self.allocate_sim()
 
@@ -163,6 +166,7 @@ class ModelClass(EconModelClass):
         sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
         sim.s_retirement = np.zeros(par.simN)
         sim.retirement_age = np.zeros(par.simN)
+        sim.retirement_age_idx = np.zeros(par.simN)
         sim.s_lr_init = np.zeros(par.simN)
         sim.s_rp_init = np.zeros(par.simN)
         sim.replacement_rate = np.zeros(par.simN)

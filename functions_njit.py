@@ -119,10 +119,7 @@ def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
             return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t))
 
     else:
-        if ex==0:
-            return par.c_min, max(par.c_min*2, a + par.benefit)
-        else:
-            return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t))
+        return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t))
 
 
 @jit_if_enabled(fastmath=True)
@@ -221,6 +218,8 @@ def main_solver_loop(par, sol, do_print = False):
     sol_c_un = sol.c_un
     sol_h = sol.h
     sol_V = sol.V
+    V_employed = sol.V_employed
+    V_unemployed = sol.V_unemployed
     
     for t in range(par.T - 1, -1, -1):
         if do_print:
@@ -274,8 +273,7 @@ def main_solver_loop(par, sol, do_print = False):
                         elif t == retirement_age and sol_ex[idx_next] == 0.0:  
                             for ex in (0, 1):
                                 if ex == 0.0: # Unemployed
-                                    h_unemployed = 0.0
-                                    bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, retirement_age, ex, t)
+                                    bc_min, bc_max = budget_constraint(par, hours_place, assets, savings, human_capital, retirement_age, ex, t)
 
                                     c_star_u = optimizer(
                                         obj_consumption_after_retirement,
@@ -285,7 +283,7 @@ def main_solver_loop(par, sol, do_print = False):
                                         tol=par.opt_tol
                                     )
 
-                                    V_unemployed = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, retirement_age, t)
+                                    V_unemployed[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, retirement_age, t)
                                     sol_c_un[idx]  = c_star_u
 
                                 if ex== 1: # Employed
@@ -306,16 +304,16 @@ def main_solver_loop(par, sol, do_print = False):
                                         tol=par.opt_tol
                                     )
 
-                                    V_employed = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
 
                                     sol_c[idx]  = c_star
                                     sol_h[idx]  = h_star
 
-                                    if V_unemployed > V_employed:
-                                        sol_V[idx]  = V_unemployed
+                                    if V_unemployed[idx] > V_employed[idx]:
+                                        sol_V[idx]  = V_unemployed[idx]
                                         sol_ex[idx] = 0.0
                                     else:
-                                        sol_V[idx]  = V_employed
+                                        sol_V[idx]  = V_employed[idx]
                                         sol_ex[idx] = 1.0
 
                         else:
@@ -360,6 +358,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_xi = sim.xi
     s_retirement = sim.s_retirement
     retirement_age = sim.retirement_age
+    retirement_age_idx = sim.retirement_age_idx
     sim_s_lr_init = sim.s_lr_init
     sim_s_rp_init = sim.s_rp_init
     sim_chi_payment = sim.chi_payment
@@ -397,13 +396,14 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ex[i,t] = 0.0
 
                 if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == 40): 
-                    retirement_age[i] = t - 30
+                    retirement_age[i] = t
+                    retirement_age_idx[i] = t - 30
                     s_retirement[i] = sim_s[i,t]
                     sim_s_lr_init[i] = (s_retirement[i]/par.EL) * par.share_lr
                     sim_s_rp_init[i] = (s_retirement[i]/par.m) * (1-par.share_lr)
                     sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
 
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c_un[t,:,:,:,int(retirement_age[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c_un[t,:,:,:,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                     sim_h[i,t] = 0.0
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
 
@@ -413,7 +413,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                 elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
                     sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,int(retirement_age[i])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i])
                     sim_h[i,t] = 0.0
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
 
@@ -422,8 +422,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 else: 
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,t-30], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,t-30], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
                 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] - sim_c[i,t])
@@ -434,8 +434,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
             sim_ex[:,t] = 0.0
 
             for i in prange(par.simN):
-                sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,int(retirement_age[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,int(retirement_age[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])   
+                sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i])
+                sim_h[i,t] = 0.0
 
                 if t < retirement_age[i] + par.m: 
                     sim_chi_payment[i,t] = retirement_payment(par, sim_a[i,t], s_retirement[i], retirement_age[i], t)
