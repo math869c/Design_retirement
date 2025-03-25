@@ -10,6 +10,7 @@ from optimizers import interp_3d_vec
 from consav.quadrature import log_normal_gauss_hermite
 
 from scipy.optimize import root_scalar
+from help_functions_non_njit import draw_initial_values
 
 
 class ModelClass(EconModelClass):
@@ -55,7 +56,7 @@ class ModelClass(EconModelClass):
         par.delta  = 0.056530
         par.beta_1 = 0.034810
         par.beta_2 = -0.000227
-        par.w_0             = 208.682235                           
+        par.w_0             = 156.600466                           
         par.full_time_hours = 1924.0
         par.work_cost       = 1.000          # Skal kalibreres
         
@@ -161,10 +162,9 @@ class ModelClass(EconModelClass):
 
 
         # e. initialization
-        sim.a_init = np.ones(par.simN)*par.H*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
-        sim.s_init = np.ones(par.simN)* par.s_init
-        sim.k_init = np.zeros(par.simN)
-        sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
+        sim.a_init, sim.s_init,sim.w_init = draw_initial_values(par.simN)
+        sim.k_init = np.log(sim.w_init)
+        # sim.w_init = np.ones(par.simN)*par.w_0*np.random.choice(par.xi_v, size=(par.simN), p=par.xi_p)
         sim.s_retirement = np.zeros(par.simN)
         sim.retirement_age = np.zeros(par.simN)
         sim.retirement_age_idx = np.zeros(par.simN)
