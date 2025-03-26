@@ -1,15 +1,12 @@
 import numpy as np
 import pandas as pd
-from functions_njit import main_solver_loop, wage, retirement_payment, utility, bequest, main_simulation_loop
+from functions_njit import main_solver_loop, main_simulation_loop
 
 from EconModel import EconModelClass, jit
 
 from consav.grids import nonlinspace
-from consav.linear_interp import interp_1d, interp_2d, interp_3d
-from optimizers import interp_3d_vec
 from consav.quadrature import log_normal_gauss_hermite
 
-from scipy.optimize import root_scalar
 from help_functions_non_njit import draw_initial_values
 
 
@@ -61,8 +58,7 @@ class ModelClass(EconModelClass):
 
         par.m = 12 # Years with retirement payments
 
-        df = pd.read_csv('Data/indbetalinger_koen.csv')
-        par.tau = np.concatenate((np.array(df[df['gender'] == "Man"]['indbetalingsprocent']), np.zeros(35)))
+        par.tau = np.array(pd.read_csv('Data/mean_matrix.csv')["indbetalingsprocent_Mean"].fillna(0))
 
         par.share_lr = 2/3
 
