@@ -6,7 +6,7 @@ def draw_initial_values(Nsize):
     # load data
     means_data = pd.read_csv("Data/mean_matrix.csv")
     covariance_matrix = pd.read_csv("Data/variance_matrix.csv")
-    means = np.array(means_data.iloc[0,:])[2:5]
+    means = np.array(means_data[["formue_2018_Mean", "formue_2018_Mean", "formue_2018_Mean"]])[0]
     covar_array = np.array(covariance_matrix[pd.notna(covariance_matrix['formue_2018_30'])].dropna(axis=1, how='all').iloc[0:3,2:5])
     
     # calculate normal parameters
