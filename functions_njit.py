@@ -29,20 +29,24 @@ def bequest(par, a):
 
 @jit_if_enabled(fastmath=True)
 def wage(par, k, t):
-    return (1-par.upsilon)*par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*t**2)
+    '''Wage before taxes'''
+    return par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*t**2)
 
 @jit_if_enabled(fastmath=True)
 def income_fct(par, a, s, k, h, retirement_age, t):
     a_return = (par.r_a/(1+par.r_a)) * a
 
     s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
+    
+    w = wage(par, k, t)
+    tax_rate = tax_rate_fct(par, w*h)
 
     if t >= retirement_age + par.m:
         return s_lr + a_return
     elif retirement_age <= t<retirement_age + par.m: 
         return s_lr + s_rp + a_return
     else:
-        return (1-par.tau[t])*h*wage(par, k, t)  + a_return
+        return (1-par.tau[t])*h*(1-tax_rate)*w  + a_return
 
 
 
@@ -87,8 +91,11 @@ def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
 @jit_if_enabled(fastmath=True)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
 
-    a_next = (1+par.r_a)*(a + (1-par.tau[t])*h*wage(par, k, t) - c)
-    s_next = (1+par.r_s)*(s + par.tau[t]*h*wage(par, k, t))
+    w = wage(par, k, t)
+    tax_rate = tax_rate_fct(par, w*h)
+
+    a_next = (1+par.r_a)*(a + (1-par.tau[t])*h*(1-tax_rate)*w - c)
+    s_next = (1+par.r_s)*(s + par.tau[t]*h*(1-tax_rate)*w)
     k_next = ((1-par.delta)*k + h)
 
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
@@ -129,10 +136,14 @@ def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
         if ex==0:
             return par.c_min, max(par.c_min*2, a + chi + s_lr + s_rp)
         else:
-            return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t) + chi)
+            w = wage(par, k, t)
+            tax_rate = tax_rate_fct(par, w*h)
+            return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*(1-tax_rate)*w + chi)
 
     else:
-        return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*wage(par, k, t) + chi)
+        w = wage(par, k, t)
+        tax_rate = tax_rate_fct(par, w*h)
+        return par.c_min, max(par.c_min*2, a + (1-par.tau[t])*h*(1-tax_rate)*w + chi)
 
 
 @jit_if_enabled(fastmath=True)
@@ -188,6 +199,13 @@ def calculate_last_period_consumption(par, a, s, retirement_age, t):
         # No bequest motive
         return (a + chi + s_lr)
 
+@jit_if_enabled(fastmath=True)
+def tax_rate_fct(par, income):
+    if income <= par.threshold:
+        tax_rate = par.L1*(1-np.exp(-par.K1*income))
+    else:
+        tax_rate = par.L1*(1-np.exp(-par.K1*income)) + par.L2*(1-np.exp(-par.K2*(income-par.threshold)))
+    return tax_rate
 
 # 4. Objective functions 
 @jit_if_enabled(fastmath=True)
@@ -378,6 +396,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_s_lr_init = sim.s_lr_init
     sim_s_rp_init = sim.s_rp_init
     sim_chi_payment = sim.chi_payment
+    sim_tax_rate = sim.tax_rate
     
     sol_ex = sol.ex
     sol_c = sol.c
@@ -397,9 +416,10 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                 sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                 sim_w[i,t] = wage(par, sim_k[i,t], t)
+                sim_tax_rate[i,t] = tax_rate_fct(par, sim_h[i,t]*sim_w[i,t])
                 sim_ex[i,t] = 1.0
             
-                sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] - sim_c[i,t])
+                sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*(1-sim_tax_rate[i,t])*sim_w[i,t] - sim_c[i,t])
                 sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + par.tau[t]*sim_h[i,t]*sim_w[i,t])
                 sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]
 
@@ -424,6 +444,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c_un[t,:,:,:,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
+                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_h[i,t]*sim_w[i,t])
 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
@@ -436,6 +457,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i])], sim_a[i,t], s_retirement[i])
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
+                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_h[i,t]*sim_w[i,t])
 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
@@ -448,9 +470,10 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,t-par.first_retirement], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
+                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_h[i,t]*sim_w[i,t])
 
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*sim_w[i,t] + sim_chi_payment[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + par.tau[t]*sim_h[i,t]*sim_w[i,t])
+                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + (1-par.tau[t])*sim_h[i,t]*(1-sim_tax_rate[i,t])*sim_w[i,t] + sim_chi_payment[i,t] - sim_c[i,t])
+                    sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + par.tau[t]*sim_h[i,t]*(1-sim_tax_rate[i,t])*sim_w[i,t])
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]          
 
         elif t > par.last_retirement:
@@ -465,6 +488,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_chi_payment[i,t] = retirement_payment(par, sim_income[i], t)
 
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
+                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_h[i,t]*sim_w[i,t])
 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_s_rp_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
@@ -475,6 +499,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_chi_payment[i,t] = retirement_payment(par, sim_income[i], t)
 
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
+                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_h[i,t]*sim_w[i,t])
 
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_s_lr_init[i] + sim_chi_payment[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = sim_s[i,t] - sim_s_lr_init[i]
@@ -482,6 +507,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     
                 else:
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
+                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_h[i,t]*sim_w[i,t])
 
 
-    return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_chi_payment
+    return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_chi_payment, sim_tax_rate

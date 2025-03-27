@@ -50,6 +50,13 @@ class ModelClass(EconModelClass):
         par.w_0             = 156.600466                           
         par.full_time_hours = 1924.0
 
+        # Tax system
+        par.L1 = 0.3833
+        par.L2 = 0.1265
+        par.K1 = 6.315E-06
+        par.K2 = 1.775E-06
+        par.threshold = 551903.0
+
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
         par.first_retirement    = par.retirement_age - 5
@@ -74,6 +81,11 @@ class ModelClass(EconModelClass):
         par.pi[-1] = 0.0
         par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
         # par.pi = np.ones_like(par.pi)
+
+        # Welfare system
+        par.replacement_rate_bf_start = 6
+        par.replacement_rate_bf_end = 3
+        par.replacement_rate_af_start = 5
 
         # Grids
         par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 3_000_000
@@ -137,6 +149,7 @@ class ModelClass(EconModelClass):
         sim.w           = np.nan + np.zeros(shape)
         sim.ex          = np.nan + np.zeros(shape)
         sim.chi_payment = np.nan + np.zeros(shape)
+        sim.tax_rate    = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
 
@@ -171,5 +184,5 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
             sim = model.sim 
-            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:]= main_simulation_loop(par, sol, sim)
+            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:]= main_simulation_loop(par, sol, sim)
           
