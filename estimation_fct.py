@@ -14,7 +14,7 @@ def prepare_data(par):
     # Concate to the final moments
     assets = np.array(means_data["formue_2018_Mean"])
     savings = np.array(means_data["pension_2018_Mean"])
-    hours = np.array(means_data["yearly_hours_Mean"])/par.full_time_hours
+    hours = np.array(means_data["yearly_hours_Mean"][:par.last_retirement])/par.full_time_hours
     mean = np.concatenate([assets, 
                         savings, 
                         hours])
@@ -32,7 +32,11 @@ def prepare_data(par):
 
     covariance_matrix[col_mask] /= par.full_time_hours
 
-    weights = np.linalg.inv(np.nan_to_num(covariance_matrix[numeric_cols].to_numpy(), nan=0))
+    covariance_matrix = np.nan_to_num(covariance_matrix[numeric_cols].to_numpy(), nan=0)
+
+    covariance_matrix = covariance_matrix[:(70*2+par.last_retirement), :(70*2+par.last_retirement)]
+
+    weights = np.linalg.inv(covariance_matrix)
 
     return mean, weights, moments
 
@@ -63,7 +67,7 @@ def moment_func(sim_data):
     # Compute age-averaged moments
     avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
     avg_s_by_age = np.clip(np.mean(sim_data.s, axis=0), 0, None)  # Length 70
-    avg_h_by_age = np.mean(sim_data.h, axis=0)  # Length 70
+    avg_h_by_age = np.mean(sim_data.h[:, :40], axis=0)  # Length 70
 
     # Concatenate and return
     return np.concatenate((avg_a_by_age, avg_s_by_age, avg_h_by_age))
