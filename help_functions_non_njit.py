@@ -5,9 +5,10 @@ from scipy.stats import multivariate_normal, lognorm, norm
 def draw_initial_values(Nsize):
     # load data
     means_data = pd.read_csv("Data/mean_matrix.csv")
-    covariance_matrix = pd.read_csv("Data/variance_matrix.csv")
-    means = np.array(means_data[["formue_2018_Mean", "formue_2018_Mean", "formue_2018_Mean"]])[0]
-    covar_array = np.array(covariance_matrix[pd.notna(covariance_matrix['formue_2018_30'])].dropna(axis=1, how='all').iloc[0:3,2:5])
+    covariance_matrix = pd.read_csv("Data/variance_matrix_30.csv")
+    means = np.array(means_data[["formue_2018_Mean", "pension_2018_Mean", "hourly_salary_Mean"]])[0]
+    covariance_matrix.set_index('_NAME_', inplace=True)
+    covar_array = np.array(covariance_matrix.loc[["formue_2018", "pension_2018", "hourly_salary"], ["formue_2018", "pension_2018", "hourly_salary"]].values)
     
     # calculate normal parameters
     outer_means = np.outer(means, means)
