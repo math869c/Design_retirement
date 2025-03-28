@@ -59,8 +59,9 @@ class ModelClass(EconModelClass):
 
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
-        par.first_retirement    = par.retirement_age - 5
-        par.last_retirement     = par.retirement_age + 5
+        par.range               = 5  
+        par.first_retirement    = par.retirement_age - par.range
+        par.last_retirement     = par.retirement_age + par.range
         par.retirement_window   = par.last_retirement - par.first_retirement + 1
 
         par.m = 12 # Years with retirement payments
@@ -75,6 +76,9 @@ class ModelClass(EconModelClass):
         par.chi_max = 95_800
         par.rho = 0.309
 
+        # unemployment benefit
+        par.unemployment_benefit = 0.0 #159_876
+
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
         par.pi =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
@@ -88,9 +92,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 5
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 3_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 40
+        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 3_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 40
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -150,6 +154,9 @@ class ModelClass(EconModelClass):
         sim.ex          = np.nan + np.zeros(shape)
         sim.chi_payment = np.nan + np.zeros(shape)
         sim.tax_rate    = np.nan + np.zeros(shape)
+        sim.income      = np.nan + np.zeros(shape)
+        sim.s_retirement_contrib = np.nan + np.zeros(shape)
+        sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
 
@@ -164,10 +171,7 @@ class ModelClass(EconModelClass):
         sim.s_rp_init                       = np.zeros(par.simN)
         sim.replacement_rate                = np.zeros(par.simN)
         sim.consumption_replacement_rate    = np.zeros(par.simN)
-        sim.income                          = np.zeros(par.simN)
-            
-
-
+        
     # Solve the model
     def solve(self, do_print = False):
 
@@ -184,5 +188,5 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
             sim = model.sim 
-            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:]= main_simulation_loop(par, sol, sim)
-          
+            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:]= main_simulation_loop(par, sol, sim)
+
