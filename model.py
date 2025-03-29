@@ -77,7 +77,7 @@ class ModelClass(EconModelClass):
         par.rho = 0.309
 
         # unemployment benefit
-        par.unemployment_benefit = 0.0 #159_876
+        par.unemployment_benefit = 159_876
 
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
@@ -92,9 +92,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 5
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 3_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 40
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 3_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 3_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 40
 
         par.h_min  = 0.19
         par.h_max  = 1.2
