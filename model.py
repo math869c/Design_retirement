@@ -6,7 +6,7 @@ from EconModel import EconModelClass, jit
 
 from consav.grids import nonlinspace
 from consav.quadrature import log_normal_gauss_hermite
-
+from bernoulli_distribution import Bernoulli 
 from help_functions_non_njit import draw_initial_values
 
 
@@ -49,6 +49,13 @@ class ModelClass(EconModelClass):
         par.beta_2 = -0.000227
         par.w_0             = 156.600466                           
         par.full_time_hours = 1924.0
+
+        # firing and hiring, exogenous
+        par.firing_prob = 0.05
+        par.hiring_prob = 0.2
+        par.e_grid = [0,1]
+        par.employment_options = len(par.e_grid)
+
 
         # Tax system
         par.L1 = 0.3833
@@ -124,7 +131,7 @@ class ModelClass(EconModelClass):
         par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
 
-        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window)
+        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window, par.employment_options)
         sol.a               = np.nan + np.zeros(shape)
         sol.ex              = np.nan + np.zeros(shape)
         sol.c               = np.nan + np.zeros(shape)
@@ -158,6 +165,9 @@ class ModelClass(EconModelClass):
         sim.s_retirement_contrib = np.nan + np.zeros(shape)
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
+
+        sim.hired =  Bernoulli(p=par.hiring_prob).rvs(shape=(par.simN, par.simT))
+        sim.fired     =  Bernoulli(p=par.firing_prob).rvs(shape=(par.simN, par.simT))
 
 
         # e. initialization

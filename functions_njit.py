@@ -4,6 +4,7 @@ import numpy as np
 from consav.linear_interp import interp_1d, interp_2d, interp_3d
 from optimizers import optimizer, optimize_outer, interp_3d_vec
 from jit_module import jit_if_enabled
+from bernoulli_distribution import Bernoulli
 
 
 #######################################################################
@@ -229,7 +230,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
     return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 @jit_if_enabled(fastmath=True)
-def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
+def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, t):
     # states and income 
     income, retirement_contribution = final_income_and_retirement_contri(par, a, s, k, h, par.last_retirement, t)
 
@@ -237,21 +238,24 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
     a_next = (1+par.r_a)*(a + income - c)
     s_next = (1+par.r_s)*(s + retirement_contribution)
     k_next = ((1-par.delta)*k + h)
-    EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
+    if e == 0.0:
+        EV_next = (1-par.hired) * interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV[t+1,:,:,:,0], a_next, s_next, k_next) + par.hired * interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV[t+1,:,:,:,1], a_next, s_next, k_next)
+    else:
+        EV_next = (1-par.fired) * interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV[t+1,:,:,:,1], a_next, s_next, k_next) + par.fired * interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV[t+1,:,:,:,0], a_next, s_next, k_next)
 
     return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 # 4. Objective functions 
 @jit_if_enabled(fastmath=True)
-def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, t):
-    return -value_function(par, sol_V, sol_EV, c, h, a, s, k, t)
+def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, e, t):
+    return -value_function(par, sol_V, sol_EV, c, h, a, s, k, e, t)
 
 @jit_if_enabled()
 def obj_consumption_after_retirement(c, par, sol_V, a, s, retirement_age, t):
     return -value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t)
 
 @jit_if_enabled(fastmath=True)
-def obj_hours(h, par, sol_V, sol_EV, a, s, k, retirement_age, ex, t, dist):
+def obj_hours(h, par, sol_V, sol_EV, a, s, k, retirement_age, ex, e, t, dist):
 
     bc_min, bc_max = budget_constraint(par, h, a, s, k, retirement_age, ex, t)
     
@@ -259,11 +263,11 @@ def obj_hours(h, par, sol_V, sol_EV, a, s, k, retirement_age, ex, t, dist):
         obj_consumption,     
         bc_min, 
         bc_max,
-        args=(par, sol_V, sol_EV, h, a, s, k, t),
+        args=(par, sol_V, sol_EV, h, a, s, k, e, t),
         tol=dist
     )
     
-    val_at_c_star = -value_function(par, sol_V, sol_EV, c_star, h, a, s, k, t)
+    val_at_c_star = -value_function(par, sol_V, sol_EV, c_star, h, a, s, k, e, t)
     
     return val_at_c_star
 
@@ -303,9 +307,9 @@ def main_solver_loop(par, sol, do_print = False):
 
                     for k_idx in range(len(par.k_grid)):
                         human_capital = par.k_grid[k_idx]
-
-                        idx = (t, a_idx, s_idx, k_idx, retirement_age_idx)
-                        idx_next = (t+1, a_idx, s_idx, k_idx, retirement_age_idx)
+                        employed, employed_idx  = 0.0, 0.0
+                        idx = (t, a_idx, s_idx, k_idx, retirement_age_idx,employed_idx)
+                        idx_next = (t+1, a_idx, s_idx, k_idx, retirement_age_idx,employed_idx)
                         
                         if t == par.T - 1: # Last period
 
@@ -363,11 +367,11 @@ def main_solver_loop(par, sol, do_print = False):
                                         obj_consumption,
                                         bc_min,
                                         bc_max,
-                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
                                         tol=par.opt_tol
                                     )
 
-                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
 
                                     sol_c[idx]  = c_star
                                     sol_h[idx]  = h_star
@@ -393,65 +397,79 @@ def main_solver_loop(par, sol, do_print = False):
                                         obj_consumption,
                                         bc_min,
                                         bc_max,
-                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
                                         tol=par.opt_tol
                                     )
 
-                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
 
                                     sol_c[idx]  = c_star
                                     sol_h[idx]  = h_star
                                     sol_V[idx]  = V_employed[idx]
                                     sol_ex[idx] = 1.0
 
-
-
-
-
                         else:
-                            for ex in (0, 1):
-                                if ex == 0.0: # Unemployed
-                                    h_unemployed = 0.0
-                                    bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
-                                    c_star = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
-                                        tol=par.opt_tol
-                                    )
-                                    V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, t)
-                                    sol_c_un[idx]  = c_star
-                                    sol_h[idx]  = h_unemployed
+                            for employed_idx in range(len(par.e_grid)):
+                                employed = par.e_grid[employed_idx]
+                                for employed in par.e_grid:
+                                    idx = (t, a_idx, s_idx, k_idx, retirement_age_idx, employed_idx)
+                                    if employed == 0: # Unemployed
+                                        h_unemployed = 0.0
+                                        ex = 1.0
+                                        bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
+                                        c_star = optimizer(
+                                            obj_consumption,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, employed, t),
+                                            tol=par.opt_tol
+                                        )
+                                        sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, employed, t)
+                                        sol_c_un[idx]  = c_star
+                                        sol_h[idx]  = h_unemployed
+                                        sol_ex[idx] = ex
                                     
-                                if ex == 1.0: # Employed
-                                    h_star = optimize_outer(
-                                        obj_hours,       
-                                        par.h_min,
-                                        par.h_max,
-                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, par.last_retirement, ex, t),
-                                        tol=par.opt_tol
-                                    )
+                                    if employed == 1:                                    
+                                        for ex in (0, 1):
+                                            if ex == 0.0: # choose to be unemployed
+                                                h_unemployed = 0.0
+                                                bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
+                                                c_star = optimizer(
+                                                    obj_consumption,
+                                                    bc_min,
+                                                    bc_max,
+                                                    args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, employed, t),
+                                                    tol=par.opt_tol
+                                                )
+                                                V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, employed, t)
+                                                sol_c_un[idx]  = c_star
+                                                sol_h[idx]  = h_unemployed
+                                                
+                                            if ex == 1.0: # choose to be employed
+                                                h_star = optimize_outer(
+                                                    obj_hours,       
+                                                    par.h_min,
+                                                    par.h_max,
+                                                    args=(par, sol_V, sol_EV, assets, savings, human_capital, par.last_retirement, ex, t),
+                                                    tol=par.opt_tol
+                                                )
 
-                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, par.last_retirement, ex, t)
-                                    c_star = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
-                                        tol=par.opt_tol
-                                    )
+                                                bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, par.last_retirement, ex, t)
+                                                c_star = optimizer(
+                                                    obj_consumption,
+                                                    bc_min,
+                                                    bc_max,
+                                                    args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
+                                                    tol=par.opt_tol
+                                                )
+                                                
+                                                V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
+                                                sol_c[idx] = c_star
+                                                sol_h[idx] = h_star
 
-                                    
-                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
-                                    sol_c[idx] = c_star
-                                    sol_h[idx] = h_star
-                                    if V_unemployed[idx]> V_employed[idx]:
-                                        sol_V[idx] = V_unemployed[idx]
-                                        sol_ex[idx] = 0.0
-                                    else:
-                                        sol_V[idx] = V_employed[idx]
-                                        sol_ex[idx] = 1.0
+                                                sol_V[idx] = V_employed[idx] if V_employed[idx] > V_unemployed[idx] else V_unemployed[idx] 
+                                                sol_ex[idx] = 1.0 if V_employed[idx] > V_unemployed[idx] else 0.0
+
 
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 
@@ -466,6 +484,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_a = sim.a
     sim_s = sim.s
     sim_k = sim.k
+    
     sim_c = sim.c
     sim_h = sim.h
     sim_w = sim.w
@@ -484,6 +503,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_tax_rate = sim.tax_rate
     sim_income_before_tax_contrib = sim.income_before_tax_contrib
     sim_s_retirement_contrib = sim.s_retirement_contrib
+    sim_fired = sim.fired
+    sim_hired = sim.hired
     
     sol_ex = sol.ex
     sol_c = sol.c
@@ -501,8 +522,21 @@ def main_simulation_loop(par, sol, sim, do_print = False):
         if t < par.first_retirement:
             for i in prange(par.simN):
                 # 1. technical variables
-                sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                if t==0:
+                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                elif sim_ex[i,t-1] == 1.0:
+                    if sim_fired[i,t] == 1.0:
+                        sim_ex[i,t] = 0.0
+                    else:                        
+                        sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                        sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                else:
+                    if sim_hired[i,t] == 1.0:
+                        sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                        sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                    else:
+                        sim_ex[i,t] = 0.0
 
                 if sim_ex[i,t] == 0.0:
                     # 2. Interpolation of choice variables
@@ -552,10 +586,17 @@ def main_simulation_loop(par, sol, sim, do_print = False):
             for i in prange(par.simN):
                 # 1. technical variables
                 if sim_ex[i,t-1] == 1.0:
-                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,t-par.first_retirement], sim_a[i,t], sim_s[i,t], sim_k[i,t]) 
-                    sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                    if sim_fired[i,t] == 1.0:
+                        sim_ex[i,t] = 0.0
+                    else:                        
+                        sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                        sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
                 else:
-                    sim_ex[i,t] = 0.0
+                    if sim_hired[i,t] == 1.0:
+                        sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                        sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                    else:
+                        sim_ex[i,t] = 0.0
 
                 if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
                     # 1.1 retirement age
