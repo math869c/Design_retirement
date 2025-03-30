@@ -44,13 +44,15 @@ def calculate_retirement_payouts(par, savings, retirement_age, t):
     if t >= retirement_age + par.m:
         s_retirement = savings
         s_lr = par.share_lr * (s_retirement/par.EL) 
-        return s_lr, np.zeros_like(s_lr) +np.nan
+        return s_lr, 0.0
     
     elif t >= retirement_age:
         s_retirement = savings
         s_lr = par.share_lr * (s_retirement/par.EL) 
         s_rp = (1-par.share_lr) * (s_retirement/par.m) 
         return s_lr, s_rp
+    else:
+        return 0.0, 0.0
 
 # 1.1.3. Labor income
 @jit_if_enabled(fastmath=True)
@@ -91,10 +93,7 @@ def income_private_fct(par, a, s, k, h, retirement_age, t):
     a_return = 0.0 # capital_return_fct(par, a), skal vi have capital return med?
 
     # Retirement payouts
-    if t >= retirement_age:
-        s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
-    else:
-        s_lr, s_rp = 0.0, 0.0
+    s_lr, s_rp = calculate_retirement_payouts(par, s, retirement_age, t)
     
     # labor income 
     labor_income = labor_income_fct(par, k, h, retirement_age, t)
@@ -160,45 +159,8 @@ def final_income_and_retirement_contri(par, a, s, k, h, retirement_age, t):
         # income after taxes, and retirement contributions 
         return (1-tax_rate)*(income_private*(1-par.tau[t]) + chi), retirement_contribution
 
-# 2. Value functions
-@jit_if_enabled(fastmath=True)
-def value_last_period(par, c, a, s, retirement_age, t):
-    # states and income 
-    h, k = 0.0,0.0
-    income, _ = final_income_and_retirement_contri(par, a, s, k, h, retirement_age, t)
-    a_next = (1+par.r_a)*(a + income - c)
 
-    return utility(par, c, h) + bequest(par, a_next)
-
-@jit_if_enabled(fastmath=True)
-def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
-    # states and income 
-    retirement_age_idx = retirement_age - 30
-    h,k  = 0.0, 0.0
-    income, _ = final_income_and_retirement_contri(par, a, s, k, h, retirement_age, t)
-
-    # Next period states 
-    a_next = (1+par.r_a)*(a + income - c)
-    s_next = s
-    V_next = sol_V[t+1, :, :, 0, retirement_age_idx]
-    EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
-
-    return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
-
-@jit_if_enabled(fastmath=True)
-def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
-    # states and income 
-    income, retirement_contribution = final_income_and_retirement_contri(par, a, s, k, h, par.last_retirement, t)
-
-    # Next period states
-    a_next = (1+par.r_a)*(a + income - c)
-    s_next = (1+par.r_s)*(s + retirement_contribution)
-    k_next = ((1-par.delta)*k + h)
-    EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
-
-    return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
-
-# 3. Helper functions in solving and optimizing
+# 2. Helper functions in solving and optimizing
 @jit_if_enabled(fastmath=True)
 def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, retirement_age, t)
@@ -240,6 +202,44 @@ def calculate_last_period_consumption(par, a, s, retirement_age, t):
         # No bequest motive
         return (a + income)
 
+
+# 3. Value functions
+@jit_if_enabled(fastmath=True)
+def value_last_period(par, c, a, s, retirement_age, t):
+    # states and income 
+    h, k = 0.0,0.0
+    income, _ = final_income_and_retirement_contri(par, a, s, k, h, retirement_age, t)
+    a_next = (1+par.r_a)*(a + income - c)
+
+    return utility(par, c, h) + bequest(par, a_next)
+
+@jit_if_enabled(fastmath=True)
+def value_function_after_retirement(par, sol_V, c, a, s, retirement_age, t):
+    # states and income 
+    retirement_age_idx = retirement_age - par.first_retirement
+    h,k  = 0.0, 0.0
+    income, _ = final_income_and_retirement_contri(par, a, s, k, h, retirement_age, t)
+
+    # Next period states 
+    a_next = (1+par.r_a)*(a + income - c)
+    s_next = s
+    V_next = sol_V[t+1, :, :, 0, retirement_age_idx]
+    EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
+
+    return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+
+@jit_if_enabled(fastmath=True)
+def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
+    # states and income 
+    income, retirement_contribution = final_income_and_retirement_contri(par, a, s, k, h, par.last_retirement, t)
+
+    # Next period states
+    a_next = (1+par.r_a)*(a + income - c)
+    s_next = (1+par.r_s)*(s + retirement_contribution)
+    k_next = ((1-par.delta)*k + h)
+    EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
+
+    return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 # 4. Objective functions 
 @jit_if_enabled(fastmath=True)
@@ -332,6 +332,7 @@ def main_solver_loop(par, sol, do_print = False):
                             sol_V[idx] = value_function_after_retirement(par, sol_V, c_star, assets, savings, retirement_age, t)
                    
 
+                        # elif t == retirement_age and sol_ex[idx_next] == 0.0:
                         elif t == retirement_age and sol_ex[idx_next] == 0.0:  
                             for ex in (0, 1):
                                 if ex == 0.0: # Unemployed
@@ -378,23 +379,7 @@ def main_solver_loop(par, sol, do_print = False):
                                         sol_V[idx]  = V_employed[idx]
                                         sol_ex[idx] = 1.0
 
-                        else:
-                            for ex in (0, 1):
-                                if ex == 0.0: # Unemployed
-                                    h_unemployed = 0.0
-                                    bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, retirement_age, ex, t)
-                                    c_star = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
-                                        tol=par.opt_tol
-                                    )
-                                    V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, t)
-                                    sol_c_un[idx]  = c_star
-                                    sol_h[idx]  = h_unemployed
-                                    
-                                if ex == 1.0: # Employed
+                        elif t == retirement_age and sol_ex[idx_next] == 1.0:  
                                     h_star = optimize_outer(
                                         obj_hours,       
                                         par.h_min,
@@ -412,16 +397,61 @@ def main_solver_loop(par, sol, do_print = False):
                                         tol=par.opt_tol
                                     )
 
+                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+
+                                    sol_c[idx]  = c_star
+                                    sol_h[idx]  = h_star
+                                    sol_V[idx]  = V_employed[idx]
+                                    sol_ex[idx] = 1.0
+
+
+
+
+
+                        else:
+                            for ex in (0, 1):
+                                if ex == 0.0: # Unemployed
+                                    h_unemployed = 0.0
+                                    bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
+                                    c_star = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
+                                        tol=par.opt_tol
+                                    )
+                                    V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, t)
+                                    sol_c_un[idx]  = c_star
+                                    sol_h[idx]  = h_unemployed
                                     
-                                    sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                if ex == 1.0: # Employed
+                                    h_star = optimize_outer(
+                                        obj_hours,       
+                                        par.h_min,
+                                        par.h_max,
+                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, par.last_retirement, ex, t),
+                                        tol=par.opt_tol
+                                    )
+
+                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, par.last_retirement, ex, t)
+                                    c_star = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                        tol=par.opt_tol
+                                    )
+
+                                    
+                                    V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
                                     sol_c[idx] = c_star
                                     sol_h[idx] = h_star
-                                if V_unemployed[idx]> sol_V[idx]:
-                                    sol_V[idx] = V_unemployed[idx]
-                                    sol_ex[idx] = 0.0
-                                else:
-                                    sol_V[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
-                                    sol_ex[idx] = 1.0
+                                    if V_unemployed[idx]> V_employed[idx]:
+                                        sol_V[idx] = V_unemployed[idx]
+                                        sol_ex[idx] = 0.0
+                                    else:
+                                        sol_V[idx] = V_employed[idx]
+                                        sol_ex[idx] = 1.0
 
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 
@@ -468,7 +498,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     for t in range(par.simT):
 
         # ii. interpolate optimal consumption and hours
-        if t < 30:
+        if t < par.first_retirement:
             for i in prange(par.simN):
                 # 1. technical variables
                 sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,0], sim_a[i,t], sim_s[i,t], sim_k[i,t])
@@ -490,8 +520,6 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
                     # 3.5 tax rate
                     sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], par.last_retirement, t)
-                    # 3.6 income
-                    sim_income[i,t],_ = final_income_and_retirement_contri(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], par.last_retirement, t)
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
@@ -514,8 +542,6 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
                     # 3.5 tax rate
                     sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], par.last_retirement, t)
-                    # 3.6 income
-                    sim_income[i,t],_ = final_income_and_retirement_contri(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], par.last_retirement, t)
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
@@ -531,7 +557,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 else:
                     sim_ex[i,t] = 0.0
 
-                if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement): 
+                if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
                     # 1.1 retirement age
                     retirement_age[i] = t
                     retirement_age_idx[i] = t - par.first_retirement
@@ -556,7 +582,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = sim_s[i,t] - sim_income[i,t]
+                    sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i]+sim_s_rp_init[i])
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
@@ -568,7 +594,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 3. Income variables
                     # 3.1 retirement payments
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_income[i,t], _ = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, s_retirement[i], retirement_age[i], t)
                     # 3.2 labor income
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
                     # 3.3 public benefits

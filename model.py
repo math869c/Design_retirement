@@ -31,10 +31,10 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.995    # Skal kalibreres
+        par.beta   = 1.0 # 0.995    # Skal kalibreres
         par.sigma  = 1.23151331     # Skal kalibreres
         par.gamma  = 4.738944       # Skal kalibreres
-        par.mu     = 7.56180656     # Skal kalibreres
+        par.mu     = 0.0 # 7.56180656     # Skal kalibreres
         par.a_bar  = 0.001
         
         # assets 
@@ -59,7 +59,7 @@ class ModelClass(EconModelClass):
 
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
-        par.range               = 5  
+        par.range               = 5
         par.first_retirement    = par.retirement_age - par.range
         par.last_retirement     = par.retirement_age + par.range
         par.retirement_window   = par.last_retirement - par.first_retirement + 1
@@ -84,7 +84,7 @@ class ModelClass(EconModelClass):
         par.pi =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
         par.pi[-1] = 0.0
         par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
-        # par.pi = np.ones_like(par.pi)
+        par.pi = np.ones_like(par.pi)
 
         # Welfare system
         par.replacement_rate_bf_start = 6
@@ -92,9 +92,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 5
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 3_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 3_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 40
+        par.N_a, par.a_sp, par.a_min, par.a_max = 15, 1.5, 0.1, 3_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 15, 1.2, 0.0, 3_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 15, 1.2, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -104,7 +104,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi      = 0.1
-        par.N_xi    = 20
+        par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
