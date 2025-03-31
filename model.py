@@ -6,7 +6,7 @@ from EconModel import EconModelClass, jit
 
 from consav.grids import nonlinspace
 from consav.quadrature import log_normal_gauss_hermite
-
+from bernoulli_distribution import Bernoulli
 from help_functions_non_njit import draw_initial_values
 
 
@@ -76,6 +76,10 @@ class ModelClass(EconModelClass):
         par.chi_max = 95_800
         par.rho = 0.309
 
+        # hire and fire employment
+        par.fire = 0.05
+        par.hire = 0.2
+
         # unemployment benefit
         par.unemployment_benefit = 159_876
 
@@ -92,9 +96,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 5
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 15, 1.5, 0.1, 3_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 15, 1.2, 0.0, 3_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 15, 1.2, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.5, 0.1, 3_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.2, 0.0, 3_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.2, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -123,16 +127,18 @@ class ModelClass(EconModelClass):
         par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, par.a_sp)
         par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
+        par.e_grid = [0, 1]
 
-        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window)
-        sol.a               = np.nan + np.zeros(shape)
-        sol.ex              = np.nan + np.zeros(shape)
-        sol.c               = np.nan + np.zeros(shape)
-        sol.c_un            = np.nan + np.zeros(shape)
-        sol.h               = np.nan + np.zeros(shape)
-        sol.V               = np.nan + np.zeros(shape)
-        sol.V_employed      = np.nan + np.zeros(shape)
-        sol.V_unemployed    = np.nan + np.zeros(shape)
+
+        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window, len(par.e_grid))
+        sol.a               = np.full(shape, np.nan)
+        sol.ex              = np.full(shape, np.nan)
+        sol.c               = np.full(shape, np.nan)
+        sol.c_un            = np.full(shape, np.nan)
+        sol.h               = np.full(shape, np.nan)
+        sol.V               = np.full(shape, np.nan)
+        sol.V_employed      = np.full(shape, np.nan)
+        sol.V_unemployed    = np.full(shape, np.nan)
 
         self.allocate_sim()
 
@@ -150,6 +156,9 @@ class ModelClass(EconModelClass):
         sim.a           = np.nan + np.zeros(shape)
         sim.s           = np.nan + np.zeros(shape)
         sim.k           = np.nan + np.zeros(shape)
+        sim.e           = np.nan + np.zeros(shape)
+        sim.e_f         = Bernoulli(p=par.fire).rvs(size=shape)
+        sim.e_h         = Bernoulli(p=par.hire).rvs(size=shape)
         sim.w           = np.nan + np.zeros(shape)
         sim.ex          = np.nan + np.zeros(shape)
         sim.chi_payment = np.nan + np.zeros(shape)
@@ -180,7 +189,7 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :, :], sol.c_un[:, :, :, :, :], sol.h[:, :, :, :, :], sol.ex[:, :, :, :, :], sol.V[:, :, :, :, :] = main_solver_loop(par, sol, do_print)
+            sol.c[:, :, :, :, :, :], sol.c_un[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
 
     def simulate(self):
         with jit(self) as model:
