@@ -157,7 +157,7 @@ def final_income_and_retirement_contri(par, a, s, k, h, retirement_age, t):
     retirement_contribution = retirement_contribution_fct(par, a, s, k, h, retirement_age, t)
     if t >= retirement_age:
         # income after taxes&contributions
-        return (1-tax_rate)*(income_private + chi), np.zeros_like(retirement_contribution)
+        return (1-tax_rate)*(income_private + chi), 0.0
     else:
         # income after taxes, and retirement contributions 
         return (1-tax_rate)*(income_private*(1-par.tau[t]) + chi), retirement_contribution
@@ -172,14 +172,14 @@ def budget_constraint(par, h, a, s, k, retirement_age, ex, t):
 @jit_if_enabled(fastmath=True)
 def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
 
+    EV = np.zeros((len(par.a_grid), len(par.s_grid), len(par.k_grid)))
+
     V_next_un = sol_V[t+1, :, :, :, retirement_idx, 0]
     V_next_em = sol_V[t+1, :, :, :, retirement_idx, 1]
     if employed_idx ==0:
         V_next = (1-par.hire)*V_next_un + par.hire*V_next_em
     else:
         V_next = par.fire*V_next_un + (1-par.fire)*V_next_em
-
-    EV = np.zeros((len(par.a_grid), len(par.s_grid), len(par.k_grid)))
 
     for i_a, a_next in enumerate(par.a_grid):
         for i_s, s_next in enumerate(par.s_grid):
@@ -415,97 +415,90 @@ def main_solver_loop(par, sol, do_print = False):
                                             sol_ex[idx] = 1.0
 
                             elif t == retirement_age and sol_ex[idx_next] == 1.0:  
-                                        h_star = optimize_outer(
-                                            obj_hours,       
-                                            par.h_min,
-                                            par.h_max,
-                                            args=(par, sol_V, sol_EV, assets, savings, human_capital, retirement_age, ex, t),
-                                            tol=par.opt_tol
-                                        )
+                                h_star = optimize_outer(
+                                    obj_hours,       
+                                    par.h_min,
+                                    par.h_max,
+                                    args=(par, sol_V, sol_EV, assets, savings, human_capital, retirement_age, ex, t),
+                                    tol=par.opt_tol
+                                )
 
-                                        bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, retirement_age, ex, t)
-                                        c_star = optimizer(
-                                            obj_consumption,
-                                            bc_min,
-                                            bc_max,
-                                            args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
-                                            tol=par.opt_tol
-                                        )
+                                bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, retirement_age, ex, t)
+                                c_star = optimizer(
+                                    obj_consumption,
+                                    bc_min,
+                                    bc_max,
+                                    args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                    tol=par.opt_tol
+                                )
 
-                                        V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
 
-                                        sol_c[idx]  = c_star
-                                        sol_h[idx]  = h_star
-                                        sol_V[idx]  = V_employed[idx]
-                                        sol_ex[idx] = 1.0
-
-
-
-
+                                sol_c[idx]  = c_star
+                                sol_h[idx]  = h_star
+                                sol_V[idx]  = V_employed[idx]
+                                sol_ex[idx] = 1.0
 
                             else:
-                                for employed_idx in par.e_grid:
-                                    employed = par.e_grid[employed_idx]
-                                    idx = (t, a_idx, s_idx, k_idx, retirement_age_idx, employed_idx)
-                                    idx_next = (t+1, a_idx, s_idx, k_idx, retirement_age_idx, employed_idx)
-                                    if employed == 0.0:
-                                        ex = 0.0
-                                        h_unemployed = 0.0
-                                        bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
-                                        c_star = optimizer(
-                                            obj_consumption,
-                                            bc_min,
-                                            bc_max,
-                                            args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
-                                            tol=par.opt_tol
-                                        )
-                                        V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, t)
-                                        sol_c_un[idx]  = c_star
-                                        sol_h[idx]  = h_unemployed
-                                    if employed == 1.0:
-                                        for ex in (0,1):
-                                            if ex == 0.0: # Unemployed
-                                                h_unemployed = 0.0
-                                                bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
-                                                c_star = optimizer(
-                                                    obj_consumption,
-                                                    bc_min,
-                                                    bc_max,
-                                                    args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
-                                                    tol=par.opt_tol
-                                                )
-                                                V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, t)
-                                                sol_c_un[idx]  = c_star
-                                                sol_h[idx]  = h_unemployed
-                                                
-                                            if ex == 1.0: # Employed
-                                                h_star = optimize_outer(
-                                                    obj_hours,       
-                                                    par.h_min,
-                                                    par.h_max,
-                                                    args=(par, sol_V, sol_EV, assets, savings, human_capital, par.last_retirement, ex, t),
-                                                    tol=par.opt_tol
-                                                )
+                                if employed == 0.0:
+                                    ex = 0.0
+                                    h_unemployed = 0.0
+                                    bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
+                                    c_star = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
+                                        tol=par.opt_tol
+                                    )
+                                    V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, t)
+                                    sol_c_un[idx]  = c_star
+                                    sol_h[idx]  = h_unemployed
+                                    
+                                if employed == 1.0:
+                                    for ex in (0,1):
+                                        if ex == 0.0: # Unemployed
+                                            h_unemployed = 0.0
+                                            bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
+                                            c_star = optimizer(
+                                                obj_consumption,
+                                                bc_min,
+                                                bc_max,
+                                                args=(par, sol_V, sol_EV, h_unemployed, assets, savings, human_capital, t),
+                                                tol=par.opt_tol
+                                            )
+                                            V_unemployed[idx] = value_function(par, sol_V, sol_EV, c_star, h_unemployed, assets, savings, human_capital, t)
+                                            sol_c_un[idx]  = c_star
+                                            sol_h[idx]  = h_unemployed
+                                            
+                                        if ex == 1.0: # Employed
+                                            h_star = optimize_outer(
+                                                obj_hours,       
+                                                par.h_min,
+                                                par.h_max,
+                                                args=(par, sol_V, sol_EV, assets, savings, human_capital, par.last_retirement, ex, t),
+                                                tol=par.opt_tol
+                                            )
 
-                                                bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, par.last_retirement, ex, t)
-                                                c_star = optimizer(
-                                                    obj_consumption,
-                                                    bc_min,
-                                                    bc_max,
-                                                    args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
-                                                    tol=par.opt_tol
-                                                )
+                                            bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, par.last_retirement, ex, t)
+                                            c_star = optimizer(
+                                                obj_consumption,
+                                                bc_min,
+                                                bc_max,
+                                                args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, t),
+                                                tol=par.opt_tol
+                                            )
 
-                                                
-                                                V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
-                                                sol_c[idx] = c_star
-                                                sol_h[idx] = h_star
-                                                if V_unemployed[idx]> V_employed[idx]:
-                                                    sol_V[idx] = V_unemployed[idx]
-                                                    sol_ex[idx] = 0.0
-                                                else:
-                                                    sol_V[idx] = V_employed[idx]
-                                                    sol_ex[idx] = 1.0
+                                            
+                                            V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
+                                            sol_c[idx] = c_star
+                                            sol_h[idx] = h_star
+                                            if V_unemployed[idx]> V_employed[idx]:
+                                                sol_V[idx] = V_unemployed[idx]
+                                                sol_ex[idx] = 0.0
+                                            else:
+                                                sol_V[idx] = V_employed[idx]
+                                                sol_ex[idx] = 1.0
 
 
                                 for ex in (0, 1):
@@ -545,12 +538,9 @@ def main_solver_loop(par, sol, do_print = False):
                                         V_employed[idx] = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
                                         sol_c[idx] = c_star
                                         sol_h[idx] = h_star
-                                        if V_unemployed[idx]> V_employed[idx]:
-                                            sol_V[idx] = V_unemployed[idx]
-                                            sol_ex[idx] = 0.0
-                                        else:
-                                            sol_V[idx] = V_employed[idx]
-                                            sol_ex[idx] = 1.0
+
+                                        sol_V[idx] = V_unemployed[idx] if V_unemployed[idx]>V_employed[idx] else V_employed[idx]
+                                        sol_ex[idx] = 0.0 if V_unemployed[idx]>V_employed[idx] else 1.0
 
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 
@@ -663,7 +653,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
         elif t <= par.last_retirement:
             for i in prange(par.simN):
-                if t < par.first_retirement:
+                if t < par.last_retirement:
                     if sim_e[i,t-1] == 1.0:
                         sim_e[i,t] = 0.0 if sim.e_f[i,t] == 1.0 else 1.0
                     else:
@@ -672,7 +662,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 if sim_e[i,t] == 0.0:
                     sim_ex[i,t] = 0.0
                 else:
-                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,:,retirement_age[i],int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,int(retirement_age_idx[i]),int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
 
                 if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
