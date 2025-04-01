@@ -44,11 +44,12 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.delta  = 0.028693
-        par.beta_1 = 0.027279
-        par.beta_2 = -0.000388
+        par.alpha   = 5.201640
+        par.k_0     = 67.471083
+        par.beta_1  = 0.032552
+        par.beta_2  = -0.000380
+        par.delta   = 0.031318
         par.w_0     = 0.0
-        par.k_0             = 195.701266                     
         par.full_time_hours = 1924.0
 
         # Tax system
@@ -156,7 +157,7 @@ class ModelClass(EconModelClass):
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
-        sim.k_init                          = (np.log(sim.w_init))/par.beta_1
+        sim.k_init                          = np.exp((np.log(sim.w_init) - par.alpha)/par.beta_1)
 
         sim.s_retirement                    = np.zeros(par.simN)
         sim.retirement_age                  = np.zeros(par.simN)

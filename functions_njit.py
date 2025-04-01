@@ -30,7 +30,7 @@ def bequest(par, a):
 @jit_if_enabled(fastmath=True)
 def wage(par, k, t):
     '''Wage before taxes'''
-    return par.full_time_hours*np.exp(par.beta_1*k + par.beta_2*t**2)
+    return par.full_time_hours*np.exp(par.alhpa + par.beta_1*k + par.beta_2*t**2)
 
 @jit_if_enabled(fastmath=True)
 def income_fct(par, a, s, k, h, retirement_age, t):
