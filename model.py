@@ -44,10 +44,10 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.delta  = 0.056530
-        par.beta_1 = 0.034810
-        par.beta_2 = -0.000227
-        par.w_0             = 156.600466                           
+        par.delta  = 0.028693
+        par.beta_1 = 0.027279
+        par.beta_2 = -0.000388
+        par.w_0             = 181.669894          
         par.full_time_hours = 1924.0
 
         # Tax system
@@ -90,7 +90,7 @@ class ModelClass(EconModelClass):
         # Grids
         par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 3_000_000
         par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 40
+        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 150
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -99,7 +99,7 @@ class ModelClass(EconModelClass):
         par.c_max  = np.inf
 
         # Shocks
-        par.xi      = 0.1
+        par.xi      = 0.05
         par.N_xi    = 20
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
@@ -155,7 +155,8 @@ class ModelClass(EconModelClass):
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
-        sim.k_init                          = np.log(sim.w_init)
+        sim.w_init                          = sim.w_init - 26.330106
+        sim.k_init                          = np.random.uniform(0, 10, par.simN)
 
         sim.s_retirement                    = np.zeros(par.simN)
         sim.retirement_age                  = np.zeros(par.simN)
