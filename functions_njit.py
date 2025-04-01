@@ -440,7 +440,7 @@ def main_solver_loop(par, sol, do_print = False):
                                 sol_ex[idx] = 1.0
 
                             else:
-                                if employed == 0.0:
+                                if employed == 0.0: # Forced unemployment
                                     ex = 0.0
                                     h_unemployed = 0.0
                                     bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
@@ -457,7 +457,7 @@ def main_solver_loop(par, sol, do_print = False):
                                     
                                 if employed == 1.0:
                                     for ex in (0,1):
-                                        if ex == 0.0: # Unemployed
+                                        if ex == 0.0: # choose unemployment
                                             h_unemployed = 0.0
                                             bc_min, bc_max = budget_constraint(par, h_unemployed, assets, savings, human_capital, par.last_retirement, ex, t)
                                             c_star = optimizer(
@@ -471,7 +471,7 @@ def main_solver_loop(par, sol, do_print = False):
                                             sol_c_un[idx]  = c_star
                                             sol_h[idx]  = h_unemployed
                                             
-                                        if ex == 1.0: # Employed
+                                        if ex == 1.0: # choose employment
                                             h_star = optimize_outer(
                                                 obj_hours,       
                                                 par.h_min,
