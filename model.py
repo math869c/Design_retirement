@@ -6,7 +6,7 @@ from EconModel import EconModelClass, jit
 
 from consav.grids import nonlinspace
 from consav.quadrature import log_normal_gauss_hermite
-
+from bernoulli_distribution import Bernoulli
 from help_functions_non_njit import draw_initial_values
 
 
@@ -31,10 +31,10 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.995    # Skal kalibreres
+        par.beta   = 1.0 # 0.995    # Skal kalibreres
         par.sigma  = 1.23151331     # Skal kalibreres
         par.gamma  = 4.738944       # Skal kalibreres
-        par.mu     = 7.56180656     # Skal kalibreres
+        par.mu     = 0.0 # 7.56180656     # Skal kalibreres
         par.a_bar  = 0.001
         
         # assets 
@@ -60,8 +60,9 @@ class ModelClass(EconModelClass):
 
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
-        par.first_retirement    = par.retirement_age - 5
-        par.last_retirement     = par.retirement_age + 5
+        par.range               = 5
+        par.first_retirement    = par.retirement_age - par.range
+        par.last_retirement     = par.retirement_age + par.range
         par.retirement_window   = par.last_retirement - par.first_retirement + 1
 
         par.m = 12 # Years with retirement payments
@@ -76,12 +77,19 @@ class ModelClass(EconModelClass):
         par.chi_max = 95_800
         par.rho = 0.309
 
+        # hire and fire employment
+        par.fire = 0.05
+        par.hire = 0.2
+
+        # unemployment benefit
+        par.unemployment_benefit = 159_876
+
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
         par.pi =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
         par.pi[-1] = 0.0
         par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
-        # par.pi = np.ones_like(par.pi)
+        par.pi = np.ones_like(par.pi)
 
         # Welfare system
         par.replacement_rate_bf_start = 6
@@ -100,8 +108,8 @@ class ModelClass(EconModelClass):
         par.c_max  = np.inf
 
         # Shocks
-        par.xi      = 0.05
-        par.N_xi    = 20
+        par.xi      = 0.1
+        par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
@@ -120,16 +128,18 @@ class ModelClass(EconModelClass):
         par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, par.a_sp)
         par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
         par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
+        par.e_grid = [0, 1]
 
-        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window)
-        sol.a               = np.nan + np.zeros(shape)
-        sol.ex              = np.nan + np.zeros(shape)
-        sol.c               = np.nan + np.zeros(shape)
-        sol.c_un            = np.nan + np.zeros(shape)
-        sol.h               = np.nan + np.zeros(shape)
-        sol.V               = np.nan + np.zeros(shape)
-        sol.V_employed      = np.nan + np.zeros(shape)
-        sol.V_unemployed    = np.nan + np.zeros(shape)
+
+        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window, len(par.e_grid))
+        sol.a               = np.full(shape, np.nan)
+        sol.ex              = np.full(shape, np.nan)
+        sol.c               = np.full(shape, np.nan)
+        sol.c_un            = np.full(shape, np.nan)
+        sol.h               = np.full(shape, np.nan)
+        sol.V               = np.full(shape, np.nan)
+        sol.V_employed      = np.full(shape, np.nan)
+        sol.V_unemployed    = np.full(shape, np.nan)
 
         self.allocate_sim()
 
@@ -147,10 +157,16 @@ class ModelClass(EconModelClass):
         sim.a           = np.nan + np.zeros(shape)
         sim.s           = np.nan + np.zeros(shape)
         sim.k           = np.nan + np.zeros(shape)
+        sim.e           = np.nan + np.zeros(shape)
+        sim.e_f         = Bernoulli(p=par.fire).rvs(size=shape)
+        sim.e_h         = Bernoulli(p=par.hire).rvs(size=shape)
         sim.w           = np.nan + np.zeros(shape)
         sim.ex          = np.nan + np.zeros(shape)
         sim.chi_payment = np.nan + np.zeros(shape)
         sim.tax_rate    = np.nan + np.zeros(shape)
+        sim.income      = np.nan + np.zeros(shape)
+        sim.s_retirement_contrib = np.nan + np.zeros(shape)
+        sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
 
@@ -167,10 +183,7 @@ class ModelClass(EconModelClass):
         sim.s_rp_init                       = np.zeros(par.simN)
         sim.replacement_rate                = np.zeros(par.simN)
         sim.consumption_replacement_rate    = np.zeros(par.simN)
-        sim.income                          = np.zeros(par.simN)
-            
-
-
+        
     # Solve the model
     def solve(self, do_print = False):
 
@@ -179,7 +192,7 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :, :], sol.c_un[:, :, :, :, :], sol.h[:, :, :, :, :], sol.ex[:, :, :, :, :], sol.V[:, :, :, :, :] = main_solver_loop(par, sol, do_print)
+            sol.c[:, :, :, :, :, :], sol.c_un[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
 
     def simulate(self):
         with jit(self) as model:
@@ -187,5 +200,5 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
             sim = model.sim 
-            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:]= main_simulation_loop(par, sol, sim)
-          
+            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:]= main_simulation_loop(par, sol, sim)
+
