@@ -175,7 +175,7 @@ def make_new_model(model, theta, theta_names, do_print = False):
     for i, name in enumerate(theta_names):
         setattr(new_model.par, name, theta[i])
     print('Solving the new model')
-    new_model.solve()
+    new_model.solve(do_print = do_print)
     print('Simulating the new model')
     new_model.simulate()
 

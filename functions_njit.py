@@ -42,16 +42,16 @@ def capital_return_fct(par, a):
 def calculate_retirement_payouts(par, savings, retirement_age, t):
     """Calculate retirement payouts: can be split into 3 periods: before retirement, during installment and annuity, and only annuity"""
     if t >= retirement_age + par.m:
-        EL = sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age)
+        EL = round(sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age),0)
         s_retirement = savings
-        s_lr = par.share_lr * (s_retirement/EL) 
+        s_lr =  (((1+par.r_s)**EL)*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(EL)))
         return s_lr, 0.0
     
     elif t >= retirement_age:
-        EL = sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age)
+        EL = round(sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age),0)
         s_retirement = savings
-        s_lr = par.share_lr * (s_retirement/EL) 
-        s_rp = (1-par.share_lr) * (s_retirement/par.m) 
+        s_lr =  (((1+par.r_s)**EL)*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(EL)))
+        s_rp = (((1+par.r_s)**par.m)*s_retirement*(1-par.share_lr))/np.sum((1+par.r_s)**(np.arange(par.m)))
         return s_lr, s_rp
     else:
         return 0.0, 0.0
@@ -710,7 +710,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i]+sim_s_rp_init[i])
+                    sim_s[i,t+1] = np.maximum((sim_s[i,t] - (sim_s_lr_init[i]+sim_s_rp_init[i]))*(1+par.r_s),0)
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
@@ -735,7 +735,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
+                    sim_s[i,t+1] = np.maximum((sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s),0)
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 else: 
@@ -786,7 +786,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i])
+                    sim_s[i,t+1] = np.maximum((sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s),0)
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 elif par.T - 1 > t >= retirement_age[i] + par.m:
@@ -804,7 +804,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = sim_s[i,t] - sim_s_lr_init[i]
+                    sim_s[i,t+1] = np.maximum((sim_s[i,t] - sim_s_lr_init[i])*(1+par.r_s),0)
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
                     
                 else:

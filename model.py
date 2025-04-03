@@ -91,6 +91,7 @@ class ModelClass(EconModelClass):
         # par.EL = sum(np.cumprod(par.pi[par.retirement_age:])*np.arange(par.retirement_age,par.T))/(par.T-par.retirement_age) # forventet livstid tilbage efter pension
         par.pi = np.ones_like(par.pi_el)
 
+
         # Welfare system
         par.replacement_rate_bf_start = 6
         par.replacement_rate_bf_end = 3
@@ -100,9 +101,9 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 15, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 15, 1.0, 0.0, 1_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 15, 1.0, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2

@@ -39,13 +39,14 @@ Done:
 - Skrevet motivation og regler om pensionssystemet (skal self skrives rent)
 - Ændre den forventede levetid som funktion af pensionstidspunktet
 - Effekt på intensiv og ekstensiv margin
+- Rente på pensionsformuen
+
 
 Immediate to do:
 - Opdatér datadefinitioner vi vil køre og skriv ind
 - Opdatér den måde, vi løser modellen på (numerisk optimering, parallelisering, pre-computed shocks, gauss-hermite, interpolering, analytisk sidste løsning)
 - Kalibrér renterne (proxy)
 - Find en god forklaring på par.m
-- Rente på pensionsformuen
 - Ventetillæg (kræver choice ti)
 - Skriv modellen op igen, gennemgå matematik, lave variabeltabel
 - Overvej hvordan vi sætter unemployment benefits og folkepension
