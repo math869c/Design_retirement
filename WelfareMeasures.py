@@ -34,12 +34,15 @@ def consumption_replacement_rate_fct(model):
 def bequest(model, a):
     '''Cannot be njited'''
     par = model.par
-    return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
+    if par.mu == 0.0:
+        return np.zeros_like(a)
+    else:
+        return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
 
 def utility_work(model, h):
     '''Cannot be njited'''
     par = model.par
-    return - par.work_cost*(h**(1+par.gamma))/(1+par.gamma)
+    return - (h**(1+par.gamma))/(1+par.gamma)
 
 def utility_consumption(model, c):
     '''Cannot be njited'''
@@ -113,9 +116,9 @@ def find_consumption_equivalence(model, theta, theta_names, do_print= False, the
     # d. Update the new model with new parameters
     for i, name in enumerate(theta_names):
         setattr(new_model.par, name, theta[i])
-    print('Solving the model')
+    print('Solving the new model')
     new_model.solve()
-    print('Simulating the model')
+    print('Simulating the new model')
     new_model.simulate()
 
     # e. Calculate welfare 
@@ -157,3 +160,50 @@ def find_consumption_equivalence(model, theta, theta_names, do_print= False, the
         return result.root
     else:
         raise ValueError("Root-finding for phi did not converge")
+    
+
+# Calculate elasticity of labor supply
+def labor_elasticity(model, theta, theta_names, do_print= False):
+    ''' Can be used to measure the impact of policy changes on labor supply'''
+    # a. Original model
+    original_model = model
+    par_og = original_model.par
+    sim_og = original_model.sim
+
+    # b. New model
+    new_model = model.copy()
+    par_new = new_model.par
+    sim_new = new_model.sim
+    
+    # c. Overview of changes 
+    if do_print:
+        for idx, name in enumerate(theta_names):
+            print(f'The original value of {name}: {par_og.__dict__[name]}, the new value will be: {theta[idx]}')
+
+    # d. Update the new model with new parameters
+    for i, name in enumerate(theta_names):
+        setattr(new_model.par, name, theta[i])
+    print('Solving the new model')
+    new_model.solve()
+    print('Simulating the new model')
+    new_model.simulate()
+
+    # weights for the labor supply
+    pi_weight = np.cumprod(par_og.pi)
+
+    # e. Calculate labor supply before and after
+    # intensive margin
+    sim_og_h_ex_1 = np.where(sim_og.ex == 1, sim_og.h, np.nan)
+    sim_new_h_ex_1 = np.where(sim_new.ex == 1, sim_new.h, np.nan)
+    sim_og_h = np.nanmean(sim_og_h_ex_1, axis=0)# age specific average 
+    sim_new_h = np.nanmean(sim_new_h_ex_1, axis=0) # age specific average
+    intensive_margin_age = (sim_new_h-sim_og_h)/sim_og_h 
+    intensive_margin = (np.nanmean(pi_weight*sim_new_h, axis=0)-np.nanmean(pi_weight*sim_og_h, axis=0))/(np.nanmean(pi_weight*sim_og_h, axis=0))
+
+    # extensive margin
+    sim_og_ex = np.nansum(sim_og.ex, axis=0) # age specific average
+    sim_new_ex = np.nansum(sim_new.ex, axis=0) # age specific average
+    extensive_margin_age = (sim_new_ex-sim_og_ex)/par_og.simN
+    extensive_margin = (np.nansum(pi_weight*sim_new_ex, axis=0)-np.nansum(pi_weight*sim_og_ex, axis=0))/np.sum(pi_weight*par_og.simN)
+    # total margin
+    return intensive_margin, extensive_margin, intensive_margin_age, extensive_margin_age    
