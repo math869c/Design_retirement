@@ -817,4 +817,4 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], retirement_age[i], t)
 
 
-    return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_chi_payment, sim_tax_rate, sim_income_before_tax_contrib
+    return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_chi_payment, sim_tax_rate, sim_income_before_tax_contrib, s_retirement, retirement_age
