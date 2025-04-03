@@ -7,21 +7,8 @@ def replacement_rate_fct(model):
     '''Can be used without policy changes'''
     par = model.par  
     sim = model.sim
-
-    start_before = par.retirement_age-par.replacement_rate_bf_start
-    end_before = par.retirement_age-par.replacement_rate_bf_end
-    after_retirement = par.retirement_age +par.replacement_rate_af_start
-
-
-    income_before = final_income_and_retirement_contri(par, sim.a[:,start_before:end_before], s_retirement[:,start_before:end_before], sim.k[:,start_before:end_before], sim.h[:,start_before:end_before], retirement_age[:,start_before:end_before], t)
-    income_before = final_income_and_retirement_contri(par, sim.a[:,start_before:end_before], s_retirement[:,start_before:end_before], sim.k[:,start_before:end_before], sim.h[:,start_before:end_before], retirement_age[:,start_before:end_before], t)
- 
-    ((1-par.tau[start_before:end_before])*sim.h[:,start_before:end_before]*sim.w[:, start_before:end_before] +
-        (par.r_a/(1+par.r_a))* sim.a[:,start_before:end_before]).mean(axis=1) 
-    income_after = sim.s_lr_init[:] + sim.s_rp_init[:] + sim.chi_payment[:,after_retirement] +\
-        (par.r_a/(1+par.r_a))* sim.a[:,after_retirement]
-
-    return income_after/income_before
+    
+    return np.mean(sim.income[:,par.start_before:par.end_before],axis=1) /sim.income[:,par.after_retirement]
 
 def consumption_replacement_rate_fct(model):
     '''Can be used without policy changes'''

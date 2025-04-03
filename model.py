@@ -95,11 +95,14 @@ class ModelClass(EconModelClass):
         par.replacement_rate_bf_start = 6
         par.replacement_rate_bf_end = 3
         par.replacement_rate_af_start = 5
+        par.start_before = par.retirement_age-par.replacement_rate_bf_start
+        par.end_before = par.retirement_age-par.replacement_rate_bf_end
+        par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -200,5 +203,5 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
             sim = model.sim 
-            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:], sim.s_retirement[:], sim.retirement_age[:]= main_simulation_loop(par, sol, sim)
+            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:], sim.s_retirement[:], sim.retirement_age[:], sim.income[:,:] = main_simulation_loop(par, sol, sim)
 
