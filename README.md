@@ -37,7 +37,8 @@ Done:
 - Initial draws
 - Overvej andre counterfactuals (udbetalingsalder, pensionsalder, indbetalingssatser)
 - Skrevet motivation og regler om pensionssystemet (skal self skrives rent)
-
+- Ændre den forventede levetid som funktion af pensionstidspunktet
+- Effekt på intensiv og ekstensiv margin
 
 Immediate to do:
 - Opdatér datadefinitioner vi vil køre og skriv ind
@@ -45,10 +46,8 @@ Immediate to do:
 - Kalibrér renterne (proxy)
 - Find en god forklaring på par.m
 - Rente på pensionsformuen
-- Ventetillæg
+- Ventetillæg (kræver choice ti)
 - Skriv modellen op igen, gennemgå matematik, lave variabeltabel
-- Effekt på intensiv og ekstensiv margin
-- Ændre den forventede levetid som funktion af pensionstidspunktet
 - Overvej hvordan vi sætter unemployment benefits og folkepension
 
 Maybe to do:

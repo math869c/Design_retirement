@@ -42,13 +42,15 @@ def capital_return_fct(par, a):
 def calculate_retirement_payouts(par, savings, retirement_age, t):
     """Calculate retirement payouts: can be split into 3 periods: before retirement, during installment and annuity, and only annuity"""
     if t >= retirement_age + par.m:
+        EL = sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age)
         s_retirement = savings
-        s_lr = par.share_lr * (s_retirement/par.EL) 
+        s_lr = par.share_lr * (s_retirement/EL) 
         return s_lr, 0.0
     
     elif t >= retirement_age:
+        EL = sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age)
         s_retirement = savings
-        s_lr = par.share_lr * (s_retirement/par.EL) 
+        s_lr = par.share_lr * (s_retirement/EL) 
         s_rp = (1-par.share_lr) * (s_retirement/par.m) 
         return s_lr, s_rp
     else:
@@ -75,6 +77,7 @@ def public_benefit_fct(par, h, income, t):
         else:
             # No public benefits
             return 0.0
+        
         
     # public retirement benefits
     else:
