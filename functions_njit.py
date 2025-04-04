@@ -182,8 +182,6 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
 
     para_fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
     para_hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
-    if t == 10:
-        print(para_fire)
 
     if employed_idx ==0:
         V_next = (1-para_hire[t])*V_next_un + para_hire[t]*V_next_em
@@ -599,6 +597,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_chi_payment = sim.chi_payment
     sim_tax_rate = sim.tax_rate
     sim_income_before_tax_contrib = sim.income_before_tax_contrib
+    sim_e_init = sim.e_init
     
     sim_s_retirement_contrib = sim.s_retirement_contrib
     
@@ -611,14 +610,15 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_a[:,0] = sim_a_init[:]
     sim_s[:,0] = sim_s_init[:]
     sim_k[:,0] = sim_k_init[:]
+    sim_e[:,0] = sim_e_init[:]
 
     for t in range(par.simT):
 
         # ii. interpolate optimal consumption and hours
         if t < par.first_retirement:
             for i in prange(par.simN):
-                if t==0:
-                    sim_e[i,0] = 1.0
+                if t == 0:
+                    pass
                 elif t < par.first_retirement:
                     if sim_e[i,t-1] == 1.0:
                         sim_e[i,t] = 0.0 if sim.e_f[i,t] == 1.0 else 1.0

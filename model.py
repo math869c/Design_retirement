@@ -86,6 +86,8 @@ class ModelClass(EconModelClass):
         par.alpha_h1 = 0.05
         par.alpha_h2 = -0.001
 
+        par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
+
 
 
 
@@ -188,6 +190,8 @@ class ModelClass(EconModelClass):
         sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
         sim.w_init                          = sim.w_init - (np.mean(sim.w_init) - par.w_0)
         sim.k_init                          = np.random.normal(5, 1, par.simN)
+
+        sim.e_init = Bernoulli(p=par.initial_ex, size=par.simN).rvs()
 
         sim.s_retirement                    = np.zeros(par.simN)
         sim.retirement_age                  = np.zeros(par.simN)
