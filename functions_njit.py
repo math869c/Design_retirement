@@ -180,10 +180,15 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
     V_next_un = sol_V[t+1, :, :, :, retirement_idx, 0]
     V_next_em = sol_V[t+1, :, :, :, retirement_idx, 1]
 
+    para_fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
+    para_hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
+    if t == 10:
+        print(para_fire)
+
     if employed_idx ==0:
-        V_next = (1-par.hire)*V_next_un + par.hire*V_next_em
+        V_next = (1-para_hire[t])*V_next_un + para_hire[t]*V_next_em
     else:
-        V_next = par.fire*V_next_un + (1-par.fire)*V_next_em
+        V_next = para_fire[t]*V_next_un + (1-para_fire[t])*V_next_em
 
     for i_a, a_next in enumerate(par.a_grid):
         for i_s, s_next in enumerate(par.s_grid):

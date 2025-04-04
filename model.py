@@ -78,8 +78,16 @@ class ModelClass(EconModelClass):
         par.rho = 0.309
 
         # hire and fire employment
-        par.fire = 0.05
-        par.hire = 0.2
+        par.alpha_f0 = 0.05
+        par.alpha_f1 = -0.01
+        par.alpha_f2 = 0.001
+
+        par.alpha_h0 = 0.2
+        par.alpha_h1 = 0.05
+        par.alpha_h2 = -0.001
+
+
+
 
         # unemployment benefit
         par.unemployment_benefit = 159_876
@@ -101,9 +109,9 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 15, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 15, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 15, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -162,8 +170,6 @@ class ModelClass(EconModelClass):
         sim.s           = np.nan + np.zeros(shape)
         sim.k           = np.nan + np.zeros(shape)
         sim.e           = np.nan + np.zeros(shape)
-        sim.e_f         = Bernoulli(p=par.fire).rvs(size=shape)
-        sim.e_h         = Bernoulli(p=par.hire).rvs(size=shape)
         sim.w           = np.nan + np.zeros(shape)
         sim.ex          = np.nan + np.zeros(shape)
         sim.chi_payment = np.nan + np.zeros(shape)
@@ -173,11 +179,14 @@ class ModelClass(EconModelClass):
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
+        para_fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
+        para_hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
+        sim.e_f         = Bernoulli(p = para_fire, size=shape).rvs()
+        sim.e_h         = Bernoulli(p = para_hire, size=shape).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
         sim.w_init                          = sim.w_init - (np.mean(sim.w_init) - par.w_0)
-        # sim.k_init                          = np.random.normal(5, 1, par.simN)
         sim.k_init                          = np.random.normal(5, 1, par.simN)
 
         sim.s_retirement                    = np.zeros(par.simN)
@@ -190,6 +199,7 @@ class ModelClass(EconModelClass):
         
     # Solve the model
     def solve(self, do_print = False):
+        self.allocate_sim()
 
         with jit(self) as model:
 
