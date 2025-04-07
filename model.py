@@ -86,10 +86,10 @@ class ModelClass(EconModelClass):
         par.alpha_h1 = 0.05
         par.alpha_h2 = -0.001
 
+        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
+        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
+
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
-
-
-
 
         # unemployment benefit
         par.unemployment_benefit = 159_876
@@ -129,6 +129,24 @@ class ModelClass(EconModelClass):
         # Simulation
         par.simT = par.T # number of periods
         par.simN = 10000 # number of individuals
+
+    def update_dependent_parameters(self):
+        par = self.par
+
+        # Retirement system
+        par.first_retirement = par.retirement_age - par.range
+        par.last_retirement = par.retirement_age + par.range
+        par.retirement_window = par.last_retirement - par.first_retirement + 1
+
+        # Welfare system
+        par.start_before = par.retirement_age - par.replacement_rate_bf_start
+        par.end_before = par.retirement_age - par.replacement_rate_bf_end
+        par.after_retirement = par.retirement_age + par.replacement_rate_af_start
+
+        # fire and hire employment
+        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
+        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
+
 
 
     def allocate(self):
@@ -181,10 +199,8 @@ class ModelClass(EconModelClass):
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
-        para_fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
-        para_hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
-        sim.e_f         = Bernoulli(p = para_fire, size=shape).rvs()
-        sim.e_h         = Bernoulli(p = para_hire, size=shape).rvs()
+        sim.e_f         = Bernoulli(p = par.fire, size=shape).rvs()
+        sim.e_h         = Bernoulli(p = par.hire, size=shape).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
@@ -203,6 +219,7 @@ class ModelClass(EconModelClass):
         
     # Solve the model
     def solve(self, do_print = False):
+        self.update_dependent_parameters()        
         self.allocate_sim()
 
         with jit(self) as model:
@@ -213,6 +230,9 @@ class ModelClass(EconModelClass):
             sol.c[:, :, :, :, :, :], sol.c_un[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
 
     def simulate(self):
+        self.update_dependent_parameters()        
+        self.allocate_sim()
+
         with jit(self) as model:
 
             par = model.par
