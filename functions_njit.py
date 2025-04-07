@@ -286,6 +286,8 @@ def obj_hours(h, par, sol_V, sol_EV, a, s, k, retirement_age, ex, t, dist):
 @jit_if_enabled(parallel=True)
 def main_solver_loop(par, sol, do_print = False):
 
+    print("test")
+
     human_capital_place, hours_place, ex_place = 0.0, 0.0, 0.0
 
     sol_a = sol.a
