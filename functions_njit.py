@@ -178,9 +178,9 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
     V_next_em = sol_V[t+1, :, :, :, retirement_idx, 1]
 
     if employed_idx ==0:
-        V_next = (1-par.hire)*V_next_un + par.hire*V_next_em
+        V_next = (1-par.hire[t])*V_next_un + par.hire[t]*V_next_em
     else:
-        V_next = par.fire*V_next_un + (1-par.fire)*V_next_em
+        V_next = par.fire[t]*V_next_un + (1-par.fire[t])*V_next_em
 
     for i_a, a_next in enumerate(par.a_grid):
         for i_s, s_next in enumerate(par.s_grid):
@@ -640,7 +640,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     # 3.5 tax rate
                     sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], par.last_retirement, t)
 
-                    # 4. Update of states   
+                    # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + sim_s_retirement_contrib[i,t])
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]

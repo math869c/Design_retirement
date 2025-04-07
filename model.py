@@ -44,12 +44,11 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.w_0 =       140.656137
-        par.k_0 =         4.992511
-        par.beta_1 =         0.076372
-        par.beta_2 =        -0.000184
-        par.delta =         0.094568
-        par.k_0_var =         4.046877
+        par.w_0 =       176.140379
+        par.k_0 =         5.000000
+        par.beta_1 =         0.033468
+        par.beta_2 =        -0.000374
+        par.delta =         0.031728
         par.full_time_hours = 1924.0
 
         # Tax system
@@ -98,9 +97,9 @@ class ModelClass(EconModelClass):
         par.replacement_rate_af_start = 5
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
