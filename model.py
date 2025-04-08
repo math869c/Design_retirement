@@ -44,15 +44,13 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.w_0 =        84.097427
-        par.k_0 =         9.005536
-        par.beta_1 =         0.100325
-        par.beta_2 =        -0.000273
-        par.delta =         0.067073
-        par.k_0_var =         2.930920
+        par.w_0 =       164.649110
+        par.beta_1 =         0.045522
+        par.beta_2 =        -0.000287
+        par.delta =         0.056238
+        par.k_0_var =         6.482505
 
-
-
+        par.k_0 =             5
 
         par.full_time_hours = 1924.0
 
@@ -116,14 +114,14 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 11_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.2, 0.0, 4_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.2, 0.0, 50
 
         par.h_min  = 0.19
         par.h_max  = 1.2
 
-        par.c_min  = 0.001
+        par.c_min  = 1
         par.c_max  = np.inf
 
         # Shocks

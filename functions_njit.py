@@ -43,12 +43,14 @@ def calculate_retirement_payouts(par, savings, retirement_age, t):
     """Calculate retirement payouts: can be split into 3 periods: before retirement, during installment and annuity, and only annuity"""
     if t >= retirement_age + par.m:
         EL = round(sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age),0)
+        EL = 22.3
         s_retirement = savings
         s_lr =  (((1+par.r_s)**EL)*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(EL)))
         return s_lr, 0.0
     
     elif t >= retirement_age:
         EL = round(sum(np.cumprod(par.pi_el[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age),0)
+        EL = 22.3
         s_retirement = savings
         s_lr =  (((1+par.r_s)**EL)*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(EL)))
         s_rp = (((1+par.r_s)**par.m)*s_retirement*(1-par.share_lr))/np.sum((1+par.r_s)**(np.arange(par.m)))
@@ -189,6 +191,7 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
         else:
             V_next = par.fire[t]*V_next_un + (1-par.fire[t])*V_next_em
 
+
     for i_a, a_next in enumerate(par.a_grid):
         for i_s, s_next in enumerate(par.s_grid):
             for i_k, k_next in enumerate(par.k_grid):
@@ -258,7 +261,6 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, t):
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_EV, a_next, s_next, k_next)
 
     return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
-
 
 # 4. Objective functions 
 @jit_if_enabled(fastmath=True)
@@ -361,7 +363,6 @@ def main_solver_loop(par, sol, do_print = False):
                                 count += 1
 
                             elif t == retirement_age and sol_ex[idx_next] == 0.0:
-                            # elif t == retirement_age:  
 
                                 if employed == 0.0: # Forced unemployment
                                     bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, retirement_age, ex_unemp, t)
@@ -404,11 +405,11 @@ def main_solver_loop(par, sol, do_print = False):
                                                 obj_hours,       
                                                 par.h_min,
                                                 par.h_max,
-                                                args=(par, sol_V, sol_EV, assets, savings, human_capital, retirement_age, ex, t),
+                                                args=(par, sol_V, sol_EV, assets, savings, human_capital, par.last_retirement, ex, t),
                                                 tol=par.opt_tol
                                             )
 
-                                            bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, retirement_age, ex, t)
+                                            bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, par.last_retirement, ex, t)
                                             c_star = optimizer(
                                                 obj_consumption,
                                                 bc_min,
@@ -429,7 +430,7 @@ def main_solver_loop(par, sol, do_print = False):
                                                 sol_V[idx]  = V_employed[idx]
                                                 sol_ex[idx] = ex
                                                 sol_h[idx]  = h_star
-
+                                         
                                             count += 1
 
                             else:
@@ -499,8 +500,6 @@ def main_solver_loop(par, sol, do_print = False):
                                                 sol_h[idx] = h_star
 
                                             count += 1
-
-        print(count)
 
     return sol_c, sol_c_un, sol_h, sol_ex, sol_V
 
