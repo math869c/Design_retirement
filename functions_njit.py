@@ -116,20 +116,55 @@ def income_private_fct(par, a, s, k, h, retirement_age, t):
 
 # 1.2 retirement contributions and tax rates:
 # 1.2.1 tax rates: 
+# @jit_if_enabled(fastmath=True)
+# def tax_rate_fct(par, a, s, k, h, retirement_age, t):
+#     '''Tax rate as a function of income'''
+#     total_income = income_private_fct(par, a, s, k, h, retirement_age, t)
+    
+#     if total_income <= par.threshold:
+#         tax_rate = par.L1*(1-np.exp(-par.K1*total_income))
+#     else:
+#         tax_rate = par.L1*(1-np.exp(-par.K1*total_income)) + par.L2*(1-np.exp(-par.K2*(total_income-par.threshold)))
+    
+#     # Test 
+#     # tax_rate = par.upsilon 
+
+#     return tax_rate
+
+
 @jit_if_enabled(fastmath=True)
 def tax_rate_fct(par, a, s, k, h, retirement_age, t):
-    '''Tax rate as a function of income'''
-    total_income = income_private_fct(par, a, s, k, h, retirement_age, t)
-    
-    if total_income <= par.threshold:
-        tax_rate = par.L1*(1-np.exp(-par.K1*total_income))
-    else:
-        tax_rate = par.L1*(1-np.exp(-par.K1*total_income)) + par.L2*(1-np.exp(-par.K2*(total_income-par.threshold)))
-    
-    # Test 
-    # tax_rate = par.upsilon 
 
-    return tax_rate
+    total_income = income_private_fct(par, a, s, k, h, retirement_age, t)
+
+    am_sats                   = 0.08
+    beskfradrag_sats          = 0.875
+    bundskat_sats             = 0.113
+    topskat_sats              = 0.15
+    kommuneskat_sats          = 0.2491
+    personfradrag             = 46000
+    beskfradrag_graense       = 33300
+    topskat_graense           = 498900
+
+    am_aar = total_income * am_sats
+    personlignd_aar = (total_income - am_aar)
+    grundlag_aar = max(personlignd_aar - personfradrag, 0)
+    beskfradrag_aar = min(beskfradrag_graense, total_income * beskfradrag_sats)
+    skattepligt_aar = (grundlag_aar - beskfradrag_aar)
+    bundskat_aar = (grundlag_aar * bundskat_sats)
+    topskat_aar = (topskat_sats * max(personlignd_aar - topskat_graense, 0))
+    kommuneskat_aar = (kommuneskat_sats * skattepligt_aar)
+
+    # Notice kirkeskat was never added to 'indkomstskat' in the original code
+    indkomstskat_aar = (am_aar + bundskat_aar + topskat_aar + kommuneskat_aar)
+    ind_efter_aar = (total_income - indkomstskat_aar)
+
+    # Effective tax rate
+    skatteprocent_aar = max(1 - (ind_efter_aar / total_income), 0)
+    return skatteprocent_aar
+
+
+
 
 # 1.2.2 retirement contributions, only of labor income 
 @jit_if_enabled(fastmath=True)
