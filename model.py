@@ -47,7 +47,7 @@ class ModelClass(EconModelClass):
         par.w_0 =       176.140379
         par.k_0 =         5.000000
         par.beta_1 =         0.033468
-        par.beta_2 =        -0.000374
+        par.beta_2 =         -0.000374
         par.delta =         0.031728
         par.full_time_hours = 1924.0
 
@@ -93,6 +93,7 @@ class ModelClass(EconModelClass):
 
         # unemployment benefit
         par.unemployment_benefit = 159_876
+        par.fortid_benefit = 253_236
 
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
@@ -111,9 +112,9 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 4, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 4, 1.0, 0.0, 1_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 4, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 15, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 15, 1.0, 0.0, 3_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 15, 1.0, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -227,7 +228,7 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :, :, :], sol.c_un[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
+            sol.c[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
 
     def simulate(self):
         self.update_dependent_parameters()        
