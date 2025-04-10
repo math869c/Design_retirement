@@ -78,13 +78,13 @@ class ModelClass(EconModelClass):
         par.rho = 0.309
 
         # hire and fire employment
-        par.alpha_f0 = 0.05
-        par.alpha_f1 = -0.01
-        par.alpha_f2 = 0.001
+        par.alpha_f0 = 0.043779862783
+        par.alpha_f1 = -0.00218450969
+        par.alpha_f2 = 0.0000600717239
 
-        par.alpha_h0 = 0.2
-        par.alpha_h1 = 0.05
-        par.alpha_h2 = -0.001
+        par.alpha_h0 = 0.4693704319
+        par.alpha_h1 = -0.004887608808
+        par.alpha_h2 = 0.000098401435
 
         par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
         par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
