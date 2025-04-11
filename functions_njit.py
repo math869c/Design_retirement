@@ -120,23 +120,14 @@ def tax_rate_fct(par, a, s, k, h, retirement_age, t):
 
     total_income = income_private_fct(par, a, s, k, h, retirement_age, t)
 
-    am_sats                   = 0.08
-    beskfradrag_sats          = 0.875
-    bundskat_sats             = 0.113
-    topskat_sats              = 0.15
-    kommuneskat_sats          = 0.2491
-    personfradrag             = 46000
-    beskfradrag_graense       = 33300
-    topskat_graense           = 498900
-
-    am_aar = total_income * am_sats
+    am_aar = total_income * par.am_sats
     personlignd_aar = (total_income - am_aar)
-    grundlag_aar = max(personlignd_aar - personfradrag, 0)
-    beskfradrag_aar = min(beskfradrag_graense, total_income * beskfradrag_sats)
+    grundlag_aar = max(personlignd_aar - par.personfradrag, 0)
+    beskfradrag_aar = min(par.beskfradrag_graense, total_income * par.beskfradrag_sats)
     skattepligt_aar = (grundlag_aar - beskfradrag_aar)
-    bundskat_aar = (grundlag_aar * bundskat_sats)
-    topskat_aar = (topskat_sats * max(personlignd_aar - topskat_graense, 0))
-    kommuneskat_aar = (kommuneskat_sats * skattepligt_aar)
+    bundskat_aar = (grundlag_aar * par.bundskat_sats)
+    topskat_aar = (par.topskat_sats * max(personlignd_aar - par.topskat_graense, 0))
+    kommuneskat_aar = (par.kommuneskat_sats * skattepligt_aar)
 
     # Notice kirkeskat was never added to 'indkomstskat' in the original code
     indkomstskat_aar = (am_aar + bundskat_aar + topskat_aar + kommuneskat_aar)
@@ -593,46 +584,29 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                 # 1. technical variables
 
-                if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
-                    # 1.1 retirement age
-                    retirement_age[i] = t
-                    retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
-                    s_retirement[i] = sim_s[i,t]
+                if sim_ex[i,t] == 0.0 or t == par.last_retirement:
+                    if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
+                        # 1.1 retirement age
+                        retirement_age[i] = t
+                        retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
+                        s_retirement[i] = sim_s[i,t]
 
-                    # 2. Interpolation of choice variables
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,int(retirement_age_idx[i]),int(sim_ex[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_h[i,t] = 0.0
+                        # 2. Interpolation of choice variables
+                        sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,int(retirement_age_idx[i]),int(sim_ex[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                        sim_h[i,t] = 0.0
 
-                    # 3. Income variables
+                    elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
+                        # 1.1 retirement age
+
+                        # 2. Interpolation of choice variables
+                        sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i]), int(sim_ex[i,t])], sim_a[i,t], s_retirement[i])
+                        sim_h[i,t] = 0.0
+
+                        # 3. Income variables
                     sim_income[i,t], _ = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
                     # 3.1 retirement payments 
                     sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, s_retirement[i], retirement_age[i], t)
                     # 3.2 labor income 
-                    sim_w[i,t] = wage(par, sim_k[i,t], t)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
-
-                    # 4. Update of states
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = np.maximum((sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s),0)
-                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
-
-                elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
-                    # 1.1 retirement age
-
-                    # 2. Interpolation of choice variables
-                    sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i]), int(sim_ex[i,t])], sim_a[i,t], s_retirement[i])
-                    sim_h[i,t] = 0.0
-
-                    # 3. Income variables
-                    sim_income[i,t], _ = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
-                    # 3.1 retirement payments
-                    sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, s_retirement[i], retirement_age[i], t)
-                    # 3.2 labor income
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
                     # 3.3 public benefits
                     sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
