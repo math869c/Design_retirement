@@ -44,13 +44,12 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.w_0 =       164.649110
-        par.beta_1 =         0.045522
-        par.beta_2 =        -0.000287
-        par.delta =         0.056238
-        par.k_0_var =         6.482505
+        par.k_0 =       154.718555
+        par.beta_1 =         0.034528
+        par.beta_2 =        -0.000624
+        par.delta =         0.001321
+        par.k_0_var =         8.465426
 
-        par.k_0 =             5
         par.full_time_hours = 1924.0
 
         # Tax system
@@ -119,9 +118,9 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 3_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 5, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 3_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 95, 200
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -130,7 +129,7 @@ class ModelClass(EconModelClass):
         par.c_max  = np.inf
 
         # Shocks
-        par.xi      = 0.1
+        par.xi      = 0.01
         par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
@@ -212,7 +211,7 @@ class ModelClass(EconModelClass):
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
-        sim.k_init                          = np.clip((np.log(sim.w_init) - np.log(par.w_0))/par.beta_1, 0, np.inf)
+        sim.k_init                          = np.log(sim.w_init)/par.beta_1
         
         # sim.k_init                          = np.clip(np.random.normal(par.k_0, par.k_0_var, par.simN), 0, np.inf)
         # sim.w_init                          = np.exp(np.log(par.w_0) + par.beta_1*sim.k_init)
@@ -237,7 +236,7 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
+            sol.c[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :], sol.a[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
 
     def simulate(self):
         self.update_dependent_parameters()        
