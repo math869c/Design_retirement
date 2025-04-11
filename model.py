@@ -54,11 +54,16 @@ class ModelClass(EconModelClass):
         par.full_time_hours = 1924.0
 
         # Tax system
-        par.L1 = 0.3833
-        par.L2 = 0.1265
-        par.K1 = 6.315E-06
-        par.K2 = 1.775E-06
-        par.threshold = 551903.0
+        par.am_sats                   = 0.08
+        par.beskfradrag_sats          = 0.875
+        par.bundskat_sats             = 0.113
+        par.topskat_sats              = 0.15
+        par.kommuneskat_sats          = 0.2491
+        par.personfradrag             = 46000
+        par.beskfradrag_graense       = 33300
+        par.topskat_graense           = 498900
+
+
 
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
