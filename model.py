@@ -207,8 +207,10 @@ class ModelClass(EconModelClass):
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
-        sim.k_init                          = np.clip(np.random.normal(par.k_0, par.k_0_var, par.simN), 0, np.inf)
-        sim.w_init                          = np.exp(np.log(par.w_0) + par.beta_1*sim.k_init)
+        sim.k_init                          = np.clip((np.log(sim.w_init) - np.log(par.w_0))/par.beta_1, 0, np.inf)
+        
+        # sim.k_init                          = np.clip(np.random.normal(par.k_0, par.k_0_var, par.simN), 0, np.inf)
+        # sim.w_init                          = np.exp(np.log(par.w_0) + par.beta_1*sim.k_init)
 
         sim.e_init = Bernoulli(p=par.initial_ex, size=par.simN).rvs()
 
