@@ -511,7 +511,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
             for i in prange(par.simN):
                 if t == 0:
                     pass
-                elif t < par.first_retirement:
+                else:
                     if sim_ex[i,t-1] == 1.0:
                         sim_e[i,t] = 0.0 if sim_e_f[i,t] == 1.0 else 1.0
                     else:
@@ -520,66 +520,53 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 1. technical variables
                 retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
 
-                if sim_e[i,t] == 0.0:
-                    sim_ex[i,t] = 0.0
-                else:
+                if sim_e[i,t] == 1.0:
                     sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,int(retirement_age_idx[i]),int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                    sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                    sim_ex[i,t] = np.round(sim_ex[i,t])
+                else:
+                    sim_ex[i,t] = 0.0
 
                 if sim_ex[i,t] == 0.0:
                     # 2. Interpolation of choice variables
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,int(retirement_age_idx[i]), int(sim_ex[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_h[i,t] = 0.0
 
-                    # 3. Income variables 
-                    # 3.1 final income and retirement payments 
-                    sim_income[i,t],sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], par.last_retirement, t)
-                    # 3.2 labor income
-                    sim_w[i,t] = wage(par, sim_k[i,t], t)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], par.last_retirement, t)
-
-                    # 4. Update of states
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + sim_s_retirement_contrib[i,t])
-                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]
-
                 if sim_ex[i,t] == 1.0:
                     # 2. Interpolation of choice variables
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_c[t,:,:,:,0, int(sim_ex[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                     sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_h[t,:,:,:,0, int(sim_ex[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
 
-                    # 3. Income variables 
-                    # 3.1 final income and retirement payments 
-                    sim_income[i,t],sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], par.last_retirement, t)
-                    # 3.2 labor income
-                    sim_w[i,t] = wage(par, sim_k[i,t], t)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], par.last_retirement, t)
+                # 3. Income variables 
+                # 3.1 final income and retirement payments 
+                sim_income[i,t],sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], par.last_retirement, t)
+                # 3.2 labor income
+                sim_w[i,t] = wage(par, sim_k[i,t], t)
+                # 3.3 public benefits
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
+                # 3.4 income before tax contribution
+                sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], par.last_retirement, t) 
+                # 3.5 tax rate
+                sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], par.last_retirement, t)
 
-                    # 4. Update of states
-                    sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + sim_s_retirement_contrib[i,t])
-                    sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]
+                # 4. Update of states
+                sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
+                sim_s[i,t+1] = (1+par.r_s)*(sim_s[i,t] + sim_s_retirement_contrib[i,t])
+                sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t]
 
         elif t <= par.last_retirement:
             for i in prange(par.simN):
+
                 if sim_ex[i,t-1] == 1.0:
                     sim_e[i,t] = 0.0 if sim_e_f[i,t] == 1.0 else 1.0
+
                     if sim_e[i,t] == 1.0:
                         retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
                         sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid, sol_ex[t,:,:,:,int(retirement_age_idx[i]),int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                        sim_ex[i,t] = np.maximum(0, np.round(sim_ex[i,t]))
+                        sim_ex[i,t] = np.round(sim_ex[i,t])
+
                     else: 
                         sim_ex[i,t] = 0.0
+                        
                 else:
                     sim_e[i,t] = 0.0
                     sim_ex[i,t] = 0.0
@@ -589,7 +576,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
                     # 1.1 retirement age
                     retirement_age[i] = t
-                    retirement_age_idx[i] = t - par.first_retirement
+                    retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
                     s_retirement[i] = sim_s[i,t]
 
                     # 2. Interpolation of choice variables
@@ -611,7 +598,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
-                    sim_s[i,t+1] = np.maximum((sim_s[i,t] - (sim_s_lr_init[i]+sim_s_rp_init[i]))*(1+par.r_s),0)
+                    sim_s[i,t+1] = np.maximum((sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s),0)
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
@@ -622,8 +609,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_h[i,t] = 0.0
 
                     # 3. Income variables
-                    # 3.1 retirement payments
                     sim_income[i,t], _ = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    # 3.1 retirement payments
                     sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, s_retirement[i], retirement_age[i], t)
                     # 3.2 labor income
                     sim_w[i,t] = wage(par, sim_k[i,t], t)
@@ -632,7 +619,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     # 3.4 income before tax contribution
                     sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
                     # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i],sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
@@ -672,53 +659,29 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age_idx[i]), int(sim_ex[i,t])], sim_a[i,t], s_retirement[i])
                 sim_h[i,t] = 0.0
 
-                if t < retirement_age[i] + par.m: 
-                    # 3. Income variables
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
-                    # 3.1 retirement payments
-                    # 3.2 labor income
-                    sim_w[i,t] = wage(par, sim_k[i,t], t)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i],sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                # 3. Income variables
+                sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                # 3.1 retirement payments
+                # 3.2 labor income
+                sim_w[i,t] = wage(par, sim_k[i,t], t)
+                # 3.3 public benefits
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
+                # 3.4 income before tax contribution
+                sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
+                # 3.5 tax rate
+                sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
 
+                if t < retirement_age[i] + par.m: 
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = np.maximum((sim_s[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s),0)
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
 
                 elif par.T - 1 > t >= retirement_age[i] + par.m:
-                    # 3. Income variables
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
-                    # 3.1 retirement payments
-                    # 3.2 labor income
-                    sim_w[i,t] = wage(par, sim_k[i,t], t)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i],sim_k[i,t], sim_h[i,t], retirement_age[i], t)
-
                     # 4. Update of states
                     sim_a[i,t+1] = (1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t])
                     sim_s[i,t+1] = np.maximum((sim_s[i,t] - sim_s_lr_init[i])*(1+par.r_s),0)
                     sim_k[i,t+1] = ((1-par.delta)*sim_k[i,t])*sim_xi[i,t]
-                    
-                else:
-                    # 3. Income variables
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], retirement_age[i], t)
-                    # 3.1 retirement payments
-                    # 3.2 labor income
-                    sim_w[i,t] = wage(par, sim_k[i,t], t)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], sim_s[i,t],sim_k[i,t], sim_h[i,t], retirement_age[i], t)
+                   
 
     return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_chi_payment, sim_tax_rate, sim_income_before_tax_contrib, s_retirement, retirement_age, sim_income
