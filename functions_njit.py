@@ -114,23 +114,6 @@ def income_private_fct(par, a, s, k, h, retirement_age, t):
 
     return total_income + public_benefit
 
-# 1.2 retirement contributions and tax rates:
-# 1.2.1 tax rates: 
-# @jit_if_enabled(fastmath=True)
-# def tax_rate_fct(par, a, s, k, h, retirement_age, t):
-#     '''Tax rate as a function of income'''
-#     total_income = income_private_fct(par, a, s, k, h, retirement_age, t)
-    
-#     if total_income <= par.threshold:
-#         tax_rate = par.L1*(1-np.exp(-par.K1*total_income))
-#     else:
-#         tax_rate = par.L1*(1-np.exp(-par.K1*total_income)) + par.L2*(1-np.exp(-par.K2*(total_income-par.threshold)))
-    
-#     # Test 
-#     # tax_rate = par.upsilon 
-
-#     return tax_rate
-
 
 @jit_if_enabled(fastmath=True)
 def tax_rate_fct(par, a, s, k, h, retirement_age, t):
@@ -421,11 +404,11 @@ def main_solver_loop(par, sol, do_print = False):
                                         obj_hours,       
                                         par.h_min,
                                         par.h_max,
-                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, retirement_age, t),
+                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, par.last_retirement, t),
                                         tol=par.opt_tol
                                     )
 
-                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, retirement_age, t)
+                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, par.last_retirement, t)
                                     c_star = optimizer(
                                         obj_consumption,
                                         bc_min,

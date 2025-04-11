@@ -44,11 +44,13 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.w_0 =       176.140379
-        par.k_0 =         5.000000
-        par.beta_1 =         0.033468
-        par.beta_2 =         -0.000374
-        par.delta =         0.031728
+        par.w_0 =       164.649110
+        par.beta_1 =         0.045522
+        par.beta_2 =        -0.000287
+        par.delta =         0.056238
+        par.k_0_var =         6.482505
+
+        par.k_0 =             5
         par.full_time_hours = 1924.0
 
         # Tax system
