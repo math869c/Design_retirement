@@ -44,14 +44,11 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.4
 
-        par.w_0 =       164.649110
-        par.beta_1 =         0.045522
-        par.beta_2 =        -0.000287
-        par.delta =         0.056238
-        par.k_0_var =         6.482505
-
-        par.k_0 =             5
-
+        par.w_0 =       176.140379
+        par.k_0 =         5.000000
+        par.beta_1 =         0.033468
+        par.beta_2 =         -0.000374
+        par.delta =         0.031728
         par.full_time_hours = 1924.0
 
         # Tax system
@@ -81,13 +78,13 @@ class ModelClass(EconModelClass):
         par.rho = 0.309
 
         # hire and fire employment
-        par.alpha_f0 = 0.05
-        par.alpha_f1 = -0.01
-        par.alpha_f2 = 0.001
+        par.alpha_f0 = 0.043779862783
+        par.alpha_f1 = -0.00218450969
+        par.alpha_f2 = 0.0000600717239
 
-        par.alpha_h0 = 0.2
-        par.alpha_h1 = 0.05
-        par.alpha_h2 = -0.001
+        par.alpha_h0 = 0.4693704319
+        par.alpha_h1 = -0.004887608808
+        par.alpha_h2 = 0.000098401435
 
         par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
         par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
@@ -96,6 +93,7 @@ class ModelClass(EconModelClass):
 
         # unemployment benefit
         par.unemployment_benefit = 159_876
+        par.fortid_benefit = 253_236
 
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
@@ -114,9 +112,9 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 11_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.2, 0.0, 4_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.2, 0.0, 50
+        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 3_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 5, 1.0, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -230,7 +228,7 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
 
-            sol.c[:, :, :, :, :, :], sol.c_un[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
+            sol.c[:, :, :, :, :, :], sol.h[:, :, :, :, :, :], sol.ex[:, :, :, :, :, :], sol.V[:, :, :, :, :, :] = main_solver_loop(par, sol, do_print)
 
     def simulate(self):
         self.update_dependent_parameters()        
