@@ -445,7 +445,8 @@ def main_solver_loop(par, sol, do_print = False):
 
                                     val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, t)
                                     
-                                    if sol_V[idx_unemployed] > sol_V[idx]:
+                                    if sol_V[idx_unemployed] > val:
+                                        sol_V[idx] = sol_V[idx_unemployed]
                                         sol_c[idx] = sol_c[idx_unemployed]
                                         sol_ex[idx] = e_unemployed
                                         sol_h[idx]  = sol_h[idx_unemployed] 

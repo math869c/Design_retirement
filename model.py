@@ -112,9 +112,9 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 15, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 15, 1.0, 0.0, 3_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 15, 1.0, 0.0, 100
+        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 6_000_000
+        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 3_500_000
+        par.N_k, par.k_sp, par.k_min, par.k_max = 5, 1.0, 0.0, 100
 
         par.h_min  = 0.19
         par.h_max  = 1.2
