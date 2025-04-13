@@ -118,9 +118,13 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 6_000_000
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 3_500_000
-        par.N_k, par.k_sp, par.k_min, par.k_max = 10, 1.0, 95, 200
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 6_884_777
+
+        par.N_k, par.k_sp, par.k_min = 10, 1.0, 0
+        par.w_max = 1_564_195      
+        par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
+        
 
         par.h_min  = 0.19
         par.h_max  = 1.2
@@ -166,7 +170,9 @@ class ModelClass(EconModelClass):
 
         par.a_grid = nonlinspace(par.a_min, par.a_max, par.N_a, par.a_sp)
         par.s_grid = nonlinspace(par.s_min, par.s_max, par.N_s, par.s_sp)
-        par.k_grid = nonlinspace(par.k_min, par.k_max, par.N_k, par.k_sp)
+        par.k_grid = np.array([
+            nonlinspace(par.k_min, par.k_max[t], par.N_k, par.k_sp) for t in range(par.T)
+        ])
         par.e_grid = [0, 1]
 
 
@@ -210,7 +216,9 @@ class ModelClass(EconModelClass):
         sim.e_h         = Bernoulli(p = par.hire, size=shape).rvs()
 
         # e. initialization
-        sim.a_init, sim.s_init, sim.w_init  = draw_initial_values(par.simN)
+        sim.a_init, sim.s_init, sim.w_init = [
+            np.minimum(initial_value, max_value) for initial_value, max_value in zip(draw_initial_values(par.simN), [par.a_max, par.s_max, par.w_max])
+        ]
         sim.k_init                          = np.log(sim.w_init)/par.beta_1
         
         # sim.k_init                          = np.clip(np.random.normal(par.k_0, par.k_0_var, par.simN), 0, np.inf)
