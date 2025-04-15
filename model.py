@@ -107,7 +107,7 @@ class ModelClass(EconModelClass):
 
         # unemployment benefit
         par.unemployment_benefit = 159_876
-        par.fortid_benefit = 253_236
+        par.early_benefit = 253_236
 
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
@@ -227,6 +227,7 @@ class ModelClass(EconModelClass):
         sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed = Categorical(p=[par.hire, 1- par.hire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early, size =(par.simN, par.transition_length)).rvs()
+        sim.from_employed_to_unemployed = Bernoulli(p = par.fire, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init = [
@@ -268,5 +269,5 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
             sim = model.sim 
-            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:], sim.s_retirement[:], sim.retirement_age[:], sim.income[:,:] = main_simulation_loop(par, sol, sim)
+            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.e[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:], sim.s_retirement[:], sim.retirement_age[:], sim.income[:,:] = main_simulation_loop(par, sol, sim)
 
