@@ -6,7 +6,7 @@ from EconModel import EconModelClass, jit
 
 from consav.grids import nonlinspace
 from consav.quadrature import log_normal_gauss_hermite
-from bernoulli_distribution import Bernoulli
+from bernoulli_distribution import *
 from help_functions_non_njit import draw_initial_values
 
 
@@ -92,8 +92,16 @@ class ModelClass(EconModelClass):
         par.alpha_h1 = -0.004887608808
         par.alpha_h2 = 0.000098401435
 
-        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
-        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
+        par.alpha_e0 = 0.043779862783
+        par.alpha_e1 = 0.00218450969
+        par.alpha_e2 = 0.0000600717239
+
+        par.transition_length = par.last_retirement + 5
+        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.transition_length) + par.alpha_f2 * np.arange(par.transition_length)**2,0),1)
+        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
+        par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
+        # par.p_early = np.zeros_like(par.p_early)
+        
 
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
@@ -155,8 +163,12 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age + par.replacement_rate_af_start
 
         # fire and hire employment
-        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.T) + par.alpha_f2 * np.arange(par.T)**2,0),1)
-        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.T) + par.alpha_h2 * np.arange(par.T)**2,0),1)
+        par.transition_length = par.last_retirement + 5
+        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.transition_length) + par.alpha_f2 * np.arange(par.transition_length)**2,0),1)
+        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
+        par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
+        # par.p_early = np.zeros_like(par.p_early)
+        
 
 
 
@@ -173,7 +185,7 @@ class ModelClass(EconModelClass):
         par.k_grid = np.array([
             nonlinspace(par.k_min, par.k_max[t], par.N_k, par.k_sp) for t in range(par.T)
         ])
-        par.e_grid = [0, 1]
+        par.e_grid = [0, 1, 2]
 
 
         shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window, len(par.e_grid))
@@ -212,8 +224,9 @@ class ModelClass(EconModelClass):
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
-        sim.e_f         = Bernoulli(p = par.fire, size=shape).rvs()
-        sim.e_h         = Bernoulli(p = par.hire, size=shape).rvs()
+        sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
+        sim.from_unemployed = Categorical(p=[par.hire, 1- par.hire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
+        sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init = [
