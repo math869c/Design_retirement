@@ -274,7 +274,7 @@ def value_last_period(par, c, a, s, e, r, t):
 @jit_if_enabled(fastmath=True)
 def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     # states and income 
-    retirement_age_idx = r - par.first_retirement
+    retirement_age_idx = r
     e_idx = int(0)
     h, k  = 0.0, 0.0
     k_idx = 0
@@ -347,8 +347,7 @@ def main_solver_loop(par, sol, do_print = False):
 
         count = 0
 
-        retirement_ages = np.arange(par.first_retirement, min(par.last_retirement + 1, t + 1)) \
-                        if t >= par.first_retirement + 1 else np.arange(par.first_retirement, par.first_retirement + 1)
+        retirement_ages = np.arange(0, min(par.last_retirement + 1, t + 1))
 
         for retirement_age_idx, retirement_age in enumerate(retirement_ages):
 
@@ -574,7 +573,7 @@ def main_solver_loop(par, sol, do_print = False):
                                         sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
 
                                 else: # Forced unemployment
-                                    bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, par.last_retirement, t)
+                                    bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
                                     
                                     c_star_u = optimizer(
                                         obj_consumption,
@@ -583,7 +582,7 @@ def main_solver_loop(par, sol, do_print = False):
                                         args=(par, sol_V, sol_EV, hours_unemp, assets, savings, human_capital, employed, t),
                                         tol=par.opt_tol
                                     )
-                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, par.last_retirement, t)
+                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, t)
                                     cash_on_hand_un = assets + income
 
                                     sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, t)
@@ -649,7 +648,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
         if t < par.first_retirement:
             for i in prange(par.simN):
                 if t == 0:
-                    pass
+                    retirement_age_idx[i] = t
                 else:
                     if sim_e[i,t-1] == 2.0:
                         sim_e[i,t] = 2.0
@@ -657,9 +656,14 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                         sim_e[i,t] = sim_from_employed[i,t]
                     else:
                         sim_e[i,t] = sim_from_unemployed[i,t]
+
+
+                    if sim_e[i,t] == 2.0 and sim_e[i,t-1] != 2:                    
+                        retirement_age_idx[i] = t
+                    elif sim_e[i,t] != 2.0:
+                        retirement_age_idx[i] = t
                 
                 # 1. technical variables
-                retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
 
                 if sim_e[i,t] == 1.0:
                     sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age_idx[i]),int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
@@ -702,8 +706,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ex[i,t] = 0.0
                 elif sim_ex[i,t-1] == 1.0:
                     sim_e[i,t] = sim_from_employed[i,t]
+                    retirement_age_idx[i] = t
                     if sim_e[i,t] == 1.0:
-                        retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
                         sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age_idx[i]),int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                         sim_ex[i,t] = np.round(sim_ex[i,t])
                     else: 
@@ -715,7 +719,6 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     else:
                         sim_e[i,t] = 0.0
                         sim_ex[i,t] = 0.0
-
 
                 # 1. technical variables
                 if sim_ex[i,t] == 0.0:
@@ -788,12 +791,12 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_e[i,t] = 0.0
                     sim_ex[i,t] = 0.0
                 elif sim_ex[i,t-1] == 1.0:
+                    retirement_age_idx[i] = t
                     if sim_from_employed_to_unemployed[i,t] == 1.0:
                         sim_e[i,t] = 0.0
                         sim_ex[i,t] = 0.0
                     else:
                         sim_e[i,t] = 1.0
-                        retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
                         sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age_idx[i]),int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
                         sim_ex[i,t] = np.round(sim_ex[i,t])
                 else: # just unemployed
