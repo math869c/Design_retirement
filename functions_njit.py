@@ -225,7 +225,7 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
             elif employed_idx == 1:
                 V_next = (1-par.fire[t])*V_next_un + par.fire[t]*V_next_em
             else: 
-                V_next = V_next_early
+                V_next = V_next_un
 
     else:
         V_next = V_next_un
@@ -390,8 +390,8 @@ def main_solver_loop(par, sol, do_print = False):
 
                                 count += 1
 
-                            elif t > retirement_age: # After retirement age, with "ratepension"
-                                if employed == int(0.0):
+                            elif t > par.last_retirement: # After retirement age, with "ratepension"
+                                if employed == 0:
 
                                     bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
 
@@ -414,7 +414,10 @@ def main_solver_loop(par, sol, do_print = False):
 
                                     count += 1
 
-                                else:
+
+                            elif t > par.retirement_age: # Before retirement age, with "ratepension"
+
+                                if t > retirement_age:
 
                                     bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
 
@@ -431,166 +434,445 @@ def main_solver_loop(par, sol, do_print = False):
 
                                     sol_c[idx] = c_star
                                     sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
-                                    sol_ex[idx] = e_unemployed
+                                    sol_ex[idx] = employed
                                     sol_h[idx] = hours_unemp
                                     sol_V[idx] = value_function_after_retirement(par, sol_V, c_star, assets, savings, employed, retirement_age, t)
 
-                                    count += 1                                
-
-                            elif t == retirement_age and sol_ex[idx_next] == 0.0:
-
-                                if employed == int(0.0): # Forced unemployment
-                                    bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
-
-                                    c_star_u = optimizer(
-                                        obj_consumption_after_retirement,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, assets, savings, employed, retirement_age, t),
-                                        tol=par.opt_tol
-                                    )
-                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, t)
-                                    cash_on_hand_un = assets + income
-
-
-                                    sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
-                                    sol_c[idx]  = c_star_u
-                                    sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
-                                    sol_ex[idx] = e_unemployed
-                                    sol_h[idx]  = hours_unemp
-
                                     count += 1
+                                
+                                if t == retirement_age:
 
-                                elif employed == int(1.0): # Can choose between employment and unemployment
-                                    h_star = optimize_outer(
-                                        obj_hours,       
-                                        par.h_min,
-                                        par.h_max,
-                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, par.last_retirement, t),
-                                        tol=par.opt_tol
-                                    )
+                                    if employed == int(0.0): # Forced unemployment
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
 
-                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, par.last_retirement, t)
-                                    c_star = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
-                                        tol=par.opt_tol
-                                    )
-                                    val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
-                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, par.last_retirement, t)
-                                    cash_on_hand = assets + income
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, t)
+                                        cash_on_hand_un = assets + income
 
 
-                                    if sol_V[idx_unemployed] > val:
-                                        sol_V[idx] = sol_V[idx_unemployed]
-                                        sol_c[idx] = sol_c[idx_unemployed]
-                                        sol_a[idx] = sol_a[idx_unemployed]
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
                                         sol_ex[idx] = e_unemployed
-                                        sol_h[idx]  = sol_h[idx_unemployed]
-                                    else:
-                                        sol_V[idx] = val
-                                        sol_ex[idx] = employed
-                                        sol_h[idx]  = h_star
-                                        sol_c[idx] = c_star
-                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
-                                else: # Forced unemployment
-                                    bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
+                                        sol_h[idx]  = hours_unemp
 
-                                    c_star_u = optimizer(
-                                        obj_consumption_after_retirement,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, assets, savings, employed, retirement_age, t),
-                                        tol=par.opt_tol
-                                    )
-                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, t)
-                                    cash_on_hand_un = assets + income
+                                        count += 1
+
+                                    elif employed == int(1.0): # Can choose between employment and unemployment
+                                        h_star = optimize_outer(
+                                            obj_hours,       
+                                            par.h_min,
+                                            par.h_max,
+                                            args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+
+                                        bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, retirement_age, t)
+                                        c_star = optimizer(
+                                            obj_consumption,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
+                                            tol=par.opt_tol
+                                        )
+                                        val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, t)
+                                        cash_on_hand = assets + income
+
+                                        if sol_V[idx_unemployed] > val:
+                                            sol_V[idx] = sol_V[idx_unemployed]
+                                            sol_c[idx] = sol_c[idx_unemployed]
+                                            sol_a[idx] = sol_a[idx_unemployed]
+                                            sol_ex[idx] = e_unemployed
+                                            sol_h[idx]  = sol_h[idx_unemployed]
+
+                                        else:
+                                            sol_V[idx] = val
+                                            sol_ex[idx] = employed
+                                            sol_h[idx]  = h_star
+                                            sol_c[idx] = c_star
+                                            sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                                else:
+                                    if employed == int(0.0): # Forced unemployment
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, par.last_retirement, t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, par.last_retirement, t)
+                                        cash_on_hand_un = assets + income
 
 
-                                    sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
-                                    sol_c[idx]  = c_star_u
-                                    sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
-                                    sol_ex[idx] = e_unemployed
-                                    sol_h[idx]  = hours_unemp
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, par.last_retirement, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
 
-                                    count += 1
+                                        count += 1
+
+                                    elif employed == int(1.0): # Can choose between employment and unemployment
+                                        h_star = optimize_outer(
+                                            obj_hours,       
+                                            par.h_min,
+                                            par.h_max,
+                                            args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+
+                                        bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, par.last_retirement, t)
+                                        c_star = optimizer(
+                                            obj_consumption,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
+                                            tol=par.opt_tol
+                                        )
+                                        val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, par.last_retirement, t)
+                                        cash_on_hand = assets + income
+
+                                        if sol_V[idx_unemployed] > val:
+                                            sol_V[idx] = sol_V[idx_unemployed]
+                                            sol_c[idx] = sol_c[idx_unemployed]
+                                            sol_a[idx] = sol_a[idx_unemployed]
+                                            sol_ex[idx] = e_unemployed
+                                            sol_h[idx]  = sol_h[idx_unemployed]
+
+                                        else:
+                                            sol_V[idx] = val
+                                            sol_ex[idx] = employed
+                                            sol_h[idx]  = h_star
+                                            sol_c[idx] = c_star
+                                            sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                            elif t > par.first_retirement:
+
+                                if t > retirement_age:
+                                    if employed == int(0.0): # Forced unemployment
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
+
+                                    elif employed == int(2.0): # Can choose between employment and unemployment
+
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
+
+                                elif t == retirement_age:
+                                    if employed == int(0.0): # Forced unemployment
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age , t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
+
+                                    elif employed == int(1.0): # Can choose between employment and unemployment
+                                        h_star = optimize_outer(
+                                            obj_hours,       
+                                            par.h_min,
+                                            par.h_max,
+                                            args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+
+                                        bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, retirement_age, t)
+                                        c_star = optimizer(
+                                            obj_consumption,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
+                                            tol=par.opt_tol
+                                        )
+                                        val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, t)
+                                        cash_on_hand = assets + income
+
+                                        if sol_V[idx_unemployed] > val:
+                                            sol_V[idx] = sol_V[idx_unemployed]
+                                            sol_c[idx] = sol_c[idx_unemployed]
+                                            sol_a[idx] = sol_a[idx_unemployed]
+                                            sol_ex[idx] = e_unemployed
+                                            sol_h[idx]  = sol_h[idx_unemployed]
+
+                                        else:
+                                            sol_V[idx] = val
+                                            sol_ex[idx] = employed
+                                            sol_h[idx]  = h_star
+                                            sol_c[idx] = c_star
+                                            sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                                    else: # Can choose between employment and unemployment
+
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
+
+                                else:
+                                    if employed == int(0.0): # Forced unemployment
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, par.last_retirement , t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, par.last_retirement, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, par.last_retirement, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
+
+                                    elif employed == int(1.0): # Can choose between employment and unemployment
+                                        h_star = optimize_outer(
+                                            obj_hours,       
+                                            par.h_min,
+                                            par.h_max,
+                                            args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+
+                                        bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, par.last_retirement, t)
+                                        c_star = optimizer(
+                                            obj_consumption,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
+                                            tol=par.opt_tol
+                                        )
+                                        val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, par.last_retirement, t)
+                                        cash_on_hand = assets + income
+
+                                        if sol_V[idx_unemployed] > val:
+                                            sol_V[idx] = sol_V[idx_unemployed]
+                                            sol_c[idx] = sol_c[idx_unemployed]
+                                            sol_a[idx] = sol_a[idx_unemployed]
+                                            sol_ex[idx] = e_unemployed
+                                            sol_h[idx]  = sol_h[idx_unemployed]
+
+                                        else:
+                                            sol_V[idx] = val
+                                            sol_ex[idx] = employed
+                                            sol_h[idx]  = h_star
+                                            sol_c[idx] = c_star
+                                            sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                                    else: # Can choose between employment and unemployment
+
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, par.last_retirement, t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, par.last_retirement, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, par.last_retirement, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
 
                             else:
-                                if employed == int(0.0): # Forced unemployment
-                                    bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, par.last_retirement, t)
-                                    
-                                    c_star_u = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, sol_EV, hours_unemp, assets, savings, human_capital, employed, t),
-                                        tol=par.opt_tol
-                                    )
-                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, par.last_retirement, t)
-                                    cash_on_hand_un = assets + income
+                                if t >= retirement_age:
 
-                                    sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, t)
-                                    sol_c[idx]  = c_star_u
-                                    sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
-                                    sol_ex[idx] = e_unemployed
-                                    sol_h[idx]  = hours_unemp
+                                    if employed == int(2.0): # Can choose between employment and unemployment
 
-                                if employed == int(1.0): # Can choose between employment and unemployment
-                                    h_star = optimize_outer(
-                                        obj_hours,       
-                                        par.h_min,
-                                        par.h_max,
-                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, par.last_retirement, t),
-                                        tol=par.opt_tol
-                                    )
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
 
-                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, par.last_retirement, t)
-                                    c_star = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
-                                        tol=par.opt_tol
-                                    )
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, retirement_age, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, t)
+                                        cash_on_hand_un = assets + income
 
-                                    val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
-                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, par.last_retirement, t)
-                                    cash_on_hand = assets + income
-                                    
-                                    if sol_V[idx_unemployed] > val:
-                                        sol_V[idx] = sol_V[idx_unemployed]
-                                        sol_c[idx] = sol_c[idx_unemployed]
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
                                         sol_ex[idx] = e_unemployed
-                                        sol_h[idx]  = sol_h[idx_unemployed] 
-                                        sol_a[idx] = sol_a[idx_unemployed]
-                                    
-                                    else:
-                                        sol_V[idx] = val
-                                        sol_c[idx] = c_star
-                                        sol_ex[idx] = employed
-                                        sol_h[idx] = h_star
-                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+                                        sol_h[idx]  = hours_unemp
 
-                                else: # Forced unemployment
-                                    bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, par.last_retirement, t)
-                                    
-                                    c_star_u = optimizer(
-                                        obj_consumption,
-                                        bc_min,
-                                        bc_max,
-                                        args=(par, sol_V, sol_EV, hours_unemp, assets, savings, human_capital, employed, t),
-                                        tol=par.opt_tol
-                                    )
-                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, par.last_retirement, t)
-                                    cash_on_hand_un = assets + income
+                                        count += 1
 
-                                    sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, t)
-                                    sol_c[idx]  = c_star_u
-                                    sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
-                                    sol_ex[idx] = e_unemployed
-                                    sol_h[idx]  = hours_unemp
+                                else:
+                                    if employed == int(0.0): # Forced unemployment
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, par.last_retirement, t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, par.last_retirement, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, par.last_retirement, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
+
+                                    elif employed == int(1.0): # Can choose between employment and unemployment
+                                        h_star = optimize_outer(
+                                            obj_hours,       
+                                            par.h_min,
+                                            par.h_max,
+                                            args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+
+                                        bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, par.last_retirement, t)
+                                        c_star = optimizer(
+                                            obj_consumption,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
+                                            tol=par.opt_tol
+                                        )
+                                        val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, par.last_retirement, t)
+                                        cash_on_hand = assets + income
+
+                                        if sol_V[idx_unemployed] > val:
+                                            sol_V[idx] = sol_V[idx_unemployed]
+                                            sol_c[idx] = sol_c[idx_unemployed]
+                                            sol_a[idx] = sol_a[idx_unemployed]
+                                            sol_ex[idx] = e_unemployed
+                                            sol_h[idx]  = sol_h[idx_unemployed]
+
+                                        else:
+                                            sol_V[idx] = val
+                                            sol_ex[idx] = employed
+                                            sol_h[idx]  = h_star
+                                            sol_c[idx] = c_star
+                                            sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                                    else: # Can choose between employment and unemployment
+
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, par.last_retirement, t)
+
+                                        c_star_u = optimizer(
+                                            obj_consumption_after_retirement,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, assets, savings, employed, par.last_retirement, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, par.last_retirement, t)
+                                        cash_on_hand_un = assets + income
+
+
+                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, par.last_retirement, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                        count += 1
 
 
     return sol_c, sol_h, sol_ex, sol_V, sol_a

@@ -46,7 +46,7 @@ class ModelClass(EconModelClass):
 
         par.k_0 =       154.718555
         par.beta_1 =         0.034528
-        par.beta_2 =        -0.000624
+        par.beta_2 =       0.0 # -0.000624
         par.delta =         0.001321
         par.k_0_var =         8.465426
 
@@ -106,7 +106,8 @@ class ModelClass(EconModelClass):
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
         # unemployment benefit
-        par.unemployment_benefit = 159_876
+        # par.unemployment_benefit = 159_876
+        par.unemployment_benefit = 1
         par.early_benefit = 253_236
 
         # life time 
@@ -225,7 +226,7 @@ class ModelClass(EconModelClass):
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
         sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed = Categorical(p=[par.hire, 1- par.hire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
+        sim.from_unemployed = Categorical(p=[1- par.hire-par.p_early, par.hire, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early, size =(par.simN, par.transition_length)).rvs()
         sim.from_employed_to_unemployed = Bernoulli(p = par.fire, size =(par.simN, par.transition_length)).rvs()
 
