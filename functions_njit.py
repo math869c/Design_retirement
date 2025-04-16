@@ -195,7 +195,7 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
     if t < par.first_retirement:
         if employed_idx == 0:
             V_next = (1-par.hire[t] - par.p_early[t])*V_next_un + par.hire[t]*V_next_em + par.p_early[t] * V_next_early
-        if employed_idx == 1:
+        elif employed_idx == 1:
             V_next = par.fire[t]*V_next_un + (1-par.fire[t]-par.p_early[t])*V_next_em + par.p_early[t] * V_next_early
         else: 
             V_next = V_next_early
@@ -205,7 +205,7 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
             if employed_idx == 0:
                 V_next  = V_next_un
             elif employed_idx == 1:
-                V_next = par.p_early[t]*V_next_un + (1-par.fire[t])*V_next_em 
+                V_next = par.fire[t]*V_next_un + (1-par.fire[t])*V_next_em 
             else:
                 V_next = V_next_un # early retirement no longer exists
         else:
@@ -225,7 +225,7 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed_idx, t):
             elif employed_idx == 1:
                 V_next = (1-par.fire[t])*V_next_un + par.fire[t]*V_next_em
             else: 
-                V_next = V_next_early
+                V_next = V_next_un
 
     else:
         V_next = V_next_un

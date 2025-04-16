@@ -225,7 +225,7 @@ class ModelClass(EconModelClass):
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
         sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed = Categorical(p=[par.hire, 1- par.hire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
+        sim.from_unemployed = Categorical(p=[1- par.hire-par.p_early, par.hire, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early, size =(par.simN, par.transition_length)).rvs()
         sim.from_employed_to_unemployed = Bernoulli(p = par.fire, size =(par.simN, par.transition_length)).rvs()
 
