@@ -53,16 +53,14 @@ class ModelClass(EconModelClass):
         par.full_time_hours = 1924.0
 
         # Tax system
-        par.am_sats                   = 0.08
-        par.beskfradrag_sats          = 0.875
-        par.bundskat_sats             = 0.113
-        par.topskat_sats              = 0.15
-        par.kommuneskat_sats          = 0.2491
-        par.personfradrag             = 46000
-        par.beskfradrag_graense       = 33300
-        par.topskat_graense           = 498900
-
-
+        par.labor_market_rate            = 0.08           # "am_sats"
+        par.employment_deduction_rate    = 0.875          # "beskfradrag_sats"
+        par.bottom_tax_rate              = 0.113          # "bundskat_sats"
+        par.top_tax_rate                 = 0.15           # "topskat_sats"
+        par.municipal_tax_rate           = 0.2491         # "kommuneskat_sats"
+        par.personal_allowance           = 46000          # "personfradrag"
+        par.employment_deduction_cap     = 33300          # "beskfradrag_graense"
+        par.top_tax_threshold            = 498900         # "topskat_graense"
 
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
@@ -100,8 +98,6 @@ class ModelClass(EconModelClass):
         par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.transition_length) + par.alpha_f2 * np.arange(par.transition_length)**2,0),1)
         par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
         par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
-        # par.p_early = np.zeros_like(par.p_early)
-        
 
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
@@ -112,7 +108,6 @@ class ModelClass(EconModelClass):
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
         par.pi_el =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
-
 
         par.pi_el[-1] = 0.0
         par.pi = np.ones_like(par.pi_el)
@@ -171,9 +166,6 @@ class ModelClass(EconModelClass):
         par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.transition_length) + par.alpha_f2 * np.arange(par.transition_length)**2,0),1)
         par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
         par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
-        # par.p_early = np.zeros_like(par.p_early)
-        
-
 
 
     def allocate(self):
