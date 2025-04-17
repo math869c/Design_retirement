@@ -188,7 +188,7 @@ class ModelClass(EconModelClass):
         par.e_grid = [0, 1, 2]
 
 
-        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window, len(par.e_grid))
+        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.last_retirement, len(par.e_grid))
         sol.a               = np.full(shape, np.nan)
         sol.ex              = np.full(shape, np.nan)
         sol.c               = np.full(shape, np.nan)
