@@ -75,6 +75,12 @@ class ModelClass(EconModelClass):
 
         par.share_lr = 2/3
 
+
+        par.unemp  = 0
+        par.work   = 1
+        par.ret    = 2
+
+
         # Means testing retirement payment
         par.chi_base = 87_576 # maks beløb, hvorefter ens indkomst trækkes fra 
         par.chi_extra_start = 99_948
