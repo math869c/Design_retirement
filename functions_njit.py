@@ -436,7 +436,7 @@ def main_solver_loop(par, sol, do_print = False):
 
                                     count += 1                                
 
-                            elif t == retirement_age and sol_ex[idx_next] == 0.0:
+                            elif t == retirement_age:
 
                                 if employed == int(0.0): # Forced unemployment
                                     bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
@@ -657,7 +657,6 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     else:
                         sim_e[i,t] = sim_from_unemployed[i,t]
 
-
                     if sim_e[i,t] == 2.0 and sim_e[i,t-1] != 2:                    
                         retirement_age_idx[i] = t
                     elif sim_e[i,t] != 2.0:
@@ -725,7 +724,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
                         # 1.1 retirement age
                         retirement_age[i] = t
-                        retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
+                        retirement_age_idx[i] = t
                         s_retirement[i] = sim_s[i,t]
 
                         # 2. Interpolation of choice variables
@@ -760,8 +759,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 else: 
                     # 1.1 retirement age
                     # 2. Interpolation of choice variables
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,t-par.first_retirement, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,t-par.first_retirement, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,t, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,t, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
 
                     # 3. Income variables
                     sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], sim_e[i,t], par.last_retirement, t)
@@ -810,7 +809,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement) or (t == par.first_retirement and sim_ex[i,t] == 0.0): 
                         # 1.1 retirement age
                         retirement_age[i] = t
-                        retirement_age_idx[i] = np.minimum(np.maximum(t-par.first_retirement, 0), par.last_retirement-par.first_retirement)
+                        retirement_age_idx[i] = t
                         s_retirement[i] = sim_s[i,t]
 
                         # 2. Interpolation of choice variables
@@ -847,8 +846,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 else: 
                     # 1.1 retirement age
                     # 2. Interpolation of choice variables
-                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,t-par.first_retirement, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,t-par.first_retirement, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,t, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
+                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,t, int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
 
                     # 3. Income variables
                     sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], sim_s[i,t], sim_k[i,t], sim_h[i,t], sim_e[i,t], par.last_retirement, t)

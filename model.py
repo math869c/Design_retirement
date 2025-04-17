@@ -106,8 +106,8 @@ class ModelClass(EconModelClass):
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
         # unemployment benefit
-        par.unemployment_benefit = 159_876
-        par.early_benefit = 253_236
+        par.unemployment_benefit =  159_876
+        par.early_benefit =  253_236
 
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
@@ -188,7 +188,7 @@ class ModelClass(EconModelClass):
         par.e_grid = [0, 1, 2]
 
 
-        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.retirement_window, len(par.e_grid))
+        shape               = (par.T, par.N_a, par.N_s, par.N_k, par.last_retirement + 1, len(par.e_grid))
         sol.a               = np.full(shape, np.nan)
         sol.ex              = np.full(shape, np.nan)
         sol.c               = np.full(shape, np.nan)
