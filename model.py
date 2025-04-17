@@ -117,9 +117,9 @@ class ModelClass(EconModelClass):
         par.pi_el[-1] = 0.0
         par.pi = np.ones_like(par.pi_el)
         
-        par.EL = np.zeros(par.last_retirement)
-        for r in range(par.last_retirement):
-            par.EL[r] = sum(np.cumprod(par.pi_el[r:])*np.arange(r,par.T))/(par.T-r)
+        par.EL = np.zeros(par.last_retirement + 1)
+        for r in range(par.last_retirement + 1):
+            par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
 
         # Welfare system
         par.replacement_rate_bf_start = 6

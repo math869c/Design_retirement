@@ -42,15 +42,13 @@ def capital_return_fct(par, a):
 def calculate_retirement_payouts(par, s, r, t):
     """Calculate retirement payouts: can be split into 3 periods: before retirement, during installment and annuity, and only annuity"""
     if t >= r + par.m:
-        EL = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
         s_retirement = s
-        s_lr =  (((1+par.r_s)**EL)*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(EL)))
+        s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
         return  s_lr, 0.0
     
     elif t >= r:
-        EL = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
         s_retirement = s
-        s_lr =  (((1+par.r_s)**EL)*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(EL)))
+        s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
         s_rp = (((1+par.r_s)**par.m)*s_retirement*(1-par.share_lr))/np.sum((1+par.r_s)**(np.arange(par.m)))
         return   s_lr, s_rp
     else:
@@ -469,7 +467,6 @@ def main_solver_loop(par, sol, do_print = False):
                                     income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, par.last_retirement, t)
                                     cash_on_hand = assets + income
 
-
                                     if sol_V[idx_unemployed] > val:
                                         sol_V[idx] = sol_V[idx_unemployed]
                                         sol_c[idx] = sol_c[idx_unemployed]
@@ -482,6 +479,7 @@ def main_solver_loop(par, sol, do_print = False):
                                         sol_h[idx]  = h_star
                                         sol_c[idx] = c_star
                                         sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
                                 else: # Forced unemployment
                                     if k_idx == 0: # No capital
                                         bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
