@@ -118,10 +118,8 @@ class ModelClass(EconModelClass):
         par.pi = np.ones_like(par.pi_el)
         
         par.EL = np.zeros(par.last_retirement)
-        for retirement_age in range(par.last_retirement):
-            par.EL[retirement_age] = sum(np.cumprod(par.pi[retirement_age:])*np.arange(retirement_age,par.T))/(par.T-retirement_age) # forventet livstid tilbage efter pension
-
-        par.EL[:] = 22.3
+        for r in range(par.last_retirement):
+            par.EL[r] = sum(np.cumprod(par.pi_el[r:])*np.arange(r,par.T))/(par.T-r)
 
         # Welfare system
         par.replacement_rate_bf_start = 6
@@ -132,10 +130,10 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 5, 1.0, 0
+        par.N_k, par.k_sp, par.k_min = 10, 1.0, 0
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
@@ -148,7 +146,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi      = 0.01
-        par.N_xi    = 1
+        par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
