@@ -204,11 +204,11 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed, t):
     elif t < par.retirement_age:
         if t == par.retirement_age - 1:
             if employed == par.unemp:
-                V_next  = V_next_un
+                V_next  = V_next_early
             elif employed == par.emp:
-                V_next = par.fire[t]*V_next_un + (1-par.fire[t])*V_next_em 
+                V_next = par.fire[t]*V_next_early + (1-par.fire[t])*V_next_em 
             else:
-                V_next = V_next_un 
+                V_next = V_next_early 
         else:
             if employed == par.unemp:
                 V_next = (1- par.p_early[t])*V_next_un + par.p_early[t] * V_next_early
@@ -219,17 +219,17 @@ def precompute_EV_next(par, sol_V, retirement_idx, employed, t):
     
     elif t < par.last_retirement:
         if t == par.last_retirement - 1:
-            V_next = V_next_un
+            V_next = V_next_early
         else:
             if employed == par.unemp:
-                V_next = V_next_un
+                V_next = V_next_early
             elif employed == par.emp:
-                V_next = (1-par.fire[t])*V_next_un + par.fire[t]*V_next_em
+                V_next = (1-par.fire[t])*V_next_early + par.fire[t]*V_next_em
             else: 
-                V_next = V_next_un
+                V_next = V_next_early
 
     else:
-        V_next = V_next_un
+        V_next = V_next_early
 
     for i_a, a_next in enumerate(par.a_grid):
         for i_s, s_next in enumerate(par.s_grid):
@@ -277,7 +277,7 @@ def value_last_period(par, c, a, s, e, r, t):
 def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     # states and income 
     retirement_age_idx = r
-    e_idx = int(0)
+    e_idx = 2
     h, k  = 0.0, 0.0
     k_idx = 0
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, t)
@@ -356,9 +356,9 @@ def main_solver_loop(par, sol, do_print = False):
         for retirement_age_idx, retirement_age in enumerate(retirement_ages):
 
             if t > par.last_retirement:
-                e_grid = [par.unemp]
+                e_grid = [par.ret]
             elif t >= par.retirement_age:
-                e_grid = [par.unemp, par.emp]
+                e_grid = [par.emp, par.ret]
             else:
                 e_grid = [par.unemp, par.emp, par.ret]
 
@@ -777,13 +777,13 @@ def main_simulation_loop(par, sol, sim, do_print = False):
             for i in prange(par.simN):
 
                 if sim_e[i,t-1] == 2.0: #Førtidspension eksisterere ikke længere og man skal overgå til pension
-                    sim_e[i,t] = 0.0
+                    sim_e[i,t] = 2.0
                     sim_ex[i,t] = 0.0
 
                 elif sim_ex[i,t-1] == 1.0:
                     retirement_age_idx[i] = t
                     if sim_from_employed_to_unemployed[i,t] == 1.0:
-                        sim_e[i,t] = 0.0
+                        sim_e[i,t] = 2.0
                         sim_ex[i,t] = 0.0
                     else:
                         sim_e[i,t] = 1.0
@@ -791,7 +791,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                         sim_ex[i,t] = np.round(sim_ex[i,t])
 
                 else: # just unemployed
-                    sim_e[i,t] = 0.0
+                    sim_e[i,t] = 2.0
                     sim_ex[i,t] = 0.0
 
 
@@ -859,7 +859,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
         elif t > par.last_retirement:
             sim_ex[:,t] = 0.0
-            sim_e[:,t]  = 0.0
+            sim_e[:,t]  = 2.0
 
             for i in prange(par.simN):
                 # 1.1 retirement age
