@@ -418,7 +418,7 @@ def main_solver_loop(par, sol, do_print = False):
                                 else:
                                     pass
 
-                            elif t == retirement_age:
+                            elif t == retirement_age and t > par.first_retirement:
                                 if employed == par.unemp: # Forced unemployment
                                     bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
 
@@ -499,7 +499,85 @@ def main_solver_loop(par, sol, do_print = False):
                                         pass
 
                             else:
-                                pass
+                                if employed == int(0.0): # Forced unemployment
+                                    bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, par.last_retirement, t)
+                                    
+                                    c_star_u = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, hours_unemp, assets, savings, human_capital, employed, t),
+                                        tol=par.opt_tol
+                                    )
+
+                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, par.last_retirement, t)
+                                    cash_on_hand_un = assets + income
+
+                                    sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, t)
+                                    sol_c[idx]  = c_star_u
+                                    sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                    sol_ex[idx] = e_unemployed
+                                    sol_h[idx]  = hours_unemp
+
+                                if employed == int(1.0): # Can choose between employment and unemployment
+                                    h_star = optimize_outer(
+                                        obj_hours,       
+                                        par.h_min,
+                                        par.h_max,
+                                        args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, par.last_retirement, t),
+                                        tol=par.opt_tol
+                                    )
+
+                                    bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, par.last_retirement, t)
+                                    c_star = optimizer(
+                                        obj_consumption,
+                                        bc_min,
+                                        bc_max,
+                                        args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, t),
+                                        tol=par.opt_tol
+                                    )
+
+                                    val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, t)
+                                    income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, par.last_retirement, t)
+                                    cash_on_hand = assets + income
+                                    
+                                    if sol_V[idx_unemployed] > val:
+                                        sol_V[idx] = sol_V[idx_unemployed]
+                                        sol_c[idx] = sol_c[idx_unemployed]
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = sol_h[idx_unemployed] 
+                                        sol_a[idx] = sol_a[idx_unemployed]
+                                    
+                                    else:
+                                        sol_V[idx] = val
+                                        sol_c[idx] = c_star
+                                        sol_ex[idx] = employed
+                                        sol_h[idx] = h_star
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                                else: # Forced unemployment
+                                    if k_idx == 0: # No capital
+                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
+                                        
+                                        c_star_u = optimizer(
+                                            obj_consumption,
+                                            bc_min,
+                                            bc_max,
+                                            args=(par, sol_V, sol_EV, hours_unemp, assets, savings, human_capital, employed, t),
+                                            tol=par.opt_tol
+                                        )
+                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, t)
+                                        cash_on_hand_un = assets + income
+
+                                        sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, t)
+                                        sol_c[idx]  = c_star_u
+                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                        sol_ex[idx] = e_unemployed
+                                        sol_h[idx]  = hours_unemp
+
+                                    else:
+                                        pass
+
 
     return sol_c, sol_h, sol_ex, sol_V, sol_a
 
