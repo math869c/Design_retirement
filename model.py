@@ -124,11 +124,16 @@ class ModelClass(EconModelClass):
         par.end_before = par.retirement_age-par.replacement_rate_bf_end
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
 
-        # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.0, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.0, 0.0, 6_884_777
+        # State values
+        par.unemp = 0
+        par.emp = 1
+        par.ret = 2
 
-        par.N_k, par.k_sp, par.k_min = 10, 1.0, 0
+        # Grids
+        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 6_884_777
+
+        par.N_k, par.k_sp, par.k_min = 5, 1.0, 0
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
@@ -141,7 +146,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi      = 0.01
-        par.N_xi    = 10
+        par.N_xi    = 5
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
