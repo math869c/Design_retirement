@@ -81,6 +81,10 @@ class ModelClass(EconModelClass):
         par.chi_max = 95_800
         par.rho = 0.309
 
+        # unemployment benefit
+        par.unemployment_benefit =  159_876
+        par.early_benefit =  253_236
+
         # hire and fire employment
         par.alpha_f0 = 0.043779862783
         par.alpha_f1 = -0.00218450969
@@ -100,10 +104,6 @@ class ModelClass(EconModelClass):
         par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
 
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
-
-        # unemployment benefit
-        par.unemployment_benefit =  159_876
-        par.early_benefit =  253_236
 
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')

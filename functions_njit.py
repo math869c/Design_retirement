@@ -66,15 +66,22 @@ def public_benefit_fct(par, h, e, income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
     if t < par.retirement_age:
-        if e == par.ret:
-            # Unemployment benefits
-            return par.early_benefit
-        elif int(h) == 0:
+        if e == par.emp:
+            if h > 0.0:
+                # If working, no public benefits
+                return 0.0
+            else:
+                # Unemployment benefits
+                return par.unemployment_benefit
+        elif e == par.unemp:
             # Unemployment benefits
             return par.unemployment_benefit
+        elif e == par.ret:
+            # Unemployment benefits
+            return par.early_benefit
         else:
-            # No public benefits
-            return 0.0
+            print("Error: Invalid employment status")
+            return par.unemployment_benefit
         
     # public retirement benefits
     else:
@@ -114,22 +121,25 @@ def income_private_fct(par, a, s, k, h, e, r, t):
 def tax_rate_fct(par, a, s, k, h, e, r, t):
     total_income = income_private_fct(par, a, s, k, h, e, r, t)
 
-    labor_market_contribution = total_income * par.labor_market_rate
-    personal_income = total_income - labor_market_contribution
-    taxable_base = max(personal_income - par.personal_allowance, 0)
-    employment_deduction = min(par.employment_deduction_cap, total_income * par.employment_deduction_rate)
-    taxable_income = taxable_base - employment_deduction
-    bottom_tax = taxable_base * par.bottom_tax_rate
-    top_tax = par.top_tax_rate * max(personal_income - par.top_tax_threshold, 0)
-    municipal_tax = par.municipal_tax_rate * taxable_income
+    if total_income == 0.0:
+        return 0.0
+    else:
+        labor_market_contribution = total_income * par.labor_market_rate
+        personal_income = total_income - labor_market_contribution
+        taxable_base = max(personal_income - par.personal_allowance, 0)
+        employment_deduction = min(par.employment_deduction_cap, total_income * par.employment_deduction_rate)
+        taxable_income = taxable_base - employment_deduction
+        bottom_tax = taxable_base * par.bottom_tax_rate
+        top_tax = par.top_tax_rate * max(personal_income - par.top_tax_threshold, 0)
+        municipal_tax = par.municipal_tax_rate * taxable_income
 
-    # Note: Church tax is not included in 'income_tax'
-    income_tax = labor_market_contribution + bottom_tax + top_tax + municipal_tax
-    income_after_tax = total_income - income_tax
+        # Note: Church tax is not included in 'income_tax'
+        income_tax = labor_market_contribution + bottom_tax + top_tax + municipal_tax
+        income_after_tax = total_income - income_tax
 
-    # Effective tax rate
-    effective_tax_rate = max(1 - (income_after_tax / total_income), 0)
-    return effective_tax_rate
+        # Effective tax rate
+        effective_tax_rate = max(1 - (income_after_tax / total_income), 0)
+        return effective_tax_rate
 
 
 # 1.2.2 retirement contributions, only of labor income 
@@ -656,7 +666,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 1. technical variables
                 if sim_e[i,t] == 1.0:
                     sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age_idx[i]),int(sim_e[i,t])], sim_a[i,t], sim_s[i,t], sim_k[i,t])
-                    sim_ex[i,t] = np.round(sim_ex[i,t])
+                    sim_ex[i,t] = np.minimum(np.round(sim_ex[i,t]),1)
                 else:
                     sim_ex[i,t] = 0.0
 
