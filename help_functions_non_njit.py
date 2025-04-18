@@ -20,3 +20,6 @@ def draw_initial_values(simN):
     draws = np.exp(dist.rvs(size=simN))
 
     return draws[:,0], draws[:,1], draws[:,2]
+
+def logistic(x, L, f, x0):
+    return L / (1 + np.exp(-f * (x - x0)))

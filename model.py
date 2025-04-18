@@ -7,7 +7,7 @@ from EconModel import EconModelClass, jit
 from consav.grids import nonlinspace
 from consav.quadrature import log_normal_gauss_hermite
 from bernoulli_distribution import *
-from help_functions_non_njit import draw_initial_values
+from help_functions_non_njit import *
 
 
 class ModelClass(EconModelClass):
@@ -106,10 +106,12 @@ class ModelClass(EconModelClass):
         par.early_benefit =  253_236
 
         # life time 
-        df = pd.read_csv('Data/overlevelses_ssh.csv')
-        par.pi_el =  np.array(df[(df['aar'] == 2018) & (df['koen'] == 'Mand') & (df['alder'] <100)].survive_koen_r1)
-
-        par.pi_el[-1] = 0.0
+        par.L = 0.9992 # fra regression og data i sas
+        par.f = -0.1195 # fra regression og data i sas
+        par.x0 = 74.0520 # fra regression og data i sas
+        par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
+        par.pi[-1] = 0.0
+        par.pi_el = par.pi.copy()
         par.pi = np.ones_like(par.pi_el)
         
         par.EL = np.zeros(par.last_retirement + 1)
