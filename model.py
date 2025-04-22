@@ -103,7 +103,7 @@ class ModelClass(EconModelClass):
 
         # unemployment benefit
         par.unemployment_benefit =  10 # 159_876
-        par.early_benefit =  253_236
+        par.early_benefit =  150_000
 
         # life time 
         df = pd.read_csv('Data/overlevelses_ssh.csv')
@@ -228,7 +228,7 @@ class ModelClass(EconModelClass):
         sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed = Categorical(p=[1- par.hire-par.p_early, par.hire, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early, size =(par.simN, par.transition_length)).rvs()
-        sim.from_employed_to_unemployed = Bernoulli(p = par.fire, size =(par.simN, par.transition_length)).rvs()
+        sim.from_employed_to_unemployed = Bernoulli(p = par.p_early + par.fire, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init = [
