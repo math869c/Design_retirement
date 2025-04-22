@@ -102,7 +102,7 @@ class ModelClass(EconModelClass):
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
         # unemployment benefit
-        par.unemployment_benefit =  159_876
+        par.unemployment_benefit =  10 # 159_876
         par.early_benefit =  253_236
 
         # life time 
@@ -138,7 +138,7 @@ class ModelClass(EconModelClass):
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
 
-        par.h_min  = 0.19
+        par.h_min  = 0.05
         par.h_max  = 1.2
 
         par.c_min  = 1
