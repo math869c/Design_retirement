@@ -42,7 +42,7 @@ class ModelClass(EconModelClass):
         par.r_s    = 0.0147198
         
         # wage and human capital
-        par.upsilon = 0.4
+        par.upsilon = 0.0
 
         par.k_0 =       154.718555
         par.beta_1 =         0.034528
@@ -72,6 +72,8 @@ class ModelClass(EconModelClass):
         par.m = 12 # Years with retirement payments
 
         par.tau = np.array(pd.read_csv('Data/mean_matrix.csv')["indbetalingsprocent_Mean"].fillna(0))
+        par.tau[:] = 0.10
+
 
         par.share_lr = 2/3
 
@@ -102,7 +104,7 @@ class ModelClass(EconModelClass):
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
         # unemployment benefit
-        par.unemployment_benefit =   80000
+        par.unemployment_benefit =   70_000
         par.early_benefit =  150_000
 
         # life time 
@@ -130,10 +132,10 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 4, 1.0, 100
+        par.N_k, par.k_sp, par.k_min = 10, 1.5, 50
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
