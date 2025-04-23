@@ -102,7 +102,7 @@ class ModelClass(EconModelClass):
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
         # unemployment benefit
-        par.unemployment_benefit =  10 # 159_876
+        par.unemployment_benefit =   80000
         par.early_benefit =  150_000
 
         # life time 
@@ -133,7 +133,7 @@ class ModelClass(EconModelClass):
         par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 10_255_346
         par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 5, 1.0, 0
+        par.N_k, par.k_sp, par.k_min = 4, 1.0, 100
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
@@ -146,7 +146,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi      = 0.01
-        par.N_xi    = 5
+        par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
