@@ -42,7 +42,7 @@ class ModelClass(EconModelClass):
         par.r_s    = 0.0147198
         
         # wage and human capital
-        par.upsilon = 0.4
+        par.upsilon = 0.0
 
         par.k_0 =       154.718555
         par.beta_1 =         0.034528
@@ -72,6 +72,8 @@ class ModelClass(EconModelClass):
         par.m = 12 # Years with retirement payments
 
         par.tau = np.array(pd.read_csv('Data/mean_matrix.csv')["indbetalingsprocent_Mean"].fillna(0))
+        par.tau[:] = 0.10
+
 
         par.share_lr = 2/3
 
@@ -102,8 +104,8 @@ class ModelClass(EconModelClass):
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
 
         # unemployment benefit
-        par.unemployment_benefit =  159_876
-        par.early_benefit =  253_236
+        par.unemployment_benefit =   70_000
+        par.early_benefit =  150_000
 
         # life time 
         par.L = 0.9992 # fra regression og data i sas
@@ -132,15 +134,15 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 5, 1.0, 0
+        par.N_k, par.k_sp, par.k_min = 10, 1.5, 50
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
 
-        par.h_min  = 0.19
+        par.h_min  = 0.05
         par.h_max  = 1.2
 
         par.c_min  = 1
@@ -148,7 +150,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi      = 0.01
-        par.N_xi    = 5
+        par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
@@ -230,7 +232,7 @@ class ModelClass(EconModelClass):
         sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed = Categorical(p=[1- par.hire-par.p_early, par.hire, par.p_early], size =(par.simN, par.transition_length)).rvs()
         sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early, size =(par.simN, par.transition_length)).rvs()
-        sim.from_employed_to_unemployed = Bernoulli(p = par.fire, size =(par.simN, par.transition_length)).rvs()
+        sim.from_employed_to_unemployed = Bernoulli(p = par.p_early + par.fire, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init = [
