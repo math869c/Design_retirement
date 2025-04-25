@@ -40,6 +40,13 @@ Done:
 - Ændre den forventede levetid som funktion af pensionstidspunktet
 - Effekt på intensiv og ekstensiv margin
 - Rente på pensionsformuen
+- Overvej hvordan vi sætter unemployment benefits og folkepension
+´
+
+Immediate immediate to do:
+- kun forbrug cash-on-hand if c>cash on hand
+- gør modellen hurtigere
+- træk data ud
 
 
 Immediate to do:
@@ -47,9 +54,8 @@ Immediate to do:
 - Opdatér den måde, vi løser modellen på (numerisk optimering, parallelisering, pre-computed shocks, gauss-hermite, interpolering, analytisk sidste løsning)
 - Kalibrér renterne (proxy)
 - Find en god forklaring på par.m
-- Ventetillæg (kræver choice ti)
 - Skriv modellen op igen, gennemgå matematik, lave variabeltabel
-- Overvej hvordan vi sætter unemployment benefits og folkepension
+
 
 Maybe to do:
 - Effekstudie
@@ -59,10 +65,7 @@ Maybe to do:
 First steps:
 - Set reasonable parameters (kig i DST)
 
-
-
 Next next week:
-
 - Skriv paper
 - Heterogenitet?
 - Overveje mere, hvad præcis vi vil svare på

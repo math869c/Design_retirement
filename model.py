@@ -42,7 +42,7 @@ class ModelClass(EconModelClass):
         par.r_s    = 0.0147198
         
         # wage and human capital
-        par.upsilon = 0.4
+        par.upsilon = 0.0
 
         par.k_0 =       154.718555
         par.beta_1 =         0.034528
@@ -72,6 +72,8 @@ class ModelClass(EconModelClass):
         par.m = 12 # Years with retirement payments
 
         par.tau = np.array(pd.read_csv('Data/mean_matrix.csv')["indbetalingsprocent_Mean"].fillna(0))
+        par.tau[:] = 0.10
+
 
         par.share_lr = 2/3
 
@@ -130,8 +132,8 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.0, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.0, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
         par.N_k, par.k_sp, par.k_min = 5, 1.0, 93
         par.w_max = 1_564_195      
@@ -146,7 +148,7 @@ class ModelClass(EconModelClass):
 
         # Shocks
         par.xi      = 0.01
-        par.N_xi    = 5
+        par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
         # Simulation
