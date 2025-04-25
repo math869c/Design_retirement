@@ -197,7 +197,7 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx, par.ret]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx, par.ret]
 
-    elif t >= par.retirement_age:
+    elif t >= par.retirement_age - 1:
         if int(ex_next) == par.unemp:
             V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
         else:
@@ -403,9 +403,9 @@ def main_solver_loop(par, sol, do_print = False):
             if t > par.last_retirement:
                 e_grid = [par.ret]
             elif t >= par.retirement_age:
-                e_grid = [par.emp, par.ret]
+                e_grid = [par.ret, par.emp]
             else:
-                e_grid = [par.unemp, par.emp, par.ret]
+                e_grid = [par.unemp, par.ret, par.emp]
 
             for employed in e_grid:
 
@@ -422,7 +422,8 @@ def main_solver_loop(par, sol, do_print = False):
                             human_capital = par.k_grid[t][k_idx]
 
                             idx = (t, a_idx, s_idx, k_idx, retirement_age_idx, employed)
-                            idx_unemployed = (t, a_idx, s_idx, k_idx, retirement_age_idx, int(e_unemployed))
+                            idx_unemployed = (t, a_idx, s_idx, k_idx, retirement_age_idx, par.unemp)
+                            idx_retirement = (t, a_idx, s_idx, k_idx, retirement_age_idx, par.ret)
                             idx_no_k = (t, a_idx, s_idx, int(human_capital_unemp), retirement_age_idx, employed)
 
                             if t == par.T - 1: # Last period
@@ -463,8 +464,8 @@ def main_solver_loop(par, sol, do_print = False):
                                 else:
                                     pass
 
-                            elif t == retirement_age and t >= par.first_retirement:
-                                if employed == par.unemp: # Forced unemployment
+                            elif t >= par.retirement_age:
+                                if employed == par.ret: # Forced unemployment
                                     bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
 
                                     c_star_u = optimizer(
@@ -509,34 +510,10 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_c[idx] = c_star
                                     sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
 
-                                    if sol_V[idx_unemployed] > val:
+                                    if sol_V[idx_retirement] > val:
                                         sol_ex[idx] = e_unemployed
                                     else:
                                         sol_ex[idx] = employed
-
-                                else: # Forced unemployment
-                                    if k_idx == 0: # No capital
-                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, t)
-
-                                        c_star_u = optimizer(
-                                            obj_consumption_after_retirement,
-                                            bc_min,
-                                            bc_max,
-                                            args=(par, sol_V, assets, savings, employed, retirement_age, t),
-                                            tol=par.opt_tol
-                                        )
-
-                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, t)
-                                        cash_on_hand_un = assets + income
-
-                                        sol_V[idx] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, t)
-                                        sol_c[idx]  = c_star_u
-                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
-                                        sol_ex[idx] = e_unemployed
-                                        sol_h[idx]  = hours_unemp
-
-                                    else:
-                                        pass
 
                             else:
                                 if employed == par.unemp: # Forced unemployment
