@@ -39,7 +39,7 @@ class ModelClass(EconModelClass):
         
         # assets 
         par.r_a    = 0.01028688 
-        par.r_s    = 0.0147198
+        par.r_s    = np.array(pd.read_csv("Smooth_data/smooth_rente_s.csv")['rente_s'])
         
         # wage and human capital
         par.upsilon = 0.0
@@ -71,9 +71,7 @@ class ModelClass(EconModelClass):
 
         par.m = 12 # Years with retirement payments
 
-        par.tau = np.array(pd.read_csv('Data/mean_matrix.csv')["indbetalingsprocent_Mean"].fillna(0))
-        par.tau[:] = 0.10
-
+        par.tau = np.array(pd.read_csv("Smooth_data/smooth_indbet.csv")['indbetalingsprocent_sum'])
 
         par.share_lr = 2/3
 
@@ -101,11 +99,13 @@ class ModelClass(EconModelClass):
         par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
         par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
 
-        par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_margin_Mean'][0]
+        par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
 
         # unemployment benefit
-        par.unemployment_benefit =   70_000
-        par.early_benefit =  150_000
+        early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
+        unemployment_coefficients = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
+        par.early_benefit = 200_000 # np.array([early_coefficients[0] + early_coefficients[1]*t + early_coefficients[2]*t**2 + early_coefficients[3]*t**3 + early_coefficients[4] * (t >= par.first_retirement) for t in range(70)])
+        par.unemployment_benefit = 100_000 # np.array([unemployment_coefficients[0] + unemployment_coefficients[1]*t + unemployment_coefficients[2]*t**2 + unemployment_coefficients[3]*t**3 + unemployment_coefficients[4] * (t >= par.first_retirement) for t in range(70)])
 
         # life time 
         par.L = 0.9992 # fra regression og data i sas
@@ -134,10 +134,10 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 3, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 3, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 10, 1.5, 50
+        par.N_k, par.k_sp, par.k_min = 3, 1.5, 50
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
