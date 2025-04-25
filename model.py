@@ -44,11 +44,10 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.0
 
-        par.k_0 =       154.718555
-        par.beta_1 =         0.034528
-        par.beta_2 =        -0.000624
-        par.delta =         0.001321
-        par.k_0_var =         8.465426
+        par.k_0 =     1.810851e+02
+        par.beta_1 =     3.025979e-02
+        par.beta_2 =    -6.876207e-04
+        par.delta =     2.977074e-17
 
         par.full_time_hours = 1924.0
 
@@ -240,9 +239,6 @@ class ModelClass(EconModelClass):
         ]
         sim.k_init                          = np.log(sim.w_init)/par.beta_1
         
-        # sim.k_init                          = np.clip(np.random.normal(par.k_0, par.k_0_var, par.simN), 0, np.inf)
-        # sim.w_init                          = np.exp(np.log(par.w_0) + par.beta_1*sim.k_init)
-
         sim.e_init = Bernoulli(p=par.initial_ex, size=par.simN).rvs()
 
         sim.s_retirement                    = np.zeros(par.simN)
