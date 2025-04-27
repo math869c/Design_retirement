@@ -45,13 +45,13 @@ def calculate_retirement_payouts(par, h, s, e, r, t):
     if (e == 2) or (t >= par.first_retirement and h == 0.0):
         if t >= r + par.m:
             s_retirement = s
-            s_lr =  (((1+par.r_s[t])**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s[t])**(np.arange(par.EL[int(r)])))
+            s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
             return  s_lr, 0.0
         
         elif t >= r:
             s_retirement = s
-            s_lr =  (((1+par.r_s[t])**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s[t])**(np.arange(par.EL[int(r)])))
-            s_rp = (((1+par.r_s[t])**par.m)*s_retirement*(1-par.share_lr))/np.sum((1+par.r_s[t])**(np.arange(par.m)))
+            s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
+            s_rp = (((1+par.r_s)**par.m)*s_retirement*(1-par.share_lr))/np.sum((1+par.r_s)**(np.arange(par.m)))
             return   s_lr, s_rp
         
         else:
@@ -76,13 +76,13 @@ def public_benefit_fct(par, h, e, income, t):
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
-            return par.unemployment_benefit
+            return par.unemployment_benefit[t]
         elif e == par.ret:
             # Retirement benefits
-            return par.early_benefit
+            return par.early_benefit[t]
         else:
             print("Error: Invalid employment status")
-            return par.unemployment_benefit
+            return par.unemployment_benefit[t]
         
     # public retirement benefits
     else:
@@ -208,26 +208,26 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
 
     if t < par.first_retirement:
         if employed == par.unemp:
-            V_next = (1-par.hire[t] - par.p_early[t])*V_next_un + par.hire[t]*V_next_em + par.p_early[t] * V_next_early
+            V_next = (1-par.hire[t] - par.p_early_0[t])*V_next_un + par.hire[t]*V_next_em + par.p_early_0[t] * V_next_early
         elif employed == par.emp:
-            V_next = par.fire[t]*V_next_un + (1-par.fire[t]-par.p_early[t])*V_next_em + par.p_early[t] * V_next_early
+            V_next = par.fire[t]*V_next_un + (1-par.fire[t]-par.p_early_1[t])*V_next_em + par.p_early_1[t] * V_next_early
         else: 
             V_next = V_next_early
 
     elif t < par.retirement_age:
         if t == par.retirement_age - 1:
             if employed == par.unemp:
-                V_next = (1-par.hire[t] - par.p_early[t])*V_next_early + par.hire[t]*V_next_em + par.p_early[t] * V_next_early
+                V_next = (1-par.hire[t] - par.p_early_0[t])*V_next_early + par.hire[t]*V_next_em + par.p_early_0[t] * V_next_early
             elif employed == par.emp:
-                V_next = par.fire[t]*V_next_early + (1-par.fire[t]-par.p_early[t])*V_next_em + par.p_early[t] * V_next_early
+                V_next = par.fire[t]*V_next_early + (1-par.fire[t]-par.p_early_1[t])*V_next_em + par.p_early_1[t] * V_next_early
             else:
                 V_next = V_next_early
 
         else:
             if employed == par.unemp:
-                V_next = (1-par.hire[t] - par.p_early[t])*V_next_un + par.hire[t]*V_next_em + par.p_early[t] * V_next_early
+                V_next = (1-par.hire[t] - par.p_early_0[t])*V_next_un + par.hire[t]*V_next_em + par.p_early_0[t] * V_next_early
             elif employed == par.emp:
-                V_next = par.fire[t]*V_next_un + (1-par.fire[t]-par.p_early[t])*V_next_em + par.p_early[t] * V_next_early
+                V_next = par.fire[t]*V_next_un + (1-par.fire[t]-par.p_early_1[t])*V_next_em + par.p_early_1[t] * V_next_early
             else:
                 V_next = V_next_early
     
@@ -238,7 +238,7 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
             if employed == par.unemp:
                 V_next = V_next_early
             elif employed == par.emp:
-                V_next = (1-par.fire[t] - par.p_early[t])*V_next_early + (par.p_early[t] + par.fire[t])*V_next_em
+                V_next = (1-par.fire[t] - par.p_early_1[t])*V_next_early + (par.p_early_1[t] + par.fire[t])*V_next_em
             else: 
                 V_next = V_next_early
 
@@ -326,7 +326,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, t):
 
     # Next period states
     a_next = (1+par.r_a)*(a + income - c)
-    s_next = (1+par.r_s[t])*(s + retirement_contribution)
+    s_next = (1+par.r_s)*(s + retirement_contribution)
     k_next = ((1-par.delta)*k + h)
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_EV, a_next, s_next, k_next)
 
@@ -711,7 +711,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 4. Update of states
                 # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
                 sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s[t]), 0), par.s_max)
+                sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                 sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
 
                 if sim_a[i,t+1] < par.a_min:
@@ -772,7 +772,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     # 4. Update of states
                     # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
                     sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s[t]), 0), par.s_max)
+                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                     sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t])*sim_xi[i,t], par.k_max[t])
 
                 else: 
@@ -797,7 +797,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     # 4. Update of states
                     # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
                     sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s[t]), 0), par.s_max)
+                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                     sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
 
 
@@ -860,7 +860,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     # 4. Update of states
                     # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
                     sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s[t]), 0), par.s_max)
+                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                     sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t])*sim_xi[i,t], par.k_max[t])
 
 
@@ -886,7 +886,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     # 4. Update of states
                     # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
                     sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s[t]), 0), par.s_max)
+                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                     sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
 
         elif t > par.last_retirement:
@@ -916,14 +916,14 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     # 4. Update of states
                     # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
                     sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s[t]), 0), par.s_max)
+                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                     sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t])*sim_xi[i,t], par.k_max[t])
 
                 elif par.T - 1 > t >= retirement_age[i] + par.m:
                     # 4. Update of states
                     # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
                     sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s[t]), 0), par.s_max)
+                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                     sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t])*sim_xi[i,t], par.k_max[t])
                    
 

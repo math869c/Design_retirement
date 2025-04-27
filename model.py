@@ -39,7 +39,7 @@ class ModelClass(EconModelClass):
         
         # assets 
         par.r_a    = 0.01028688 
-        par.r_s    = np.array(pd.read_csv("Smooth_data/smooth_rente_s.csv")['rente_s'])
+        par.r_s    = np.mean(np.array(pd.read_csv("Data/mean_matrix.csv")['rente_pension_sum'])[:60])
         
         # wage and human capital
         par.upsilon = 0.0
@@ -68,7 +68,8 @@ class ModelClass(EconModelClass):
         par.last_retirement     = par.retirement_age + par.range
         par.retirement_window   = par.last_retirement - par.first_retirement + 1
 
-        par.m = 12 # Years with retirement payments
+        par.m_input = 12.0
+        par.m = round(par.m_input) # Years with retirement payments
 
         par.tau = np.array(pd.read_csv("Smooth_data/smooth_indbet.csv")['indbetalingsprocent_sum'])
 
@@ -81,6 +82,15 @@ class ModelClass(EconModelClass):
         par.rho = 0.309
 
         # hire and fire employment
+        parameter_table_with_control = pd.read_csv("Data/transitin_ssh_para_med_kontrol.csv")[['Variable', 'Response', 'Estimate']]
+        df_ekso = eksog_prob(par, parameter_table_with_control)
+        df_ekso_0 = df_ekso[df_ekso['e_state_lag'] == 0]
+        df_ekso_1 = df_ekso[df_ekso['e_state_lag'] == 1]
+
+
+
+
+
         par.alpha_f0 = 0.043779862783
         par.alpha_f1 = -0.00218450969
         par.alpha_f2 = 0.0000600717239
@@ -93,19 +103,25 @@ class ModelClass(EconModelClass):
         par.alpha_e1 = 0.00218450969
         par.alpha_e2 = 0.0000600717239
 
-        par.transition_length = par.last_retirement + 5
+        par.transition_length = par.T
         par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.transition_length) + par.alpha_f2 * np.arange(par.transition_length)**2,0),1)
         par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
-        par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
+        par.p_early_0 = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
+        par.p_early_1 = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
+
+        par.fire = np.array(df_ekso_1['P_0'])
+        par.hire = np.array(df_ekso_0['P_1'])
+        par.p_early_0 = np.array(df_ekso_0['P_2'])
+        par.p_early_1 = np.array(df_ekso_1['P_2'])
 
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
 
         # unemployment benefit
-        early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
-        unemployment_coefficients = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
-        par.early_benefit = 200_000 # np.array([early_coefficients[0] + early_coefficients[1]*t + early_coefficients[2]*t**2 + early_coefficients[3]*t**3 + early_coefficients[4] * (t >= par.first_retirement) for t in range(70)])
-        par.unemployment_benefit = 100_000 # np.array([unemployment_coefficients[0] + unemployment_coefficients[1]*t + unemployment_coefficients[2]*t**2 + unemployment_coefficients[3]*t**3 + unemployment_coefficients[4] * (t >= par.first_retirement) for t in range(70)])
-
+        # early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
+        # unemployment_coefficients = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:31]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:31]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        
         # life time 
         par.L = 0.9992 # fra regression og data i sas
         par.f = -0.1195 # fra regression og data i sas
@@ -113,7 +129,7 @@ class ModelClass(EconModelClass):
         par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
         par.pi[-1] = 0.0
         par.pi_el = par.pi.copy()
-        par.pi = np.ones_like(par.pi_el)
+        # par.pi = np.ones_like(par.pi_el)
         
         par.EL = np.zeros(par.last_retirement + 1)
         for r in range(par.last_retirement + 1):
@@ -133,10 +149,10 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 3, 1.5, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 3, 1.5, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 3, 1.5, 50
+        par.N_k, par.k_sp, par.k_min = 5, 1.5, 50
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
@@ -170,10 +186,16 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age + par.replacement_rate_af_start
 
         # fire and hire employment
-        par.transition_length = par.last_retirement + 5
-        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.transition_length) + par.alpha_f2 * np.arange(par.transition_length)**2,0),1)
-        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
-        par.p_early = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
+        par.transition_length = par.T
+        parameter_table_with_control = pd.read_csv("Data/transitin_ssh_para_med_kontrol.csv")[['Variable', 'Response', 'Estimate']]
+        df_ekso = eksog_prob(par, parameter_table_with_control)
+        df_ekso_0 = df_ekso[df_ekso['e_state_lag'] == 0]
+        df_ekso_1 = df_ekso[df_ekso['e_state_lag'] == 1]
+
+        par.fire = np.array(df_ekso_1['P_0'])
+        par.hire = np.array(df_ekso_0['P_1'])
+        par.p_early_0 = np.array(df_ekso_0['P_2'])
+        par.p_early_1 = np.array(df_ekso_1['P_2'])
 
 
     def allocate(self):
@@ -228,10 +250,10 @@ class ModelClass(EconModelClass):
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
-        sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early, par.p_early], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed = Categorical(p=[1- par.hire-par.p_early, par.hire, par.p_early], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early, size =(par.simN, par.transition_length)).rvs()
-        sim.from_employed_to_unemployed = Bernoulli(p = par.p_early + par.fire, size =(par.simN, par.transition_length)).rvs()
+        sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early_1, par.p_early_1], size =(par.simN, par.transition_length)).rvs()
+        sim.from_unemployed = Categorical(p=[1- par.hire-par.p_early_0, par.hire, par.p_early_0], size =(par.simN, par.transition_length)).rvs()
+        sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early_0, size =(par.simN, par.transition_length)).rvs()
+        sim.from_employed_to_unemployed = Bernoulli(p = par.p_early_1 + par.fire, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init = [

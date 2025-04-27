@@ -23,3 +23,94 @@ def draw_initial_values(simN):
 
 def logistic(x, L, f, x0):
     return L / (1 + np.exp(-f * (x - x0)))
+
+
+
+
+def compute_transition_probs(x, param_table):
+    eta = {1: 0.0, 2: 0.0}
+    for _, row in param_table.iterrows():
+        var = row["Variable"]
+        response = row["Response"]
+        estimate = row["Estimate"]
+
+        if var == "Intercept":
+            eta[response] += estimate
+        else:
+            if var in x:
+                eta[response] += estimate * x[var]
+            elif "*" in var:
+                terms = var.split("*")
+                val = np.prod([x.get(t, 0) for t in terms])
+                eta[response] += estimate * val
+
+    exp_eta1 = np.exp(eta[1])
+    exp_eta2 = np.exp(eta[2])
+    denom = 1 + exp_eta1 + exp_eta2
+
+    return {
+        0: 1 / denom,
+        1: exp_eta1 / denom,
+        2: exp_eta2 / denom
+    }
+
+def eksog_prob(par, parameter_table_with_control):
+    # Age range
+    age_end = par.last_retirement + 1
+    ages = np.arange(par.T)
+
+    # DataFrame to collect results
+    results = []
+
+    # Compute for e_state_lag = 0 and 1
+    for e_state_lag in [0, 1]:
+        for age in ages:
+            x_input = {
+                "e_state_lag": e_state_lag,
+                "alder": age,
+                "alder2": age**2,
+                "dummy_60_65": int(age_end-11 <= age ),
+                "alder*e_state_lag": age * e_state_lag,
+                "alder2*e_state_lag": (age**2) * e_state_lag,
+                "dummy_60_*e_state_la": int(age_end-11 <= age) * e_state_lag
+            }
+            # 👉 Force P(e=2) = 0 at age 35
+            probs = compute_transition_probs(x_input, parameter_table_with_control)
+
+            if e_state_lag == 0:
+                if age >= par.retirement_age:
+                    # Must go on early retirement
+                    probs[0] = 0.0
+                    probs[1] = 0.0
+                    probs[2] = 1.0
+                elif age >= par.first_retirement:
+                    # Cannot be hired
+                    probs[1] = 0.0
+                    total = probs[0] + probs[2]
+                    probs[0] /= total
+                    probs[2] /= total
+
+            elif e_state_lag == 1:
+                if age>= par.last_retirement:
+                    probs[0] = 0.0
+                    probs[1] = 0.0
+                    probs[2] = 1.0
+                elif age >= par.retirement_age:
+                    # Move all P(e=1) mass to P(e=2)
+                    probs[2] = probs[0]
+                    probs[0] = 0.0
+                    total = probs[1] + probs[2]
+                    probs[1] /= total
+                    probs[2] /= total
+
+            results.append({
+                "age": age,
+                "e_state_lag": e_state_lag,
+                "P_0": probs[0],
+                "P_1": probs[1],
+                "P_2": probs[2]
+            })
+
+
+    # Convert to DataFrame
+    return pd.DataFrame(results)
