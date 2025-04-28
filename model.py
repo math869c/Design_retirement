@@ -31,14 +31,14 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 1.0 # 0.995    # Skal kalibreres
-        par.sigma  = 1.23151331     # Skal kalibreres
-        par.gamma  = 4.738944       # Skal kalibreres
-        par.mu     = 0.0 # 7.56180656     # Skal kalibreres
+        par.beta   = 0.955 # 0.995    # Skal kalibreres
+        par.sigma  = 0.85     # Skal kalibreres
+        par.gamma  = 4.5       # Skal kalibreres
+        par.mu     = 5.000     # Skal kalibreres
         par.a_bar  = 0.001
         
         # assets 
-        par.r_a    = 0.01028688 
+        par.r_a    = 0.005 
         par.r_s    = np.mean(np.array(pd.read_csv("Data/mean_matrix.csv")['rente_pension_sum'])[:60])
         
         # wage and human capital
@@ -51,6 +51,7 @@ class ModelClass(EconModelClass):
 
         par.full_time_hours = 1924.0
 
+        par.k_scale = 1.
         # Tax system
         par.labor_market_rate            = 0.08           # "am_sats"
         par.employment_deduction_rate    = 0.875          # "beskfradrag_sats"
@@ -152,7 +153,7 @@ class ModelClass(EconModelClass):
         par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.5, 0.1, 10_255_346
         par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 5, 1.5, 50
+        par.N_k, par.k_sp, par.k_min = 10, 1.5, 50
         par.w_max = 1_564_195      
         par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
         
@@ -164,7 +165,7 @@ class ModelClass(EconModelClass):
         par.c_max  = np.inf
 
         # Shocks
-        par.xi      = 0.01
+        par.xi      = 0.02
         par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
@@ -187,7 +188,7 @@ class ModelClass(EconModelClass):
 
         # fire and hire employment
         par.transition_length = par.T
-        parameter_table_with_control = pd.read_csv("Data/transitin_ssh_para_med_kontrol.csv")[['Variable', 'Response', 'Estimate']]
+        parameter_table_with_control = pd.read_csv("Data/transition_ssh_para.csv")[['Variable', 'Response', 'Estimate']]
         df_ekso = eksog_prob(par, parameter_table_with_control)
         df_ekso_0 = df_ekso[df_ekso['e_state_lag'] == 0]
         df_ekso_1 = df_ekso[df_ekso['e_state_lag'] == 1]
@@ -196,7 +197,7 @@ class ModelClass(EconModelClass):
         par.hire = np.array(df_ekso_0['P_1'])
         par.p_early_0 = np.array(df_ekso_0['P_2'])
         par.p_early_1 = np.array(df_ekso_1['P_2'])
-
+        par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
     def allocate(self):
         """ allocate model """
@@ -260,7 +261,7 @@ class ModelClass(EconModelClass):
             np.minimum(initial_value, max_value) for initial_value, max_value in zip(draw_initial_values(par.simN), [par.a_max, par.s_max, par.w_max])
         ]
         sim.k_init                          = np.log(sim.w_init)/par.beta_1
-        
+        sim.k_init                          = sim.k_init * par.k_scale  
         sim.e_init = Bernoulli(p=par.initial_ex, size=par.simN).rvs()
 
         sim.s_retirement                    = np.zeros(par.simN)

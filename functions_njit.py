@@ -699,6 +699,11 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 3.1 final income and retirement payments 
                 sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) #(par, a, s, k, h, e, r, t)
                 sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
+
+                if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                    sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+
+
                 # 3.2 labor income
                 sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
                 # 3.3 public benefits
@@ -714,8 +719,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
                 sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
 
-                if sim_a[i,t+1] < par.a_min:
-                    print("id", i, "time", t, "asspre", sim_a[i,t], "ass", sim_a[i,t+1], "inc", sim_income[i,t], "c", sim_c[i,t], "ex", sim_ex[i,t], "h", sim_h[i,t], "e", sim_e[i,t], "r", retirement_age[i])
+                # if sim_a[i,t+1] < par.a_min:
+                #     print("id", i, "time", t, "asspre", sim_a[i,t], "ass", sim_a[i,t+1], "inc", sim_income[i,t], "c", sim_c[i,t], "ex", sim_ex[i,t], "h", sim_h[i,t], "e", sim_e[i,t], "r", retirement_age[i])
 
         elif t < par.retirement_age:
             for i in prange(par.simN):
@@ -758,6 +763,10 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 3. Income variables
                     sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+
+                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+
                     # 3.1 retirement payments 
                     sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
                     # 3.2 labor income 
@@ -781,8 +790,13 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                     sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
 
+                
                     # 3. Income variables
                     sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+                    
+                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+                    
                     # 3.1 retirement payments
                     sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
                     # 3.2 labor income
@@ -846,6 +860,10 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                         # 3. Income variables
                     sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+
+                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+
                     # 3.1 retirement payments 
                     sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t)
                     # 3.2 labor income 
@@ -872,6 +890,10 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                     # 3. Income variables
                     sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+                    
+                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+
                     # 3.1 retirement payments
                     sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
                     # 3.2 labor income
@@ -901,6 +923,10 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                 # 3. Income variables
                 sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+
+                if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                    sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+
                 # 3.1 retirement payments
                 sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
                 # 3.2 labor income

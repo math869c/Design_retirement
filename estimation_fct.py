@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
  
 
-def prepare_data(par):
+def prepare_data_old(par):
     # load data
     means_data = pd.read_csv("Data/mean_matrix.csv")
     covariance_matrix = pd.read_csv("Data/variance_matrix.csv")
@@ -19,11 +19,11 @@ def prepare_data(par):
     hours = hours[:40]
     extensive = extensive[:40]
 
-    mean = np.concatenate([assets, 
+    mean = np.concatenate([extensive,
+                        assets, 
                         savings, 
-                        hours,
-                        extensive])
-    moments = {'assets':assets, 'savings':savings, 'hours':hours, 'extensive':extensive}
+                        hours])
+    moments = {'extensive':extensive, 'assets':assets, 'savings':savings, 'hours':hours}
 
     # Alter covariance matrix to create the final weighting matrix
     numeric_cols = covariance_matrix.select_dtypes(include=[np.number]).columns[1:]
@@ -50,14 +50,45 @@ def prepare_data(par):
     cov_matrix_numeric = covariance_matrix[numeric_cols].to_numpy()
     cov_matrix_numeric = cov_matrix_numeric[:total_keep, :total_keep]
 
-    # Replace NaNs with large variances (optional: makes weights usable if some entries missing)
-    cov_matrix_clean = np.nan_to_num(cov_matrix_numeric, nan=1e10)
+    # Identify good (non-NaN) moments
+    valid = ~np.isnan(np.diag(cov_matrix_numeric))
+
+    # Keep only valid rows and columns
+    cov_matrix_numeric = cov_matrix_numeric[valid][:, valid]
+    mean = mean[valid]
 
     # Final weighting matrix
-    weights = np.linalg.pinv(cov_matrix_clean)
+    weights = np.linalg.pinv(cov_matrix_numeric)
 
     return mean, weights, moments
 
+def prepare_data(par):
+    # Load data
+    means_data = pd.read_csv("Data/mean_matrix.csv")
+    covariance_matrix = pd.read_csv("Data/variance_matrix.csv")
+
+    # Process means
+    assets = np.array(means_data["formue_plsats_Mean"])
+    savings = np.array(means_data["pension_u_skat_plsats_Mean"])
+    hours = np.array(means_data["yearly_hours_Mean"]) / par.full_time_hours
+    extensive = np.array(means_data["extensive_v2_Mean"])
+    hours = hours[:40]
+    extensive = extensive[:40]
+
+    mean = np.concatenate([extensive, assets, savings, hours])
+
+    # Drop invalid moments
+    covariance_matrix = pd.read_csv("Data/variance_matrix.csv")
+    variance_diag = np.diag(covariance_matrix.iloc[:,2:])
+    variance_diag = variance_diag[~np.isnan(variance_diag)] 
+
+    # Construct diagonal weighting matrix: 1/variance
+    safe_variances = np.where(variance_diag == 0, 1e-6, variance_diag)  # Avoid divide-by-zero
+    weights = np.diag(1.0 / safe_variances)
+
+    return mean, weights, {
+        'extensive': extensive, 'assets': assets, 'savings': savings, 'hours': hours
+    }
 
 
 def scale_params(theta, bounds):
@@ -83,12 +114,12 @@ def unscale_params(scaled_theta, bounds):
 def moment_func(sim_data):
     # Compute age-averaged moments
     avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
-    avg_s_by_age = np.clip(np.mean(sim_data.s, axis=0), 0, None)  # Length 70
+    avg_s_by_age = np.mean(sim_data.s, axis=0)  # Length 70
     avg_h_by_age = np.nanmean(np.where(sim_data.ex == 1, sim_data.h, np.nan), axis=0)[:40] # Length 40
     avg_ex_by_age = np.mean(sim_data.ex, axis=0)[:40]  # Length 40
 
     # Concatenate and return
-    return np.concatenate((avg_a_by_age, avg_s_by_age, avg_h_by_age, avg_ex_by_age))
+    return np.concatenate((avg_ex_by_age, avg_a_by_age, avg_s_by_age, avg_h_by_age))
 
 
 def simulate_moments(theta, theta_names, model):
