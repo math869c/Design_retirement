@@ -150,8 +150,8 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.5, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.5, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
         par.N_k, par.k_sp, par.k_min = 10, 1.5, 50
         par.w_max = 1_564_195      
