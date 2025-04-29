@@ -4,6 +4,8 @@ import pandas as pd
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
  
 
 def prepare_data_old(par):

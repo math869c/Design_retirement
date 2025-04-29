@@ -18,8 +18,8 @@ from jit_module import jit_if_enabled
 
 # 1. Essentiel functions for such as utility, bequest, and wage 
 @jit_if_enabled(fastmath=True)
-def utility(par, c, h):
-    return ((c+1)**(1-par.sigma))/(1-par.sigma) - (h**(1+par.gamma))/(1+par.gamma)
+def utility(par, c, h, k):
+    return ((c+1)**(1-par.sigma))/(1-par.sigma) - (par.zeta/(1+k)) * (h**(1+par.gamma))/(1+par.gamma)
 
 @jit_if_enabled(fastmath=True)
 def bequest(par, a):
@@ -28,7 +28,7 @@ def bequest(par, a):
 @jit_if_enabled(fastmath=True)
 def wage(par, k, t):
     '''Wage before taxes'''
-    return par.full_time_hours*np.exp(par.beta_1*k + par.beta_2*t**2)
+    return par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*t**2)
 
 # 1.1 The four sources of income all before taxes and retirement contributions - and total income before taxes and retirement contributions:
 # 1.1.1 Capital income
@@ -266,7 +266,7 @@ def value_last_period(par, c, a, s, e, r, t):
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, t)
     a_next = (1+par.r_a)*(a + income - c)
 
-    return utility(par, c, h) + bequest(par, a_next)
+    return utility(par, c, h, k) + bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=True)
@@ -284,7 +284,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     V_next = sol_V[t+1, :, :, k_idx, retirement_age_idx, e_idx]
     EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
 
-    return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=True)
@@ -298,7 +298,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, t):
     k_next = ((1-par.delta)*k + h)
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_EV, a_next, s_next, k_next)
 
-    return utility(par, c, h) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 # 4. Objective functions 

@@ -36,6 +36,7 @@ class ModelClass(EconModelClass):
         par.gamma  = 4.194       # Skal kalibreres
         par.mu     = 6.373     # Skal kalibreres
         par.a_bar  = 0.001
+        par.zeta   = 5.0 
         
         # assets 
         par.r_a    = 0.005 
@@ -44,10 +45,12 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.0
 
-        par.k_0 =     1.810851e+02
-        par.beta_1 =     3.025979e-02
-        par.beta_2 =    -6.876207e-04
-        par.delta =     2.977074e-17
+        par.w_0 =       158.198926
+        par.k_0 =         6.000000
+        par.beta_1 =         0.068225
+        par.beta_2 =        -0.000299
+        par.delta =         0.064412
+        par.k_0_var =         3.813044
 
         par.full_time_hours = 1924.0
 
@@ -79,7 +82,7 @@ class ModelClass(EconModelClass):
         # Means testing retirement payment
         par.chi_base = 10_000
         par.chi_total = 137_520 #=(7198+462)
-        par.rho = 0.23
+        par.rho = 0.309
 
         # hire and fire employment
         parameter_table_with_control = pd.read_csv("Data/transitin_ssh_para_med_kontrol.csv")[['Variable', 'Response', 'Estimate']]
@@ -150,9 +153,10 @@ class ModelClass(EconModelClass):
         par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
         par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 10, 1.5, 50
+        par.N_k, par.k_sp, par.k_min = 10, 1.5, 0
         par.w_max = 1_564_195      
-        par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1        
+        # par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1
+        par.k_max = np.arange(par.T) + 40        
         
 
         par.h_min  = 0.05
@@ -257,8 +261,7 @@ class ModelClass(EconModelClass):
         sim.a_init, sim.s_init, sim.w_init = [
             np.minimum(initial_value, max_value) for initial_value, max_value in zip(draw_initial_values(par.simN), [par.a_max, par.s_max, par.w_max])
         ]
-        sim.k_init                          = np.log(sim.w_init)/par.beta_1
-        sim.k_init                          = sim.k_init * par.k_scale  
+        sim.k_init                          = np.maximum((np.log(sim.w_init) - np.log(par.w_0))/par.beta_1, 0)
         sim.e_init = Bernoulli(p=par.initial_ex, size=par.simN).rvs()
 
         sim.s_retirement                    = np.zeros(par.simN)
