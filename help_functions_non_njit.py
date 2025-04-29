@@ -97,7 +97,6 @@ def eksog_prob(par, parameter_table_with_control):
                     probs[2] = 1.0
                 elif age >= par.retirement_age:
                     # Move all P(e=1) mass to P(e=2)
-                    probs[2] = probs[0]
                     probs[0] = 0.0
                     total = probs[1] + probs[2]
                     probs[1] /= total

@@ -86,15 +86,7 @@ def public_benefit_fct(par, h, e, income, t):
         
     # public retirement benefits
     else:
-        base_payment = par.chi_base
-        exceed = max(0, income - par.chi_max)
-        extra_pension = max(0, par.chi_extra_start - exceed*par.rho)
-        retirement_income = base_payment + extra_pension
-        return retirement_income
-        # if h > par.h_min:
-        #     return 00000
-        # else:
-        #     return 150_000
+        return max(par.chi_base, par.chi_total - income*par.rho)
 
 # 1.1.5 Total income before taxes and retirement contributions
 @jit_if_enabled(fastmath=True)

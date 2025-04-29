@@ -31,10 +31,10 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.955 # 0.995    # Skal kalibreres
-        par.sigma  = 0.85     # Skal kalibreres
-        par.gamma  = 4.5       # Skal kalibreres
-        par.mu     = 5.000     # Skal kalibreres
+        par.beta   = 0.990 # 0.995    # Skal kalibreres
+        par.sigma  = 1.105     # Skal kalibreres
+        par.gamma  = 4.194       # Skal kalibreres
+        par.mu     = 6.373     # Skal kalibreres
         par.a_bar  = 0.001
         
         # assets 
@@ -74,22 +74,18 @@ class ModelClass(EconModelClass):
 
         par.tau = np.array(pd.read_csv("Smooth_data/smooth_indbet.csv")['indbetalingsprocent_sum'])
 
-        par.share_lr = 2/3
+        par.share_lr = 0.55
 
         # Means testing retirement payment
-        par.chi_base = 87_576 # maks beløb, hvorefter ens indkomst trækkes fra 
-        par.chi_extra_start = 99_948
-        par.chi_max = 95_800
-        par.rho = 0.309
+        par.chi_base = 10_000
+        par.chi_total = 137_520 #=(7198+462)
+        par.rho = 0.23
 
         # hire and fire employment
         parameter_table_with_control = pd.read_csv("Data/transitin_ssh_para_med_kontrol.csv")[['Variable', 'Response', 'Estimate']]
         df_ekso = eksog_prob(par, parameter_table_with_control)
         df_ekso_0 = df_ekso[df_ekso['e_state_lag'] == 0]
         df_ekso_1 = df_ekso[df_ekso['e_state_lag'] == 1]
-
-
-
 
 
         par.alpha_f0 = 0.043779862783
@@ -105,10 +101,6 @@ class ModelClass(EconModelClass):
         par.alpha_e2 = 0.0000600717239
 
         par.transition_length = par.T
-        par.fire = np.minimum(np.maximum(par.alpha_f0 + par.alpha_f1 * np.arange(par.transition_length) + par.alpha_f2 * np.arange(par.transition_length)**2,0),1)
-        par.hire = np.minimum(np.maximum(par.alpha_h0 + par.alpha_h1 * np.arange(par.transition_length) + par.alpha_h2 * np.arange(par.transition_length)**2,0),1)
-        par.p_early_0 = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
-        par.p_early_1 = np.minimum(np.maximum(par.alpha_e0 + par.alpha_e1 * np.arange(par.transition_length) + par.alpha_e2 * np.arange(par.transition_length)**2,0),1)/10
 
         par.fire = np.array(df_ekso_1['P_0'])
         par.hire = np.array(df_ekso_0['P_1'])
@@ -132,9 +124,14 @@ class ModelClass(EconModelClass):
         par.pi_el = par.pi.copy()
         # par.pi = np.ones_like(par.pi_el)
         
-        par.EL = np.zeros(par.last_retirement + 1)
-        for r in range(par.last_retirement + 1):
-            par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
+        # par.EL = np.zeros(par.last_retirement + 1)
+        # for r in range(par.last_retirement + 1):
+        #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
+        par.EL = np.where(
+            (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
+            np.cumsum(S[::-1])[::-1] / S,
+            0.0
+        )
 
         # Welfare system
         par.replacement_rate_bf_start = 6
@@ -165,7 +162,7 @@ class ModelClass(EconModelClass):
         par.c_max  = np.inf
 
         # Shocks
-        par.xi      = 0.02
+        par.xi      = 0.012
         par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
