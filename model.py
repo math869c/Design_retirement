@@ -40,7 +40,7 @@ class ModelClass(EconModelClass):
         
         # assets 
         par.r_a    = 0.005 
-        par.r_s    = np.mean(np.array(pd.read_csv("Data/mean_matrix.csv")['rente_pension_sum'])[:60])
+        par.r_s    = np.mean(np.array(pd.read_csv("Data/mean_matrix.csv")['rente_pension_sum'])[:])
         
         # wage and human capital
         par.upsilon = 0.0
