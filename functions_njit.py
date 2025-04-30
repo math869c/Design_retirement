@@ -356,7 +356,7 @@ def main_solver_loop(par, sol, do_print = False):
             if t > par.last_retirement:
                 e_grid = [par.ret]
             elif t >= par.retirement_age:
-                e_grid = [par.unemp, par.emp, par.ret]
+                e_grid = [par.emp, par.ret]
             else:
                 e_grid = [par.unemp, par.emp, par.ret]
 
