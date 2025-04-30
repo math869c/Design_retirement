@@ -86,11 +86,14 @@ def prepare_data(par):
 
     # Construct diagonal weighting matrix: 1/variance
     safe_variances = np.where(variance_diag == 0, 1e-6, variance_diag)  # Avoid divide-by-zero
+    safe_variances[-40:] = safe_variances[-40:] / (par.full_time_hours**2)
+
     weights = np.diag(1.0 / safe_variances)
 
     return mean, weights, {
         'extensive': extensive, 'assets': assets, 'savings': savings, 'hours': hours
     }
+
 
 
 def scale_params(theta, bounds):
@@ -116,7 +119,7 @@ def unscale_params(scaled_theta, bounds):
 def moment_func(sim_data):
     # Compute age-averaged moments
     avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
-    avg_s_by_age = np.mean(sim_data.s, axis=0)  # Length 70
+    avg_s_by_age = np.mean(sim_data.s, axis=0)[:55]  # Length 70
     avg_h_by_age = np.nanmean(np.where(sim_data.ex == 1, sim_data.h, np.nan), axis=0)[:40] # Length 40
     avg_ex_by_age = np.mean(sim_data.ex, axis=0)[:40]  # Length 40
 
