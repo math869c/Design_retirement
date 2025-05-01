@@ -84,10 +84,10 @@ def eksog_prob(par, parameter_table_with_control):
                 group_0.append(0.0)
                 group_1.append(np.exp(total_1[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
                 group_2.append(np.exp(total_2[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
-            elif 40 > x > 35:
-                group_0.append(0.0)
-                group_1.append(group_1[-1])
-                group_2.append(group_2[-1])
+            # elif 40 > x > 35:
+            #     group_0.append(0.0)
+            #     group_1.append(group_1[-1])
+            #     group_2.append(group_2[-1])
             elif x >= 40 and e_state_lag == 1.0:
                 group_0.append(0.0)
                 group_1.append(0.0)
