@@ -30,17 +30,17 @@ def find_consumption_equivalence(original_model, new_model, do_print= False, the
     EV_og = expected_lifetime_utility_distribution(original_model,  original_model.sim.c,   original_model.sim.h,   original_model.sim.a)
     EV_new = expected_lifetime_utility_distribution(new_model,      new_model.sim.c,        new_model.sim.h,        new_model.sim.a)   
     if do_print:
-        print(f'Consumption utility before parameter changes: {EV_og}')
-        print(f'Consumption utility after parameter changes: {EV_new}')
+        print(f'Expected welfare  before parameter changes: {EV_og}')
+        print(f'Expected welfare after parameter changes: {EV_new}')
 
     # d. Test bounds 
     # Set up bounds, and check if bounds result in target below and above 0, else update 
-    phi_lower = -0.5
+    phi_lower = -0.999
     phi_upper =  1.0  
     f_lower, f_upper = objective(phi_lower, EV_new, original_model), objective(phi_upper, EV_new, original_model)
     expansion_factor = 2.0
     while f_lower * f_upper > 0:  # No sign change → expand range
-        phi_lower /= expansion_factor
+        # phi_lower *= expansion_factor
         phi_upper *= expansion_factor
         f_lower, f_upper = objective(phi_lower, EV_new, original_model), objective(phi_upper, EV_new, original_model)
         print(f"Expanding range: phi_lower={phi_lower}, phi_upper={phi_upper}")
@@ -174,9 +174,11 @@ def make_new_model(model, theta, theta_names, do_print = False):
     # d. Update the new model with new parameters
     for i, name in enumerate(theta_names):
         setattr(new_model.par, name, theta[i])
-    print('Solving the new model')
+    if do_print:
+        print('Solving the new model')
     new_model.solve(do_print = do_print)
-    print('Simulating the new model')
+    if do_print:
+        print('Simulating the new model')
     new_model.simulate()
 
     return original_model, new_model 

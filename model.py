@@ -130,11 +130,12 @@ class ModelClass(EconModelClass):
         # par.EL = np.zeros(par.last_retirement + 1)
         # for r in range(par.last_retirement + 1):
         #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
-        par.EL = np.where(
-            (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
-            np.cumsum(S[::-1])[::-1] / S,
-            0.0
-        )
+        with np.errstate(invalid='ignore'):
+            par.EL = np.where(
+                (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
+                np.cumsum(S[::-1])[::-1] / S,
+                0.0
+            )
 
         # Welfare system
         par.replacement_rate_bf_start = 6
