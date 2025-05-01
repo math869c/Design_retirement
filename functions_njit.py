@@ -593,6 +593,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_s_init = sim.s_init
     sim_k_init = sim.k_init
     sim_income = sim.income
+    sim_ret_flag    = sim.ret_flag
     sim_xi = sim.xi
     s_retirement = sim.s_retirement
     retirement_age = sim.retirement_age
@@ -655,10 +656,12 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     if sim_ex[i,t] == 1.0:
                         sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                        # sim_ret_flag[i,:] = 0.0 # hvis de kommer i arbejde igen, så skal de ikke have retirement flag
 
                     else:
                         sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_h[i,t] = 0.0
+                        # sim_ret_flag[i,t] = 1.0
 
                 else:
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
@@ -707,6 +710,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                         sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_ex[i,t] = np.round(sim_ex[i,t])
                         sim_e[i,t] = sim_ex[i,t]
+                        if sim_ex[i,t] == 0.0:
+                            sim_ret_flag[i,t] = 1.0
                     else: 
                         sim_ex[i,t] = 0.0
 
@@ -805,6 +810,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                         sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_ex[i,t] = np.round(sim_ex[i,t])
                         sim_e[i,t] = sim_ex[i,t]
+                        if sim_ex[i,t] == 0.0:
+                            sim_ret_flag[i,t] = 1.0
 
                 else: # just unemployed
                     sim_e[i,t] = 2.0
@@ -925,4 +932,4 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t])*sim_xi[i,t], par.k_max[t])
                    
 
-    return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_e, sim_chi_payment, sim_tax_rate, sim_income_before_tax_contrib, s_retirement, retirement_age, sim_income
+    return sim_a, sim_s, sim_k, sim_c, sim_h, sim_w, sim_ex, sim_e, sim_chi_payment, sim_tax_rate, sim_income_before_tax_contrib, s_retirement, retirement_age, sim_income, sim_ret_flag 

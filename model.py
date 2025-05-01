@@ -38,6 +38,7 @@ class ModelClass(EconModelClass):
         par.a_bar  = 0.001
         par.zeta   = 2.95781276e+00
         
+        
         # assets 
         par.r_a    = 1.00033844e-02
         par.r_s    = 2.12865706e-02 # np.mean(np.array(pd.read_csv("Data/mean_matrix.csv")['rente_pension_sum'])[:60])
@@ -87,9 +88,8 @@ class ModelClass(EconModelClass):
         # hire and fire employment
         parameter_table_with_control = pd.read_csv("Data/transitin_ssh_para_med_kontrol.csv")[['Variable', 'Response', 'Estimate']]
         df_ekso = eksog_prob(par, parameter_table_with_control)
-        df_ekso_0 = df_ekso[df_ekso['e_state_lag'] == 0]
-        df_ekso_1 = df_ekso[df_ekso['e_state_lag'] == 1]
-
+        df_ekso_0 = df_ekso[0]
+        df_ekso_1 = df_ekso[1]
 
         par.alpha_f0 = 0.043779862783
         par.alpha_f1 = -0.00218450969
@@ -105,10 +105,10 @@ class ModelClass(EconModelClass):
 
         par.transition_length = par.T
 
-        par.fire = np.array(df_ekso_1['P_0'])
-        par.hire = np.array(df_ekso_0['P_1'])
-        par.p_early_0 = np.array(df_ekso_0['P_2'])
-        par.p_early_1 = np.array(df_ekso_1['P_2'])
+        par.fire = np.array(df_ekso_1['to_0'])
+        par.hire = np.array(df_ekso_0['to_1'])
+        par.p_early_0 = np.array(df_ekso_0['to_2'])
+        par.p_early_1 = np.array(df_ekso_1['to_2'])
 
         par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
 
@@ -191,13 +191,13 @@ class ModelClass(EconModelClass):
         par.transition_length = par.T
         parameter_table_with_control = pd.read_csv("Data/transition_ssh_para.csv")[['Variable', 'Response', 'Estimate']]
         df_ekso = eksog_prob(par, parameter_table_with_control)
-        df_ekso_0 = df_ekso[df_ekso['e_state_lag'] == 0]
-        df_ekso_1 = df_ekso[df_ekso['e_state_lag'] == 1]
+        df_ekso_0 = df_ekso[0]
+        df_ekso_1 = df_ekso[1]
 
-        par.fire = np.array(df_ekso_1['P_0'])
-        par.hire = np.array(df_ekso_0['P_1'])
-        par.p_early_0 = np.array(df_ekso_0['P_2'])
-        par.p_early_1 = np.array(df_ekso_1['P_2'])
+        par.fire = np.array(df_ekso_1['to_0'])
+        par.hire = np.array(df_ekso_0['to_1'])
+        par.p_early_0 = np.array(df_ekso_0['to_2'])
+        par.p_early_1 = np.array(df_ekso_1['to_2'])
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
     def allocate(self):
@@ -248,6 +248,7 @@ class ModelClass(EconModelClass):
         sim.chi_payment = np.nan + np.zeros(shape)
         sim.tax_rate    = np.nan + np.zeros(shape)
         sim.income      = np.nan + np.zeros(shape)
+        sim.ret_flag    = np.zeros(shape)
         sim.s_retirement_contrib = np.nan + np.zeros(shape)
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
@@ -293,5 +294,5 @@ class ModelClass(EconModelClass):
             par = model.par
             sol = model.sol
             sim = model.sim 
-            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.e[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:], sim.s_retirement[:], sim.retirement_age[:], sim.income[:,:] = main_simulation_loop(par, sol, sim)
+            sim.a[:,:], sim.s[:,:], sim.k[:,:], sim.c[:,:], sim.h[:,:], sim.w[:,:], sim.ex[:,:], sim.e[:,:], sim.chi_payment[:,:], sim.tax_rate[:,:], sim.income_before_tax_contrib[:,:], sim.s_retirement[:], sim.retirement_age[:], sim.income[:,:], sim.ret_flag[:,:] = main_simulation_loop(par, sol, sim)
 
