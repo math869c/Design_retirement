@@ -17,28 +17,28 @@ from jit_module import jit_if_enabled
 
 
 # 1. Essentiel functions for such as utility, bequest, and wage 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def utility(par, c, h, k):
     return ((c+1)**(1-par.sigma))/(1-par.sigma) - (par.zeta/(1+k)) * (h**(1+par.gamma))/(1+par.gamma)
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def bequest(par, a):
     return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def wage(par, k, t):
     '''Wage before taxes'''
     return par.full_time_hours*np.exp(np.log(par.w_0) + par.beta_1*k + par.beta_2*t**2)
 
 # 1.1 The four sources of income all before taxes and retirement contributions - and total income before taxes and retirement contributions:
 # 1.1.1 Capital income
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def capital_return_fct(par, a):
     '''Capital return is the same for all periods'''
     return (par.r_a/(1+par.r_a)) * a
 
 # 1.1.2. Retirement payouts
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def calculate_retirement_payouts(par, h, s, e, r, t):
     """Calculate retirement payouts: can be split into 3 periods: before retirement, during installment and annuity, and only annuity"""
     
@@ -61,13 +61,13 @@ def calculate_retirement_payouts(par, h, s, e, r, t):
         return 0.0, 0.0
 
 # 1.1.3. Labor income
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def labor_income_fct(par, k, h, r, t):
     '''Before and after retirement age'''
     return h*wage(par, k, t)
 
 # 1.1.4. Public benefits
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def public_benefit_fct(par, h, e, income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
@@ -89,7 +89,7 @@ def public_benefit_fct(par, h, e, income, t):
         return max(par.chi_base, par.chi_total - income*par.rho)
 
 # 1.1.5 Total income before taxes and retirement contributions
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def income_private_fct(par, a, s, k, h, e, r, t):
     '''Private income is taxed and is used for 
     Income before taxes and contribution: include capital return, retirement payouts, and wages'''
@@ -114,7 +114,7 @@ def income_private_fct(par, a, s, k, h, e, r, t):
     return total_income + public_benefit
 
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def tax_rate_fct(par, a, s, k, h, e, r, t):
     total_income = income_private_fct(par, a, s, k, h, e, r, t)
 
@@ -138,7 +138,7 @@ def tax_rate_fct(par, a, s, k, h, e, r, t):
 
 
 # 1.2.2 retirement contributions, only of labor income 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def retirement_contribution_fct(par, a, s, k, h, r, t):
     '''Retirement contributions'''
     return labor_income_fct(par, k, h, r, t)*par.tau[t]
@@ -146,7 +146,7 @@ def retirement_contribution_fct(par, a, s, k, h, r, t):
 
 # 1.3. calculate income after taxes and contributions
 # 1.3.1 Income after taxes and contributions
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def final_income_and_retirement_contri(par, a, s, k, h, e, r, t):
     ''' The following is taxed: capital income, retirement payouts, labor income, and public benefits
     retirement contributions are only of labor income'''
@@ -172,13 +172,13 @@ def final_income_and_retirement_contri(par, a, s, k, h, e, r, t):
 
 
 # 2. Helper functions in solving and optimizing
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def budget_constraint(par, h, a, s, k, e, r, t):
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, t)
     return par.c_min, max(par.c_min*2, a + income)
 
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
     
     if t == par.last_retirement:
@@ -212,7 +212,7 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
     return V_next
 
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, t):
 
     EV = np.zeros((len(par.a_grid), len(par.s_grid), len(par.k_grid[t])))
@@ -244,7 +244,7 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, t):
     return EV
 
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def calculate_last_period_consumption(par, a, s, e, r, t):
     k, h = 0.0, 0.0
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, t)
@@ -261,7 +261,7 @@ def calculate_last_period_consumption(par, a, s, e, r, t):
 
 
 # 3. Value functions
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def value_last_period(par, c, a, s, e, r, t):
     # states and income 
     h, k = 0.0,0.0
@@ -271,7 +271,7 @@ def value_last_period(par, c, a, s, e, r, t):
     return utility(par, c, h, k) + bequest(par, a_next)
 
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     # states and income 
     retirement_age_idx = r
@@ -289,7 +289,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     return utility(par, c, h, k) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, t):
     # states and income 
     income, retirement_contribution = final_income_and_retirement_contri(par, a, s, k, h, e, r, t)
@@ -304,7 +304,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, t):
 
 
 # 4. Objective functions 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def obj_consumption(c, par, sol_V, sol_EV, h, a, s, k, e, r, t):
     return -value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, t)
 
@@ -314,7 +314,7 @@ def obj_consumption_after_retirement(c, par, sol_V, a, s, e, r, t):
     return -value_function_after_retirement(par, sol_V, c, a, s, e, r, t)
 
 
-@jit_if_enabled(fastmath=True)
+@jit_if_enabled(fastmath=False)
 def obj_hours(h, par, sol_V, sol_EV, a, s, k, e, r, t, dist):
 
     bc_min, bc_max = budget_constraint(par, h, a, s, k, e, r, t)
