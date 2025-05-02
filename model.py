@@ -36,7 +36,7 @@ class ModelClass(EconModelClass):
         par.gamma  = 1.94314221e+00       # Skal kalibreres
         par.mu     = 1.47848973e+01     # Skal kalibreres
         par.a_bar  = 0.001
-        par.zeta   = -10      
+        par.zeta   = 2.95781276e+00     
 
         # assets 
         par.r_a    = 1.00042611e-02
@@ -231,10 +231,12 @@ class ModelClass(EconModelClass):
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
-        sim.from_employed   = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed_to_only_early = Bernoulli(p = par.p_e_2, size =(par.simN, par.transition_length)).rvs()
-        sim.from_employed_to_unemployed = Bernoulli(p = par.p_e_2 + par.p_e_0, size =(par.simN, par.transition_length)).rvs()
+        sim.e_state_exogenous = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
+
+        # sim.from_employed   = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
+        # sim.from_unemployed = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
+        # sim.from_unemployed_to_only_early = Bernoulli(p = par.p_e_2, size =(par.simN, par.transition_length)).rvs()
+        # sim.from_employed_to_unemployed = Bernoulli(p = par.p_e_2 + par.p_e_0, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init = [

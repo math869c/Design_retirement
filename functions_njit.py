@@ -606,10 +606,11 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sim_tax_rate = sim.tax_rate
     sim_income_before_tax_contrib = sim.income_before_tax_contrib
     sim_e_init = sim.e_init
-    sim_from_employed = sim.from_employed
-    sim_from_unemployed = sim.from_unemployed
-    sim_from_unemployed_to_only_early = sim.from_unemployed_to_only_early
-    sim_from_employed_to_unemployed = sim.from_employed_to_unemployed
+    sim_e_exogenous = sim.e_state_exogenous
+    # sim_from_employed = sim.from_employed
+    # sim_from_unemployed = sim.from_unemployed
+    # sim_from_unemployed_to_only_early = sim.from_unemployed_to_only_early
+    # sim_from_employed_to_unemployed = sim.from_employed_to_unemployed
     
     sim_s_retirement_contrib = sim.s_retirement_contrib
     
@@ -635,11 +636,8 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     if sim_e[i,t-1] == 2.0:
                         sim_e[i,t] = 2.0
 
-                    elif sim_ex[i,t-1] == 1.0:
-                        sim_e[i,t] = sim_from_employed[i,t]
-
                     else:
-                        sim_e[i,t] = sim_from_unemployed[i,t]
+                        sim_e[i,t] = sim_e_exogenous[i,t]
 
                     if (sim_e[i,t] == 2.0 and sim_e[i,t-1] != 2) or sim_e[i,t] != 2.0:                    
                         retirement_age[i] = t
@@ -705,7 +703,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ex[i,t] = 0.0
 
                 elif sim_ex[i,t-1] == 1.0:
-                    sim_e[i,t] = sim_from_employed[i,t]
+                    sim_e[i,t] = sim_e_exogenous[i,t]
                     retirement_age[i] = t
                     s_retirement[i] = sim_s[i,t]
                     if sim_e[i,t] == 1.0:
@@ -718,7 +716,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                         sim_ex[i,t] = 0.0
 
                 else: # just unemployed
-                    if sim_from_unemployed_to_only_early[i,t] == 1.0:
+                    if sim_e_exogenous[i,t] == 2.0:
                         sim_e[i,t] = 2.0
                         sim_ex[i,t] = 0.0
                     else:
@@ -804,7 +802,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 elif sim_ex[i,t-1] == 1.0:
                     retirement_age[i] = t
                     s_retirement[i] = sim_s[i,t]
-                    if sim_from_employed_to_unemployed[i,t] == 1.0:
+                    if sim_e_exogenous[i,t] == 2.0:
                         sim_e[i,t] = 2.0
                         sim_ex[i,t] = 0.0
                     else:
