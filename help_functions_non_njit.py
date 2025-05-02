@@ -128,8 +128,8 @@ def eksog_prob_simpel(par):
                     eta[e_state] = estimate
                 elif var == 'alder':
                     eta[e_state] += estimate * x
-                elif var == 'alder2':
-                    eta[e_state] += estimate * x**2
+                # elif var == 'alder2':
+                #     eta[e_state] += estimate * x**2
                 elif var == "dummy_60_65":
                     if x >= 30 :
                         eta[e_state] += estimate
@@ -143,11 +143,11 @@ def eksog_prob_simpel(par):
     group_2 = []
 
     for x in range(70):
-        if 40 > x >= 35:
-            group_0.append(0.0)
-            group_1.append(np.exp(total_1[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
-            group_2.append(np.exp(total_2[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
-        elif x >= 40:
+        # if 40 > x >= 35:
+        #     group_0.append(0.0)
+        #     group_1.append(np.exp(total_1[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
+        #     group_2.append(np.exp(total_2[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
+        if x >= 40:
             group_0.append(0.0)
             group_1.append(0.0)
             group_2.append(1.0)
