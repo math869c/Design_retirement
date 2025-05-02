@@ -195,19 +195,21 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
+    elif t >= par.first_retirement - 1:
+        if int(ex_next) == par.unemp:
+            V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
+        else:
+            V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.emp]
+
+        V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
+        V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
+
     else:
         V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, int(ex_next)]
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
-
-    if employed == par.unemp:
-        V_next = (1-par.hire[t] - par.p_early_0[t])*V_next_un + par.hire[t]*V_next_em + par.p_early_0[t] * V_next_early
-    elif employed == par.emp:
-        V_next = par.fire[t]*V_next_un + (1-par.fire[t]-par.p_early_1[t])*V_next_em + par.p_early_1[t] * V_next_early
-    else: 
-        V_next = V_next_early
-
+    V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
 
     return V_next
 
