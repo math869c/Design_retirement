@@ -31,17 +31,16 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 9.74192566e-01 # 0.995    # Skal kalibreres
-        par.sigma  = 1.20491719e+00     # Skal kalibreres
-        par.gamma  = 3.02178825e+00       # Skal kalibreres
-        par.mu     = 1.43315495e+01     # Skal kalibreres
+        par.beta   = 9.73867941e-01 # 0.995    # Skal kalibreres
+        par.sigma  = 1.19687690e+00     # Skal kalibreres
+        par.gamma  = 1.94314221e+00       # Skal kalibreres
+        par.mu     = 1.47848973e+01     # Skal kalibreres
         par.a_bar  = 0.001
-        par.zeta   = 2.95781276e+00
-        
-        
+        par.zeta   = 3.02092408e+00      
+
         # assets 
-        par.r_a    = 1.00033844e-02
-        par.r_s    = 2.12865706e-02 # np.mean(np.array(pd.read_csv("Data/mean_matrix.csv")['rente_pension_sum'])[:60])
+        par.r_a    = 1.00042611e-02
+        par.r_s    = 1.62376066e-02 # np.mean(np.array(pd.read_csv("Data/mean_matrix.csv")['rente_pension_sum'])[:60])
         
         # wage and human capital
         par.upsilon = 0.0
