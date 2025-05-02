@@ -28,6 +28,8 @@ def logistic(x, L, f, x0):
 def eksog_prob(par, parameter_table_with_control):
     df = parameter_table_with_control.copy()
 
+    state_1_multiplier = 2
+
     everything = []
     for e_state_lag in [0.0, 1.0]:
         total_1 = []
@@ -97,9 +99,9 @@ def eksog_prob(par, parameter_table_with_control):
                 group_1.append(0.0)
                 group_2.append(1.0)
             else:
-                group_0.append(1/(1+np.exp(total_1[x]) + np.exp(total_2[x])))
-                group_1.append(np.exp(total_1[x])/(1+np.exp(total_1[x]) + np.exp(total_2[x])))
-                group_2.append(np.exp(total_2[x])/(1+np.exp(total_1[x]) + np.exp(total_2[x])))
+                group_0.append(1/(1+np.exp(total_1[x])*state_1_multiplier + np.exp(total_2[x])))
+                group_1.append(np.exp(total_1[x])*state_1_multiplier/(1+np.exp(total_1[x])*state_1_multiplier + np.exp(total_2[x])))
+                group_2.append(np.exp(total_2[x])/(1+np.exp(total_1[x])*state_1_multiplier + np.exp(total_2[x])))
 
         probabilites =  {'to_0': group_0, 'to_1': group_1, 'to_2': group_2}
         everything.append(probabilites)
