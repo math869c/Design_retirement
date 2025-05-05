@@ -91,7 +91,8 @@ class ModelClass(EconModelClass):
         par.p_e_2 = np.array(df_ekso['to_2'])
         par.transition_length = par.T
 
-        par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
+        # par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
+        par.initial_ex = 1 - par.p_e_0[0] + par.p_e_2[0]
 
         # unemployment benefit
         # early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()

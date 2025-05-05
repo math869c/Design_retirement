@@ -120,7 +120,7 @@ def moment_func(sim_data):
     # Compute age-averaged moments
     avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
     avg_s_by_age = np.mean(sim_data.s, axis=0)[:55]  # Length 70
-    avg_h_by_age = np.nanmean(np.where(sim_data.ex == 1, sim_data.h, np.nan), axis=0)[:40] # Length 40
+    avg_h_by_age = np.nan_to_num(np.nanmean(np.where(sim_data.ex == 1, sim_data.h, np.nan), axis=0)[:40], nan=0.0) # Length 40
     avg_ex_by_age = np.mean(sim_data.ex, axis=0)[:40]  # Length 40
 
     # Concatenate and return
@@ -148,7 +148,7 @@ def obj_func(scaled_theta, theta_names, mom_data, W, model, bounds, do_print=Fal
     if do_print: 
         print_str = ''
         for i, name in enumerate(theta_names):
-            print_str += f'{name}={theta[i]:2.3f} '
+            print_str += f'{theta[i]:2.6f}, '
         print(print_str)
     
     # Compute simulated moments
