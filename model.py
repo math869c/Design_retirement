@@ -120,9 +120,9 @@ class ModelClass(EconModelClass):
             )
 
         # Welfare system
-        par.replacement_rate_bf_start = 6
-        par.replacement_rate_bf_end = 3
-        par.replacement_rate_af_start = 5
+        par.replacement_rate_bf_start = 8
+        par.replacement_rate_bf_end = 6
+        par.replacement_rate_af_start = 3
         par.start_before = par.retirement_age-par.replacement_rate_bf_start
         par.end_before = par.retirement_age-par.replacement_rate_bf_end
         par.after_retirement = par.retirement_age +par.replacement_rate_af_start
