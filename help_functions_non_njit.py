@@ -131,7 +131,7 @@ def eksog_prob_simpel(par):
                 # elif var == 'alder2':
                 #     eta[e_state] += estimate * x**2
                 elif var == "dummy_60_65":
-                    if x >= 30 :
+                    if x >= 31 :
                         eta[e_state] += estimate
 
         total_1.append(eta[1])
