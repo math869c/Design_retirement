@@ -34,7 +34,7 @@ def eksog_prob(par, parameter_table_with_control):
     for e_state_lag in [0.0, 1.0]:
         total_1 = []
         total_2 = []
-        for x in range(70):
+        for x in range(par.T):
             eta = {1: 0.0, 2: 0.0}
 
             for e_state in [1.0, 2.0]: 
@@ -60,7 +60,7 @@ def eksog_prob(par, parameter_table_with_control):
                         elif e_state_lag == 2.0:
                             eta[e_state] += estimate*x
                     elif var == "dummy_60_65":
-                        if x >= 30 :
+                        if x >= par.first_retirement +1 :
                             eta[e_state] += estimate
                     elif var == 'alder2*e_state_lag':
                         if e_state_lag == 1.0:
@@ -69,9 +69,9 @@ def eksog_prob(par, parameter_table_with_control):
                             eta[e_state] += estimate*x**2
                     
                     if e_state_lag == 0.0:
-                        if x>= 30:
+                        if x>= par.first_retirement :
                             eta[1] = -np.inf
-                        if x>= 35:
+                        if x>= par.retirement_age:
                             eta[2] = 100
 
             total_1.append(eta[1])
@@ -82,7 +82,7 @@ def eksog_prob(par, parameter_table_with_control):
         group_1 = []    
         group_2 = []
         for x in range(70):
-            if x == 35 and e_state_lag == 1.0:
+            if x == par.first_retirement +1 and e_state_lag == 1.0:
                 group_0.append(0.0)
                 group_1.append(np.exp(total_1[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
                 group_2.append(np.exp(total_2[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
@@ -90,11 +90,11 @@ def eksog_prob(par, parameter_table_with_control):
             #     group_0.append(0.0)
             #     group_1.append(group_1[-1])
             #     group_2.append(group_2[-1])
-            elif x >= 40 and e_state_lag == 1.0:
+            elif x >= par.last_retirement and e_state_lag == 1.0:
                 group_0.append(0.0)
                 group_1.append(0.0)
                 group_2.append(1.0)
-            elif x >= 40 and e_state_lag == 0.0:
+            elif x >= par.last_retirement and e_state_lag == 0.0:
                 group_0.append(0.0)
                 group_1.append(0.0)
                 group_2.append(1.0)
@@ -115,7 +115,7 @@ def eksog_prob_simpel(par):
     total_1 = []
     total_2 = []
 
-    for x in range(70):
+    for x in range(par.T):
         eta = {1: 0.0, 2: 0.0}
 
         for e_state in [1.0, 2.0]: 
@@ -131,7 +131,7 @@ def eksog_prob_simpel(par):
                 # elif var == 'alder2':
                 #     eta[e_state] += estimate * x**2
                 elif var == "dummy_60_65":
-                    if x >= 30 :
+                    if x >= par.first_retirement+1:
                         eta[e_state] += estimate
 
         total_1.append(eta[1])
@@ -142,12 +142,12 @@ def eksog_prob_simpel(par):
     group_1 = []    
     group_2 = []
 
-    for x in range(70):
+    for x in range(par.T):
         # if 40 > x >= 35:
         #     group_0.append(0.0)
         #     group_1.append(np.exp(total_1[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
         #     group_2.append(np.exp(total_2[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
-        if x >= 40:
+        if x >= par.last_retirement:
             group_0.append(0.0)
             group_1.append(0.0)
             group_2.append(1.0)
