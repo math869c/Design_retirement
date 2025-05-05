@@ -109,7 +109,56 @@ def eksog_prob(par, parameter_table_with_control):
 
 
 
+def eksog_prob_simpel(par):
+    df = pd.read_csv("Data/parameter_estiamtes_simpel.csv")[['Variable', 'Response',  'Estimate']]
+    everything = []
+    total_1 = []
+    total_2 = []
 
+    for x in range(70):
+        eta = {1: 0.0, 2: 0.0}
+
+        for e_state in [1.0, 2.0]: 
+            df_state = df[df['Response'] == e_state]
+            for _, row in df_state.iterrows():
+                var = row["Variable"]
+                estimate = row["Estimate"]
+                
+                if var == 'Intercept':
+                    eta[e_state] = estimate
+                elif var == 'alder':
+                    eta[e_state] += estimate * x
+                # elif var == 'alder2':
+                #     eta[e_state] += estimate * x**2
+                elif var == "dummy_60_65":
+                    if x >= 30 :
+                        eta[e_state] += estimate
+
+        total_1.append(eta[1])
+        total_2.append(eta[2])
+
+
+    group_0 = []
+    group_1 = []    
+    group_2 = []
+
+    for x in range(70):
+        # if 40 > x >= 35:
+        #     group_0.append(0.0)
+        #     group_1.append(np.exp(total_1[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
+        #     group_2.append(np.exp(total_2[x])/(np.exp(total_1[x]) + np.exp(total_2[x])))
+        if x >= 40:
+            group_0.append(0.0)
+            group_1.append(0.0)
+            group_2.append(1.0)
+        else:
+            group_0.append(1/(1+np.exp(total_1[x]) + np.exp(total_2[x])))
+            group_1.append(np.exp(total_1[x])/(1+np.exp(total_1[x]) + np.exp(total_2[x])))
+            group_2.append(np.exp(total_2[x])/(1+np.exp(total_1[x]) + np.exp(total_2[x])))
+
+    probabilites =  {'to_0': group_0, 'to_1': group_1, 'to_2': group_2}
+    everything.append(probabilites)
+    return everything
 
 
 

@@ -36,7 +36,7 @@ class ModelClass(EconModelClass):
         par.gamma  = 1.94314221e+00       # Skal kalibreres
         par.mu     = 1.47848973e+01     # Skal kalibreres
         par.a_bar  = 0.001
-        par.zeta   = 3.02092408e+00      
+        par.zeta   = 2.95781276e+00     
 
         # assets 
         par.r_a    = 1.00042611e-02
@@ -85,31 +85,14 @@ class ModelClass(EconModelClass):
         par.rho = 0.309
 
         # hire and fire employment
-        parameter_table_with_control = pd.read_csv("Data/transitin_ssh_para_med_kontrol.csv")[['Variable', 'Response', 'Estimate']]
-        df_ekso = eksog_prob(par, parameter_table_with_control)
-        df_ekso_0 = df_ekso[0]
-        df_ekso_1 = df_ekso[1]
-
-        par.alpha_f0 = 0.043779862783
-        par.alpha_f1 = -0.00218450969
-        par.alpha_f2 = 0.0000600717239
-
-        par.alpha_h0 = 0.4693704319
-        par.alpha_h1 = -0.004887608808
-        par.alpha_h2 = 0.000098401435
-
-        par.alpha_e0 = 0.043779862783
-        par.alpha_e1 = 0.00218450969
-        par.alpha_e2 = 0.0000600717239
-
+        df_ekso = eksog_prob_simpel(par)[0]
+        par.p_e_0 = np.array(df_ekso['to_0'])
+        par.p_e_1 = np.array(df_ekso['to_1'])
+        par.p_e_2 = np.array(df_ekso['to_2'])
         par.transition_length = par.T
 
-        par.fire = np.array(df_ekso_1['to_0'])
-        par.hire = np.array(df_ekso_0['to_1'])
-        par.p_early_0 = np.array(df_ekso_0['to_2'])
-        par.p_early_1 = np.array(df_ekso_1['to_2'])
-
-        par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
+        # par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
+        par.initial_ex = 1 - par.p_e_0[0] + par.p_e_2[0]
 
         # unemployment benefit
         # early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
@@ -188,16 +171,12 @@ class ModelClass(EconModelClass):
         par.after_retirement = par.retirement_age + par.replacement_rate_af_start
 
         # fire and hire employment
-        par.transition_length = par.T
-        parameter_table_with_control = pd.read_csv("Data/transition_ssh_para.csv")[['Variable', 'Response', 'Estimate']]
-        df_ekso = eksog_prob(par, parameter_table_with_control)
-        df_ekso_0 = df_ekso[0]
-        df_ekso_1 = df_ekso[1]
+        df_ekso = eksog_prob_simpel(par)[0]
+        par.p_e_0 = np.array(df_ekso['to_0'])
+        par.p_e_1 = np.array(df_ekso['to_1'])
+        par.p_e_2 = np.array(df_ekso['to_2'])
 
-        par.fire = np.array(df_ekso_1['to_0'])
-        par.hire = np.array(df_ekso_0['to_1'])
-        par.p_early_0 = np.array(df_ekso_0['to_2'])
-        par.p_early_1 = np.array(df_ekso_1['to_2'])
+        par.transition_length = par.T
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
     def allocate(self):
@@ -253,10 +232,12 @@ class ModelClass(EconModelClass):
         sim.income_before_tax_contrib = np.nan + np.zeros(shape)
         sim.xi          = np.random.choice(par.xi_v, size=(par.simN, par.simT), p=par.xi_p)
 
-        sim.from_employed   = Categorical(p=[par.fire, 1- par.fire-par.p_early_1, par.p_early_1], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed = Categorical(p=[1- par.hire-par.p_early_0, par.hire, par.p_early_0], size =(par.simN, par.transition_length)).rvs()
-        sim.from_unemployed_to_only_early = Bernoulli(p = par.p_early_0, size =(par.simN, par.transition_length)).rvs()
-        sim.from_employed_to_unemployed = Bernoulli(p = par.p_early_1 + par.fire, size =(par.simN, par.transition_length)).rvs()
+        sim.e_state_exogenous = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
+
+        # sim.from_employed   = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
+        # sim.from_unemployed = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
+        # sim.from_unemployed_to_only_early = Bernoulli(p = par.p_e_2, size =(par.simN, par.transition_length)).rvs()
+        # sim.from_employed_to_unemployed = Bernoulli(p = par.p_e_2 + par.p_e_0, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization
         sim.a_init, sim.s_init, sim.w_init = [
