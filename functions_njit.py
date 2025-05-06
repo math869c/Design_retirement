@@ -5,6 +5,8 @@ from consav.linear_interp import interp_1d, interp_2d, interp_3d, interp_4d
 from optimizers import optimizer, optimize_outer, interp_3d_vec
 from jit_module import jit_if_enabled
 
+import math
+
 
 #######################################################################
 # Structure 
@@ -209,6 +211,7 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
+    # V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
     V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
 
     return V_next
@@ -229,8 +232,6 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, t):
                     if t == par.last_retirement:
                         ex_next = 0
 
-
-                    
                     else:
                         if employed == par.emp:
                             ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
@@ -352,13 +353,13 @@ def main_solver_loop(par, sol, do_print = False):
             print(f"We are in t = {t}")
 
         retirement_ages = np.arange(0, min(par.last_retirement + 1, t + 1))
-
+        
         for retirement_age_idx, retirement_age in enumerate(retirement_ages):
 
             if t > par.last_retirement:
                 e_grid = [par.ret]
             elif t >= par.retirement_age:
-                e_grid = [par.emp, par.ret]
+                e_grid = [par.unemp, par.emp, par.ret]
             else:
                 e_grid = [par.unemp, par.emp, par.ret]
 
@@ -378,7 +379,7 @@ def main_solver_loop(par, sol, do_print = False):
 
                             idx = (t, a_idx, s_idx, k_idx, retirement_age_idx, employed)
                             idx_unemployed = (t, a_idx, s_idx, k_idx, retirement_age_idx, par.unemp)
-                            idx_ret = (t, a_idx, s_idx, slice(None), retirement_age_idx, par.ret)
+                            idx_ret = (t, a_idx, s_idx, slice(None), retirement_age_idx, employed)
 
                             if t == par.T - 1: # Last period
                                 if k_idx == 0: # No capital
@@ -390,6 +391,9 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_ex[idx_ret] = e_unemployed
                                     sol_h[idx_ret] = hours_unemp
                                     sol_V[idx_ret] = value_last_period(par, sol_c[idx], assets, savings, employed, retirement_age, t)
+
+                                    if math.isnan(sol_V[idx]):
+                                        print("val is nan in first", idx, sol_V[idx])
 
                                 else:
                                     pass
@@ -415,6 +419,9 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_h[idx_ret] = hours_unemp
                                     sol_V[idx_ret] = value_function_after_retirement(par, sol_V, c_star, assets, savings, employed, retirement_age, t)
 
+                                    if math.isnan(sol_V[idx]):
+                                        print("val is nan in second", idx, sol_V[idx])
+
                                 else:
                                     pass
 
@@ -438,6 +445,9 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
                                     sol_ex[idx] = e_unemployed
                                     sol_h[idx]  = hours_unemp
+
+                                    if math.isnan(sol_V[idx]):
+                                        print("val is nan in third", idx, sol_V[idx])
 
                                 elif employed == par.emp: # Can choose between employment and unemployment
                                     h_star = optimize_outer(
@@ -463,6 +473,9 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_h[idx]  = h_star
                                     sol_c[idx] = c_star
                                     sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                                    if math.isnan(sol_V[idx]):
+                                        print("val is nan in fourth", idx, sol_V[idx])
 
                                     if sol_V[idx_unemployed] > val:
                                         sol_ex[idx] = e_unemployed
@@ -490,6 +503,9 @@ def main_solver_loop(par, sol, do_print = False):
                                         sol_ex[idx_ret] = e_unemployed
                                         sol_h[idx_ret]  = hours_unemp
 
+                                        if math.isnan(sol_V[idx]):
+                                            print("val is nan fifth", idx, sol_V[idx])
+
                                     else:
                                         pass
 
@@ -513,6 +529,9 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
                                     sol_ex[idx] = e_unemployed
                                     sol_h[idx]  = hours_unemp
+
+                                    if math.isnan(sol_V[idx]):
+                                        print("val is nan in sixth", idx_ret, sol_V[idx])
 
                                 elif employed == par.emp: # Can choose between employment and unemployment
                                     h_star = optimize_outer(
@@ -540,11 +559,14 @@ def main_solver_loop(par, sol, do_print = False):
                                     sol_h[idx] = h_star
                                     sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
 
+                                    if math.isnan(sol_V[idx]):
+                                        print("val is nan in seventh", idx, sol_V[idx])
+
                                     if sol_V[idx_unemployed] > val:
                                         sol_ex[idx] = e_unemployed
                                     else:
                                         sol_ex[idx] = employed
-                                    
+                                
 
                                 else: # Forced unemployment
                                     if k_idx == 0: # No capital
@@ -566,6 +588,10 @@ def main_solver_loop(par, sol, do_print = False):
                                         sol_a[idx_ret] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
                                         sol_ex[idx_ret] = e_unemployed
                                         sol_h[idx_ret]  = hours_unemp
+
+                                        if math.isnan(sol_V[idx]):
+                                            print("val is nan in eight", idx, sol_V[idx])
+
 
                                     else:
                                         pass
@@ -817,9 +843,11 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                         sim_e[i,t] = 1.0
                         sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_ex[i,t] = np.round(sim_ex[i,t])
-                        sim_e[i,t] = sim_ex[i,t]
-                        if sim_ex[i,t] == 0.0:
+                        if sim_ex[i,t] == 0:
+                            sim_e[i,t] = 2
                             sim_ret_flag[i,t] = 1.0
+                        else:
+                            sim_e[i,t] = 1
 
                 else: # just unemployed
                     sim_e[i,t] = 2.0
