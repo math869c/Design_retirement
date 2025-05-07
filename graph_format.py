@@ -665,3 +665,40 @@ def plot_difference_grid(data_diff, time, title="Difference: Original - New", nc
         save_figure(fig, save_title)
 
     plt.show()
+
+
+def plot_ln_wage(ln_wage, man_hourly_salary, title="Log Wage Simulation vs Real Data", 
+                 xlabel="Time (Years)", ylabel="ln(Wage)", save_title=None):
+
+    # Convert real hourly salary to log scale
+    ln_real_wage = np.log(man_hourly_salary)
+    time = np.arange(len(ln_wage))
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    # Plot simulated ln(wage)
+    ax.plot(time, ln_wage, marker="o", linestyle="-", label="Simulated ln(Wage)", color=custom_palette[0])
+
+    # Plot real ln(wage)
+    ax.plot(time, ln_real_wage, marker="s", linestyle="--", label="Real ln(Wage)", color=custom_palette[1])
+
+    # Axes formatting
+    ax.set_title(title, fontsize=16, fontweight="bold")
+    ax.set_xlabel(xlabel, fontsize=14)
+    ax.set_ylabel(ylabel, fontsize=14)
+
+    ax.grid(True, linestyle="--", alpha=0.7)
+    ax.legend(loc="best", frameon=True, fontsize=12)
+
+    # Remove top and right borders
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    plt.tight_layout()
+
+    # Save if title provided
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
