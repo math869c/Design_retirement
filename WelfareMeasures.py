@@ -81,12 +81,14 @@ def labor_elasticity(original_model, new_model):
     sim_og_h = np.nanmean(sim_og_h_ex_1, axis=0)# age specific average 
     sim_new_h = np.nanmean(sim_new_h_ex_1, axis=0) # age specific average
     intensive_margin_age = (sim_new_h-sim_og_h)/sim_og_h 
-    intensive_margin = (np.nanmean(pi_weight*sim_new_h, axis=0)-np.nanmean(pi_weight*sim_og_h, axis=0))/(np.nanmean(pi_weight*sim_og_h, axis=0))
+    intensive_margin = (np.nanmean(sim_new_h, axis=0)-np.nanmean(sim_og_h, axis=0))
 
     # extensive margin
     sim_og_ex = np.nansum(sim_og.ex, axis=0) # age specific average
     sim_new_ex = np.nansum(sim_new.ex, axis=0) # age specific average
     extensive_margin_age = (sim_new_ex-sim_og_ex)/par_og.simN
+    print(sim_og_ex)
+    print(sim_new_ex)
     extensive_margin = (np.nansum(pi_weight*sim_new_ex, axis=0)-np.nansum(pi_weight*sim_og_ex, axis=0))/np.sum(pi_weight*par_og.simN)
     # total margin
     return intensive_margin, extensive_margin, intensive_margin_age, extensive_margin_age    
