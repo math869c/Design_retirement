@@ -74,7 +74,7 @@ def public_benefit_fct(par, h, e, income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
     if t < par.retirement_age:
-        if h > par.h_min:
+        if h > 0.0:
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
@@ -89,6 +89,12 @@ def public_benefit_fct(par, h, e, income, t):
     # public retirement benefits
     else:
         return max(par.chi_base, par.chi_total - income*par.rho)
+    
+    # else:
+    #     if h > 0.0:
+    #         return par.chi_total
+    #     else:
+    #         return par.early_benefit[t]
 
 # 1.1.5 Total income before taxes and retirement contributions
 @jit_if_enabled(fastmath=False)
@@ -197,21 +203,11 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
-    elif t >= par.first_retirement - 1:
-        if int(ex_next) == par.unemp:
-            V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
-        else:
-            V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.emp]
-
-        V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
-        V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
-
     else:
         V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, int(ex_next)]
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
-    # V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
     V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
 
     return V_next
@@ -232,11 +228,17 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, t):
                     if t == par.last_retirement:
                         ex_next = 0
 
-                    else:
+                    elif t >= par.first_retirement:
                         if employed == par.emp:
-                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
+                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, par.emp], a_next, s_next, k_temp_))
                         else:
-                            ex_next = par.unemp
+                            ex_next = 0
+
+                    else:
+                        if employed == par.emp or employed == par.unemp:
+                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, par.emp], a_next, s_next, k_temp_))
+                        else:
+                            ex_next = 0
 
                     V_next = compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t)
                     V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], V_next, a_next, s_next, k_temp_)
@@ -729,207 +731,139 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                 if sim_e[i,t-1] == 2.0:
                     sim_e[i,t] = 2.0
+
+                elif sim_e[i,t-1] == 0.0:
+                    if sim_e_exogenous[i,t] == 2:
+                        sim_e[i,t] = 2.0
+                    else:
+                        sim_e[i,t] = 0.0
+                
+                else:
+                    sim_e[i,t] = sim_e_exogenous[i,t]
+
+                if ((sim_e[i,t] == 2.0 or sim_e[i,t] == 0) and sim_e[i,t-1] == 1.0) or sim_e[i,t] == 1:                    
+                    retirement_age[i] = t
+                    s_retirement[i] = sim_s[i,t] 
+
+                if sim_e[i,t] == 2.0:
+                    sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i])
+                    sim_h[i,t] = 0.0
                     sim_ex[i,t] = 0.0
                     sim_ret_flag[i,t] = 0.0
 
-                elif sim_ex[i,t-1] == 1.0:
-                    sim_e[i,t] = sim_e_exogenous[i,t]
-                    retirement_age[i] = t
-                    s_retirement[i] = sim_s[i,t]
-                    if sim_e[i,t] == 1.0:
-                        sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                        sim_ex[i,t] = np.round(sim_ex[i,t])
-                        sim_e[i,t] = sim_ex[i,t]
-                        if sim_ex[i,t] == 0.0:
-                            sim_ret_flag[i,t] = 1.0
-                    else: 
-                        sim_ex[i,t] = 0.0
-                        sim_ret_flag[i,t] = 0.0
+                elif sim_e[i,t] == 1.0:
+                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sim_ex[i,t] = np.round(sim_ex[i,t])
 
-                else: # just unemployed
-                    if sim_e_exogenous[i,t] == 2.0:
-                        sim_e[i,t] = 2.0
-                        sim_ex[i,t] = 0.0
-                        sim_ret_flag[i,t] = 0.0
+                    if sim_ex[i,t] == 1.0:
+                        sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                        sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                        sim_ret_flag[i,:] = 0.0 # hvis de kommer i arbejde igen, så skal de ikke have retirement flag
+
                     else:
-                        sim_e[i,t] = 0.0
-                        sim_ex[i,t] = 0.0
-                        retirement_age[i] = t
-                        s_retirement[i] = sim_s[i,t]
-                        sim_ret_flag[i,t] = 0.0
-
-                # 1. technical variables
-                if sim_ex[i,t] == 0.0:
-                    if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (t == par.first_retirement and sim_e[i,t] == par.unemp): 
-                        # 2. Interpolation of choice variables
-                        sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i])
+                        sim_e[i,t] = 0
+                        sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_h[i,t] = 0.0
+                        sim_ret_flag[i,:] = 0.0 # glem alle tidligere
+                        sim_ret_flag[i,t] = 1.0
 
-                    elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
-                        # 1.1 retirement age
-                        # 2. Interpolation of choice variables
-                        sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i])
-                        sim_h[i,t] = 0.0
-
-                    # 3. Income variables
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
-
-                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
-                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
-
-                    # 3.1 retirement payments 
-                    sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
-                    # 3.2 labor income 
-                    sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
-
-                    # 4. Update of states
-                    # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
-                    sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
-                    sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t])*sim_xi[i,t], par.k_max[t])
-
-                else: 
-                    # 1.1 retirement age
-                    # 2. Interpolation of choice variables
+                else:
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sim_h[i,t] = 0.0
+                    sim_ex[i,t] = 0.0
+                    sim_ret_flag[i,t] = 0.0
 
-                
-                    # 3. Income variables
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
-                    
-                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
-                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
-                    
-                    # 3.1 retirement payments
-                    sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
-                    # 3.2 labor income
-                    sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i],sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+                sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) #(par, a, s, k, h, e, r, t)
+                sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
 
-                    # 4. Update of states
-                    # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
-                    sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
-                    sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
+                if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                    sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+
+                # 3.2 labor income
+                sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
+                # 3.3 public benefits
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], sim_income[i,t], t)
+                # 3.4 income before tax contribution
+                sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) 
+                # 3.5 tax rate
+                sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+
+                # 4. Update of states
+                # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
+                sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
+                sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
+                sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
 
 
             elif t <= par.last_retirement:
 
-                if sim_e[i,t-1] == 2.0: #Førtidspension eksisterere ikke længere og man skal overgå til pension
+                if sim_e[i,t-1] == 2.0 or sim_e[i,t-1] == 0.0:
                     sim_e[i,t] = 2.0
-                    sim_ex[i,t] = 0.0
-                    sim_ret_flag[i,t] = 0.0
 
-                elif sim_ex[i,t-1] == 1.0:
-                    retirement_age[i] = t
-                    s_retirement[i] = sim_s[i,t]
-                    if sim_e_exogenous[i,t] == 2.0:
-                        sim_e[i,t] = 2.0
-                        sim_ex[i,t] = 0.0
-                        sim_ret_flag[i,t] = 0.0
-                    else:
+                else:
+                    if sim_e_exogenous[i,t] == 1:
                         sim_e[i,t] = 1.0
-                        sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                        sim_ex[i,t] = np.round(sim_ex[i,t])
-                        if sim_ex[i,t] == 0:
-                            sim_e[i,t] = 2
-                            sim_ret_flag[i,t] = 1.0
-                        else:
-                            sim_e[i,t] = 1
+                    else:
+                        sim_e[i,t] = 2.0
 
-                else: # just unemployed
-                    sim_e[i,t] = 2.0
+
+                if ((sim_e[i,t] == 2.0 or sim_e[i,t] == 0) and sim_e[i,t-1] == 1.0) or sim_e[i,t] == 1:
+                    retirement_age[i] = t
+                    s_retirement[i] = sim_s[i,t] 
+
+                if sim_e[i,t] == 2.0:
+                    sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i])
+                    sim_h[i,t] = 0.0
                     sim_ex[i,t] = 0.0
                     sim_ret_flag[i,t] = 0.0
 
+                elif sim_e[i,t] == 1.0:
+                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sim_ex[i,t] = np.round(sim_ex[i,t])
 
-                # 1. technical variables
+                    if sim_ex[i,t] == 1.0:
+                        sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                        sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                        sim_ret_flag[i,:] = 0.0 # hvis de kommer i arbejde igen, så skal de ikke have retirement flag
 
-                if sim_ex[i,t] == 0.0 or t == par.last_retirement:
-                    if (sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 1.0) or (sim_ex[i,t-1] == 1.0 and t == par.last_retirement): 
-                        # 1.1 retirement age
-                        retirement_age[i] = t
-                        s_retirement[i] = sim_s[i,t]
-
-                        # 2. Interpolation of choice variables
-                        sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i])
+                    else:
+                        sim_e[i,t] = 2
+                        sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_h[i,t] = 0.0
+                        sim_ret_flag[i,:] = 0.0 # glem alle tidligere
+                        sim_ret_flag[i,t] = 1.0
 
-                    elif sim_ex[i,t] == 0.0 and sim_ex[i,t-1] == 0.0: 
-                        # 1.1 retirement age
-
-                        # 2. Interpolation of choice variables
-                        sim_c[i,t] = interp_2d(par.a_grid, par.s_grid, sol_c[t,:,:,0,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i])
-                        sim_h[i,t] = 0.0
-
-                        # 3. Income variables
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
-
-                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
-                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
-
-                    # 3.1 retirement payments 
-                    sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t)
-                    # 3.2 labor income 
-                    sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
-
-                    # 4. Update of states
-                    # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
-                    sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
-                    sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t])*sim_xi[i,t], par.k_max[t])
-
-
-                else: 
-                    # 1.1 retirement age
-                    # 2. Interpolation of choice variables
+                else:
+                    sim_e[i,t] = 2
                     sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_h[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_h[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sim_h[i,t] = 0.0
+                    sim_ex[i,t] = 0.0
+                    sim_ret_flag[i,t] = 0.0
 
-                    # 3. Income variables
-                    sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
-                    
-                    if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
-                        sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
+                sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) #(par, a, s, k, h, e, r, t)
+                sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
 
-                    # 3.1 retirement payments
-                    sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
-                    # 3.2 labor income
-                    sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
-                    # 3.3 public benefits
-                    sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], sim_income[i,t], t)
-                    # 3.4 income before tax contribution
-                    sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) 
-                    # 3.5 tax rate
-                    sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i],sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+                if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
+                    sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
 
-                    # 4. Update of states
-                    # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
-                    sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
-                    sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
-                    sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
+                # 3.2 labor income
+                sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
+                # 3.3 public benefits
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], sim_income[i,t], t)
+                # 3.4 income before tax contribution
+                sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t) 
+                # 3.5 tax rate
+                sim_tax_rate[i,t] = tax_rate_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], t)
+
+                # 4. Update of states
+                # sim_a[i,t+1] = np.maximum(par.a_min, np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max))
+                sim_a[i,t+1] = np.minimum((1+par.r_a)*(sim_a[i,t] + sim_income[i,t] - sim_c[i,t]), par.a_max)
+                sim_s[i,t+1] = np.minimum(np.maximum((sim_s[i,t] + sim_s_retirement_contrib[i,t] - (sim_s_lr_init[i] + sim_s_rp_init[i]))*(1+par.r_s), 0), par.s_max)
+                sim_k[i,t+1] = np.minimum(((1-par.delta)*sim_k[i,t] + sim_h[i,t])*sim_xi[i,t], par.k_max[t])
 
             elif t > par.last_retirement:
-                sim_ex[:,t] = 0.0
-                sim_e[:,t]  = 2.0
+                sim_ex[i,t] = 0.0
+                sim_e[i,t]  = 2.0
                 sim_ret_flag[i,t] = 0.0
 
                 # 1.1 retirement age
