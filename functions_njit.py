@@ -184,12 +184,12 @@ def budget_constraint(par, h, a, s, k, e, r, t):
 def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
     
     if t == par.last_retirement:
-        V_next_em       = sol_V[t+1, :, :, :, retirement_idx, par.ret]
-        V_next_un       = sol_V[t+1, :, :, :, retirement_idx, par.ret]
-        V_next_early    = sol_V[t+1, :, :, :, retirement_idx, par.ret]
+        V_next_em       = sol_V[t+1, :, :, :, retirement_idx + 1, par.ret]
+        V_next_un       = sol_V[t+1, :, :, :, retirement_idx + 1, par.ret]
+        V_next_early    = sol_V[t+1, :, :, :, retirement_idx + 1, par.ret]
 
     elif t >= par.retirement_age - 1:
-        if int(ex_next) == par.unemp:
+        if int(ex_next) == par.unemp or int(ex_next) == par.ret:
             V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
         else:
             V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.emp]
@@ -197,14 +197,10 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
-    elif t >= par.first_retirement - 1:
-        if int(ex_next) == par.unemp:
-            V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
-        else:
-            V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.emp]
-
-        V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
-        V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
+    # elif t >= par.first_retirement - 1:          
+    #     V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, int(ex_next)]
+    #     V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
+    #     V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
     else:
         V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, int(ex_next)]
@@ -213,6 +209,13 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
 
     # V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
     V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
+
+    if np.isnan(V_next_un):
+        print('V_next_un', V_next_un, 't',t, )
+    if np.isnan(V_next_em):
+        print('V_next_em', V_next_em)
+    if np.isnan(V_next_early):
+        print('V_next_early', V_next_early)
 
     return V_next
 
@@ -231,12 +234,19 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, t):
 
                     if t == par.last_retirement:
                         ex_next = 0
-
-                    else:
+                    
+                    elif t>= par.first_retirement:
                         if employed == par.emp:
                             ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
                         else:
-                            ex_next = par.unemp
+                            ex_next = 0
+
+                    else:
+                        if employed == par.emp or employed == par.unemp:
+                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
+                        else:
+                            ex_next = 0
+
 
                     V_next = compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t)
                     V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], V_next, a_next, s_next, k_temp_)

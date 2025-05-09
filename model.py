@@ -66,10 +66,10 @@ class ModelClass(EconModelClass):
         par.top_tax_threshold            = 498900         # "topskat_graense"
 
         # Retirement system 
-        par.retirement_age      = 66 - par.start_age # Time when agents enter pension
+        par.retirement_age      = 65 - par.start_age # Time when agents enter pension
         par.range               = 5
-        par.first_retirement    = par.retirement_age - par.range-1
-        par.last_retirement     = par.retirement_age + par.range-1
+        par.first_retirement    = par.retirement_age - par.range
+        par.last_retirement     = par.retirement_age + par.range
         par.retirement_window   = par.last_retirement - par.first_retirement + 1
 
         par.m = 12.0 # Years with retirement payments
@@ -96,8 +96,8 @@ class ModelClass(EconModelClass):
         # unemployment benefit
         # early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
         # unemployment_coefficients = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.retirement_age- par.range else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.retirement_age- par.range else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
         
         # life time 
         par.L = 0.9992 # fra regression og data i sas
@@ -168,37 +168,37 @@ class ModelClass(EconModelClass):
         # par.retirement_window = par.last_retirement - par.first_retirement + 1
 
         # Welfare system
-        par.start_before = par.retirement_age - par.replacement_rate_bf_start-1
-        par.end_before = par.retirement_age - par.replacement_rate_bf_end-1
-        par.after_retirement = par.retirement_age + par.replacement_rate_af_start-1
+        # par.start_before = par.retirement_age - par.replacement_rate_bf_start-1
+        # par.end_before = par.retirement_age - par.replacement_rate_bf_end-1
+        # par.after_retirement = par.retirement_age + par.replacement_rate_af_start-1
 
-        # benefits
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        # # benefits
+        # # par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        # # par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
 
-        # survival probabilities
-        par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
-        par.pi_el = par.pi.copy()
-        # par.pi = np.ones_like(par.pi_el)        
-        # par.EL = np.zeros(par.last_retirement + 1)
-        # for r in range(par.last_retirement + 1):
-        #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
-        with np.errstate(invalid='ignore'):
-            par.EL = np.where(
-                (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
-                np.cumsum(S[::-1])[::-1] / S,
-                0.0
-            )
+        # # survival probabilities
+        # par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
+        # par.pi_el = par.pi.copy()
+        # # par.pi = np.ones_like(par.pi_el)        
+        # # par.EL = np.zeros(par.last_retirement + 1)
+        # # for r in range(par.last_retirement + 1):
+        # #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
+        # with np.errstate(invalid='ignore'):
+        #     par.EL = np.where(
+        #         (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
+        #         np.cumsum(S[::-1])[::-1] / S,
+        #         0.0
+        #     )
 
-        # fire and hire employment
-        df_ekso = eksog_prob_simpel(par)[0]
-        par.p_e_0 = np.array(df_ekso['to_0'])
-        par.p_e_1 = np.array(df_ekso['to_1'])
-        par.p_e_2 = np.array(df_ekso['to_2'])
-        par.initial_ex = 1 - par.p_e_0[0] + par.p_e_2[0]
+        # # fire and hire employment
+        # df_ekso = eksog_prob_simpel(par)[0]
+        # par.p_e_0 = np.array(df_ekso['to_0'])
+        # par.p_e_1 = np.array(df_ekso['to_1'])
+        # par.p_e_2 = np.array(df_ekso['to_2'])
+        # par.initial_ex = 1 - par.p_e_0[0] + par.p_e_2[0]
 
-        par.transition_length = par.T
-        par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
+        # par.transition_length = par.T
+        # par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
     def allocate(self):
         """ allocate model """
@@ -257,7 +257,8 @@ class ModelClass(EconModelClass):
 
         # sim.from_employed   = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
         # sim.from_unemployed = Categorical(p=[par.p_e_0, par.p_e_1, par.p_e_2], size =(par.simN, par.transition_length)).rvs()
-        # sim.from_unemployed_to_only_early = Bernoulli(p = par.p_e_2, size =(par.simN, par.transition_length)).rvs()
+        sim.from_unemployed_to_only_early = Bernoulli(p = par.p_e_2, size =(par.simN, par.transition_length)).rvs()
+        sim.from_employed_to_everything = Bernoulli(p = par.p_e_0 + par.p_e_2, size =(par.simN, par.transition_length)).rvs()
         # sim.from_employed_to_unemployed = Bernoulli(p = par.p_e_2 + par.p_e_0, size =(par.simN, par.transition_length)).rvs()
 
         # e. initialization

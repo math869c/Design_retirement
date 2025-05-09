@@ -130,6 +130,28 @@ def expected_lifetime_utility_distribution(model, c, h, a):
         total_utility += beta_pi[t]* (np.nansum(uc[:,t])+ np.nansum(uh[:,t])) + beta_1_pi[t]  * np.nansum(bq[:,t])
     return total_utility/N
 
+def expected_lifetime_utility_individual(model, c, h, a):
+    par = model.par
+    N, T = c.shape
+
+    beta_vector = par.beta**np.arange(T)
+    beta_pi = beta_vector*par.pi
+    beta_1_pi = beta_vector*(1-par.pi)
+
+    uc = utility_consumption(model, c)
+    uh = utility_work(model, h)
+    bq = bequest(model, a)
+    total_utility_list = []
+    for i in range(model.par.simN):
+        total_utility = 0.0
+        for t in range(T):
+            total_utility += beta_pi[t]* (uc[i,t]+ uh[i,t]) + beta_1_pi[t]  * bq[i,t]
+        total_utility_list.append(total_utility)
+    return total_utility_list
+
+
+
+
 def expected_lifetime_utility_scaled(model, phi, c, h, a):
     return expected_lifetime_utility_distribution(model, (1.0 + phi)*c, h, a)
 
@@ -157,6 +179,39 @@ def analytical_consumption_equivalence(original_model, EV_new):
     utility_con /= par_og.simN
 
     return ((EV_new-utility_work_bequest)/utility_con)**(1/(1-par_og.sigma))-1 
+
+
+def analytical_consumption_equivalence_individual(original_model, EV_new_list):
+    par_og = original_model.par
+    sim_og = original_model.sim
+    
+    # Calculate individual utility
+    uc = utility_consumption(original_model, sim_og.c) 
+    uh = utility_work(original_model, sim_og.h)
+    bq = bequest(original_model, sim_og.a)
+
+    # Calculate discount and probability of dying vector
+    beta_vector = par_og.beta**np.arange(par_og.T)
+    beta_pi = beta_vector*par_og.pi
+    beta_1_pi = beta_vector*(1-par_og.pi)
+    
+
+    utility_work_bequest_list = []
+    utility_con_list = []
+    for i in range(par_og.simN):
+        utility_work_bequest = 0.0
+        utility_con  = 0.0
+        for t in range(par_og.T):
+            utility_work_bequest += beta_pi[t]* uh[i,t] + beta_1_pi[t]  * bq[i,t]
+            utility_con += beta_pi[t]*uc[i,t]
+        utility_work_bequest.append(utility_work_bequest)
+        utility_con_list.append(utility_con)
+    utility_work_bequest /= par_og.simN
+    utility_con /= par_og.simN
+
+    return ((EV_new_list-utility_work_bequest)/utility_con)**(1/(1-par_og.sigma))-1 
+
+
 
 
 def make_new_model(model, theta, theta_names, do_print = False):

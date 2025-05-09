@@ -355,8 +355,10 @@ def plot_event_histogram(values1, xlabel, title,
 
     # Auto binning if not supplied
     if bins is None:
-        all_vals = valid1 if valid2 is None else np.concatenate((valid1, valid2))
-        bins = np.arange(int(np.min(all_vals)), int(np.max(all_vals)) + 2)
+        min_val, max_val = np.min(valid1), np.max(valid1)
+        bin_width = 0.02  # for example
+        bins = np.arange(min_val, max_val + bin_width, bin_width)
+
 
     fig, ax = plt.subplots(figsize=figsize)
 
