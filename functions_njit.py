@@ -74,7 +74,7 @@ def public_benefit_fct(par, h, e, income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
     if t < par.retirement_age:
-        if h > 0.0:
+        if h > par.h_min:
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
@@ -226,11 +226,17 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, t):
                     k_temp_ = k_next*par.xi_v[idx] 
 
                     if t == par.last_retirement:
-                        ex_next = 0
+                        ex_next = par.unemp
+
+                    # else:
+                    #     if employed == par.emp:
+                    #         ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
+                    #     else:
+                    #         ex_next = par.unemp
 
                     elif t >= par.first_retirement:
                         if employed == par.emp:
-                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, par.emp], a_next, s_next, k_temp_))
+                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
                         else:
                             ex_next = 0
 
@@ -355,7 +361,7 @@ def main_solver_loop(par, sol, do_print = False):
             print(f"We are in t = {t}")
 
         retirement_ages = np.arange(0, min(par.last_retirement + 1, t + 1))
-        
+
         for retirement_age_idx, retirement_age in enumerate(retirement_ages):
 
             if t > par.last_retirement:
@@ -479,7 +485,7 @@ def main_solver_loop(par, sol, do_print = False):
                                     if math.isnan(sol_V[idx]):
                                         print("val is nan in fourth", idx, sol_V[idx])
 
-                                    if sol_V[idx_unemployed] > val:
+                                    if sol_V[idx_unemployed] >= val:
                                         sol_ex[idx] = e_unemployed
                                     else:
                                         sol_ex[idx] = employed
@@ -526,7 +532,7 @@ def main_solver_loop(par, sol, do_print = False):
                                     income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, t)
                                     cash_on_hand_un = assets + income
 
-                                    sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, retirement_age, t)
+                                    sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, retirement_age, t) 
                                     sol_c[idx]  = c_star_u
                                     sol_a[idx] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
                                     sol_ex[idx] = e_unemployed
@@ -564,7 +570,7 @@ def main_solver_loop(par, sol, do_print = False):
                                     if math.isnan(sol_V[idx]):
                                         print("val is nan in seventh", idx, sol_V[idx])
 
-                                    if sol_V[idx_unemployed] > val:
+                                    if sol_V[idx_unemployed] >= val:
                                         sol_ex[idx] = e_unemployed
                                     else:
                                         sol_ex[idx] = employed
@@ -597,7 +603,6 @@ def main_solver_loop(par, sol, do_print = False):
 
                                     else:
                                         pass
-
 
     return sol_c, sol_h, sol_ex, sol_V, sol_a
 
