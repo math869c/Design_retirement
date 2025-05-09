@@ -135,7 +135,7 @@ class ModelClass(EconModelClass):
         par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
         par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 10, 1.5, 0
+        par.N_k, par.k_sp, par.k_min = 20, 1.5, 0
         par.w_max = 1_564_195      
         # par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1
         par.k_max = np.arange(par.T) + 40        
@@ -163,37 +163,37 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Retirement system
-        # par.first_retirement = par.retirement_age - par.range
-        # par.last_retirement = par.retirement_age + par.range
-        # par.retirement_window = par.last_retirement - par.first_retirement + 1
+        par.first_retirement = par.retirement_age - par.range
+        par.last_retirement = par.retirement_age + par.range
+        par.retirement_window = par.last_retirement - par.first_retirement + 1
 
-        # # benefits
-        # par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        # par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        # benefits
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
 
-        # # survival probabilities
-        # par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
-        # par.pi_el = par.pi.copy()
-        # # par.pi = np.ones_like(par.pi_el)        
-        # # par.EL = np.zeros(par.last_retirement + 1)
-        # # for r in range(par.last_retirement + 1):
-        # #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
-        # with np.errstate(invalid='ignore'):
-        #     par.EL = np.where(
-        #         (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
-        #         np.cumsum(S[::-1])[::-1] / S,
-        #         0.0
-        #     )
+        # survival probabilities
+        par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
+        par.pi_el = par.pi.copy()
+        # par.pi = np.ones_like(par.pi_el)        
+        # par.EL = np.zeros(par.last_retirement + 1)
+        # for r in range(par.last_retirement + 1):
+        #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
+        with np.errstate(invalid='ignore'):
+            par.EL = np.where(
+                (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
+                np.cumsum(S[::-1])[::-1] / S,
+                0.0
+            )
 
-        # # fire and hire employment
-        # df_ekso = eksog_prob_simpel(par)[0]
-        # par.p_e_0 = np.array(df_ekso['to_0'])
-        # par.p_e_1 = np.array(df_ekso['to_1'])
-        # par.p_e_2 = np.array(df_ekso['to_2'])
-        # par.initial_ex = 1 - par.p_e_0[0] + par.p_e_2[0]
+        # fire and hire employment
+        df_ekso = eksog_prob_simpel(par)[0]
+        par.p_e_0 = np.array(df_ekso['to_0'])
+        par.p_e_1 = np.array(df_ekso['to_1'])
+        par.p_e_2 = np.array(df_ekso['to_2'])
+        par.initial_ex = par.p_e_1[0]
 
-        # par.transition_length = par.T
-        # par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
+        par.transition_length = par.T
+        par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
     def allocate(self):
         """ allocate model """

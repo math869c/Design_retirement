@@ -89,12 +89,6 @@ def public_benefit_fct(par, h, e, income, t):
     # public retirement benefits
     else:
         return max(par.chi_base, par.chi_total - income*par.rho)
-    
-    # else:
-    #     if h > 0.0:
-    #         return par.chi_total
-    #     else:
-    #         return par.early_benefit[t]
 
 # 1.1.5 Total income before taxes and retirement contributions
 @jit_if_enabled(fastmath=False)
@@ -208,6 +202,7 @@ def compute_transitions(par, sol_V, employed, retirement_idx, ex_next, t):
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx+1, par.unemp]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx+1, par.ret]
 
+    # V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
     V_next = par.p_e_0[t]*V_next_un + par.p_e_1[t]*V_next_em + par.p_e_2[t] * V_next_early
 
     return V_next
@@ -600,6 +595,7 @@ def main_solver_loop(par, sol, do_print = False):
 
 
     return sol_c, sol_h, sol_ex, sol_V, sol_a
+
 
 
 # 6. simulation:

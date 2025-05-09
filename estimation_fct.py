@@ -95,6 +95,48 @@ def prepare_data(par):
     }
 
 
+def load_and_process_data(mean_file, var_file, par, variables):
+    # Load data
+    means_data = pd.read_csv(mean_file)
+    covariance_matrix = pd.read_csv(var_file)
+
+    # Extract and process means
+    mean_vectors = []
+    for var in variables:
+        mean_col = f"{var}_Mean"
+        vec = np.array(means_data[mean_col])
+        
+        if var == "yearly_hours":
+            vec = vec / par.full_time_hours
+            vec = vec[:40]
+        elif var == "extensive_v2":
+            vec = vec[:40]
+
+        mean_vectors.append(vec)
+
+    mean = np.concatenate(mean_vectors)
+
+    # Build row/column masks
+    row_mask = covariance_matrix["_NAME_"].str.startswith(tuple(variables))
+    col_mask = [col for col in covariance_matrix.columns if col.startswith(tuple(variables))]
+
+    # Adjust for scale if hours included
+    if "yearly_hours" in variables:
+        hours_row_mask = covariance_matrix["_NAME_"].str.startswith("yearly_hours")
+        hours_col_mask = [col for col in covariance_matrix.columns if col.startswith("yearly_hours")]
+
+        covariance_matrix.loc[hours_row_mask, hours_col_mask] /= par.full_time_hours**2
+
+    # Subset covariance matrix
+    subset_matrix = covariance_matrix.loc[row_mask, col_mask]
+
+    # Extract diagonal
+    variance_diag = np.diag(subset_matrix)
+    variance_diag = variance_diag[~np.isnan(variance_diag)]
+
+    return mean, variance_diag
+
+
 
 def scale_params(theta, bounds):
     """
@@ -118,13 +160,13 @@ def unscale_params(scaled_theta, bounds):
 
 def moment_func(sim_data):
     # Compute age-averaged moments
-    avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
-    avg_s_by_age = np.mean(sim_data.s, axis=0)[:55]  # Length 70
+    # avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
+    # avg_s_by_age = np.mean(sim_data.s, axis=0)[:55]  # Length 70
     avg_h_by_age = np.nan_to_num(np.nanmean(np.where(sim_data.ex == 1, sim_data.h, np.nan), axis=0)[:40], nan=0.0) # Length 40
     avg_ex_by_age = np.mean(sim_data.ex, axis=0)[:40]  # Length 40
 
     # Concatenate and return
-    return np.concatenate((avg_ex_by_age, avg_a_by_age, avg_s_by_age, avg_h_by_age))
+    return np.concatenate((avg_ex_by_age, avg_h_by_age))
 
 
 def simulate_moments(theta, theta_names, model):
