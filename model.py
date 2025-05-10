@@ -100,8 +100,8 @@ class ModelClass(EconModelClass):
         # unemployment benefit
         # early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
         # unemployment_coefficients = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
         
         # life time 
         par.L = 0.9992 # fra regression og data i sas
@@ -172,8 +172,8 @@ class ModelClass(EconModelClass):
         par.retirement_window = par.last_retirement - par.first_retirement + 1
 
         # benefits
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
 
         # survival probabilities
         par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
