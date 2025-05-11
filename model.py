@@ -31,12 +31,12 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.962662 # 0.995    # Skal kalibreres
-        par.sigma  = 1.156101     # Skal kalibreres
-        par.gamma  = 2.269876       # Skal kalibreres
-        par.mu     = 7.012522    # Skal kalibreres
+        par.beta   = 0.964943 # 0.995    # Skal kalibreres
+        par.sigma  = 1.151436     # Skal kalibreres
+        par.gamma  = 1.892169       # Skal kalibreres
+        par.mu     = 6.619750    # Skal kalibreres
         par.a_bar  = 0.001
-        par.zeta   = 7.216743   
+        par.zeta   = 7.322572   
 
         par.renten= 0.0211947668
         par.r_s  = par.renten*(1-0.153)
@@ -51,7 +51,7 @@ class ModelClass(EconModelClass):
 
         par.w_0 =       126.442773
         par.k_0 =        11.103549
-        par.beta_1 =         0.057102
+        par.beta_1 =         0.061654
         par.beta_2 =        -0.000375
         par.delta =         0.035881
         par.k_0_var =         4.392646
