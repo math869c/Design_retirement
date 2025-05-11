@@ -31,12 +31,12 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.967887 # 0.995    # Skal kalibreres
-        par.sigma  = 1.166134     # Skal kalibreres
-        par.gamma  = 2.510759       # Skal kalibreres
-        par.mu     = 6.692900    # Skal kalibreres
+        par.beta   = 0.962662 # 0.995    # Skal kalibreres
+        par.sigma  = 1.156101     # Skal kalibreres
+        par.gamma  = 2.269876       # Skal kalibreres
+        par.mu     = 7.012522    # Skal kalibreres
         par.a_bar  = 0.001
-        par.zeta   = 6.837467    
+        par.zeta   = 7.216743   
 
         par.renten= 0.0211947668
         par.r_s  = par.renten*(1-0.153)
@@ -51,7 +51,7 @@ class ModelClass(EconModelClass):
 
         par.w_0 =       126.442773
         par.k_0 =        11.103549
-        par.beta_1 =         0.059119
+        par.beta_1 =         0.057102
         par.beta_2 =        -0.000375
         par.delta =         0.035881
         par.k_0_var =         4.392646
@@ -167,37 +167,37 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # # Retirement system
-        # par.first_retirement = par.retirement_age - par.range
-        # par.last_retirement = par.retirement_age + par.range
-        # par.retirement_window = par.last_retirement - par.first_retirement + 1
+        par.first_retirement = par.retirement_age - par.range
+        par.last_retirement = par.retirement_age + par.range
+        par.retirement_window = par.last_retirement - par.first_retirement + 1
 
-        # # benefits
-        # par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        # par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        # benefits
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
 
-        # # survival probabilities
-        # par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
-        # par.pi_el = par.pi.copy()
-        # # par.pi = np.ones_like(par.pi_el)        
-        # # par.EL = np.zeros(par.last_retirement + 1)
-        # # for r in range(par.last_retirement + 1):
-        # #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
-        # with np.errstate(invalid='ignore'):
-        #     par.EL = np.where(
-        #         (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
-        #         np.cumsum(S[::-1])[::-1] / S,
-        #         0.0
-        #     )
+        # survival probabilities
+        par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
+        par.pi_el = par.pi.copy()
+        # par.pi = np.ones_like(par.pi_el)        
+        # par.EL = np.zeros(par.last_retirement + 1)
+        # for r in range(par.last_retirement + 1):
+        #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
+        with np.errstate(invalid='ignore'):
+            par.EL = np.where(
+                (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
+                np.cumsum(S[::-1])[::-1] / S,
+                0.0
+            )
 
-        # # fire and hire employment
-        # df_ekso = eksog_prob_simpel(par)[0]
-        # par.p_e_0 = np.array(df_ekso['to_0'])
-        # par.p_e_1 = np.array(df_ekso['to_1'])
-        # par.p_e_2 = np.array(df_ekso['to_2'])
-        # par.initial_ex = 1 - par.p_e_0[0] + par.p_e_2[0]
+        # fire and hire employment
+        df_ekso = eksog_prob_simpel(par)[0]
+        par.p_e_0 = np.array(df_ekso['to_0'])
+        par.p_e_1 = np.array(df_ekso['to_1'])
+        par.p_e_2 = np.array(df_ekso['to_2'])
+        par.initial_ex = 1 - par.p_e_0[0] + par.p_e_2[0]
 
-        # par.transition_length = par.T
-        # par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
+        par.transition_length = par.T
+        par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
     def allocate(self):
         """ allocate model """
