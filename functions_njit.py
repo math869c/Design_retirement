@@ -286,7 +286,11 @@ def value_last_period(par, c, a, s, e, r, t):
 def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     # states and income 
     retirement_age_idx = r
-    e_idx = par.ret
+    if t >= par.retirement_age:
+        e_idx = par.ret
+    else:
+        e_idx = par.unemp
+
     h, k  = 0.0, 0.0
     k_idx = 0
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, t)
@@ -694,6 +698,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                         sim_ret_flag[i,:] = 0.0 # hvis de kommer i arbejde igen, så skal de ikke have retirement flag
 
                     else:
+                        sim_e[i,t] = 0
                         sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                         sim_h[i,t] = 0.0
                         sim_ret_flag[i,:] = 0.0 # glem alle tidligere

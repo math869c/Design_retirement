@@ -88,7 +88,7 @@ def prepare_data(par):
     safe_variances = np.where(variance_diag == 0, 1e-6, variance_diag)  # Avoid divide-by-zero
     safe_variances[-40:] = safe_variances[-40:] / (par.full_time_hours**2)
 
-    safe_variances[:30] = safe_variances[:30] / 2
+    # safe_variances[:30] = safe_variances[:30] / 2
 
     weights = np.diag(1.0 / safe_variances)
 
