@@ -66,8 +66,8 @@ def prepare_data_old(par):
 
 def prepare_data(par):
     # Load data
-    means_data = pd.read_csv("Data/mean_matrix.csv")
-    covariance_matrix = pd.read_csv("Data/variance_matrix.csv")
+    means_data = pd.read_csv("Data ny def/mean_matrix.csv")
+    covariance_matrix = pd.read_csv("Data ny def/variance_matrix.csv")
 
     # Process means
     assets = np.array(means_data["formue_plsats_Mean"])
@@ -80,13 +80,15 @@ def prepare_data(par):
     mean = np.concatenate([extensive, assets, savings, hours])
 
     # Drop invalid moments
-    covariance_matrix = pd.read_csv("Data/variance_matrix.csv")
+    covariance_matrix = pd.read_csv("Data ny def/variance_matrix.csv")
     variance_diag = np.diag(covariance_matrix.iloc[:,2:])
     variance_diag = variance_diag[~np.isnan(variance_diag)] 
 
     # Construct diagonal weighting matrix: 1/variance
     safe_variances = np.where(variance_diag == 0, 1e-6, variance_diag)  # Avoid divide-by-zero
     safe_variances[-40:] = safe_variances[-40:] / (par.full_time_hours**2)
+
+    # safe_variances[:30] = safe_variances[:30] / 2
 
     weights = np.diag(1.0 / safe_variances)
 

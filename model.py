@@ -31,12 +31,12 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.967581 # 0.995    # Skal kalibreres
-        par.sigma  = 1.090430     # Skal kalibreres
-        par.gamma  = 2.157090       # Skal kalibreres
-        par.mu     = 13.011158    # Skal kalibreres
+        par.beta   = 0.967331 # 0.995    # Skal kalibreres
+        par.sigma  = 1.147677     # Skal kalibreres
+        par.gamma  = 1.887866       # Skal kalibreres
+        par.mu     = 6.470031    # Skal kalibreres
         par.a_bar  = 0.001
-        par.zeta   = 10.117360    
+        par.zeta   = 8.175348   
 
         par.renten= 0.0211947668
         par.r_s  = par.renten*(1-0.153)
@@ -49,12 +49,12 @@ class ModelClass(EconModelClass):
         # wage and human capital
         par.upsilon = 0.0
 
-        par.w_0 =       158.198926
-        par.k_0 =         6.000000
-        par.beta_1 =         0.068225
-        par.beta_2 =        -0.000299
-        par.delta =         0.064412
-        par.k_0_var =         3.813044
+        par.w_0 =       136.083656
+        par.k_0 =        11.140278
+        par.beta_1 =         0.050859
+        par.beta_2 =        -0.000456
+        par.delta =         0.027943
+        par.k_0_var =         0.049583
 
         par.full_time_hours = 1924.0
 
@@ -65,9 +65,9 @@ class ModelClass(EconModelClass):
         par.bottom_tax_rate              = 0.113          # "bundskat_sats"
         par.top_tax_rate                 = 0.15           # "topskat_sats"
         par.municipal_tax_rate           = 0.2491         # "kommuneskat_sats"
-        par.personal_allowance           = 46000          # "personfradrag"
-        par.employment_deduction_cap     = 33300          # "beskfradrag_graense"
-        par.top_tax_threshold            = 498900         # "topskat_graense"
+        par.personal_allowance           = 54648          # "personfradrag"
+        par.employment_deduction_cap     = 39564          # "beskfradrag_graense"
+        par.top_tax_threshold            = 592553         # "topskat_graense"
 
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
@@ -100,8 +100,8 @@ class ModelClass(EconModelClass):
         # unemployment benefit
         # early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
         # unemployment_coefficients = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
         
         # life time 
         par.L = 0.9992 # fra regression og data i sas
@@ -153,7 +153,7 @@ class ModelClass(EconModelClass):
         par.c_max  = np.inf
 
         # Shocks
-        par.xi      = 0.012
+        par.xi      = 0.02
         par.N_xi    = 10
         par.xi_v, par.xi_p = log_normal_gauss_hermite(par.xi, par.N_xi)
 
@@ -167,14 +167,14 @@ class ModelClass(EconModelClass):
         # Time
         par.T = 100 - par.start_age # time periods
 
-        # Retirement system
+        # # Retirement system
         par.first_retirement = par.retirement_age - par.range
         par.last_retirement = par.retirement_age + par.range
         par.retirement_window = par.last_retirement - par.first_retirement + 1
 
         # benefits
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
-        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('data/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.unemployment_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_0'][30:]) for t in range(par.T) ]) 
 
         # survival probabilities
         par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
