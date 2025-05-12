@@ -73,7 +73,7 @@ def labor_income_fct(par, k, h, r, t):
 def public_benefit_fct(par, h, e, income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
-    if t < par.first_retirement:
+    if t < par.first_retirement + par.early_benefits_lag:
         if h > par.h_min:
             return 0.0
         elif e == par.emp or e == par.unemp:
