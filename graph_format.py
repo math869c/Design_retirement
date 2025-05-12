@@ -702,3 +702,111 @@ def plot_ln_wage(ln_wage, man_hourly_salary, title="Log Wage Simulation vs Real 
         save_figure(fig, save_title)
 
     plt.show()
+
+
+def plot_model_vs_data_grid(a_dict, title=None, save_title=None):
+    keys = list(a_dict.keys())
+    nrows = len(keys)
+    fig, axes = plt.subplots(nrows, 1, figsize=(7, 4 * nrows), sharex=False)
+
+    if nrows == 1:
+        axes = [axes]
+
+    for i, key in enumerate(keys):
+        ax = axes[i]
+        sim_data, empirical_data = a_dict[key]
+        T_sim = len(sim_data)
+        T_emp = len(empirical_data)
+
+        if key in ['hours', 'extensive']:
+            age_start, age_end = 30, 70
+        else:
+            age_start, age_end = 30, 100
+
+        time = np.arange(age_start, age_start + max(T_sim, T_emp))
+
+        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[0], linewidth=2)
+        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[1], linestyle='--', linewidth=2)
+
+        ax.set_title(key.capitalize(), fontsize=12, fontweight="semibold")
+        
+        ax.set_xlim(age_start, age_end)
+
+        if key == 'hours':
+            ax.set_ylim(0.4, 1)
+            ax.set_ylabel("Full time equivavlent hours", fontsize=11)
+        elif key == 'extensive':
+            ax.set_ylim(0, 1)
+            ax.set_ylabel("Percent", fontsize=11)
+        elif key == 'liquid':
+            ax.set_ylabel("DKK", fontsize=11)
+
+        ax.grid(True, linestyle="--", alpha=0.6)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.legend(fontsize=10)
+
+    axes[-1].set_xlabel("Age", fontsize=11)
+
+    if title:
+        fig.suptitle(title, fontsize=15, fontweight="bold", y=1.01)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
+
+
+def plot_model_vs_data_grid_oos(a_dict, title=None, save_title=None):
+    keys = list(a_dict.keys())
+    nrows = len(keys)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharex=False)
+
+    if nrows == 1:
+        axes = [axes]
+
+    for i, key in enumerate(keys):
+        ax = axes[i]
+        sim_data, empirical_data = a_dict[key]
+        T_sim = len(sim_data)
+        T_emp = len(empirical_data)
+
+        if key in ['illiquid']:
+            age_start, age_end = 30, 100
+        else:
+            age_start, age_end = 30, 60
+
+        time = np.arange(age_start, age_start + max(T_sim, T_emp))
+
+        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[0], linewidth=2)
+        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[1], linestyle='--', linewidth=2)
+
+        ax.set_title(key.capitalize(), fontsize=12, fontweight="semibold")
+        
+        ax.set_xlim(age_start, age_end)
+
+        if key == 'illiquid':
+            ax.set_ylim(0, 3)
+            ax.set_ylabel("Million DKK", fontsize=11)
+        elif key == 'wages':
+            ax.set_ylim(400_000, 600_000)
+            ax.set_ylabel("DKK", fontsize=11)
+
+        ax.grid(True, linestyle="--", alpha=0.6)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.legend(fontsize=10)
+
+    axes[-1].set_xlabel("Age", fontsize=11)
+
+    if title:
+        fig.suptitle(title, fontsize=15, fontweight="bold", y=1.01)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
