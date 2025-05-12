@@ -110,7 +110,7 @@ def eksog_prob(par, parameter_table_with_control):
 
 
 def eksog_prob_simpel(par):
-    df = pd.read_csv("Data/parameter_estiamtes_simpel.csv")[['Variable', 'Response',  'Estimate']]
+    df = pd.read_csv("Data/parameter_estimates_simpel.csv")[['Variable', 'Response',  'Estimate']]
     everything = []
     total_1 = []
     total_2 = []
