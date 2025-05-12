@@ -73,19 +73,28 @@ def labor_income_fct(par, k, h, r, t):
 def public_benefit_fct(par, h, e, income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
-    if t < par.retirement_age:
+    if t < par.first_retirement:
         if h > par.h_min:
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
-            return par.unemployment_benefit[t]
+            return par.unemployment_benefit[t][0]
         elif e == par.ret:
             # Retirement benefits
             return par.early_benefit[t]
         else:
             print("Error: Invalid employment status")
-            return par.unemployment_benefit[t]
-        
+            return par.unemployment_benefit[t][0]
+    
+    elif t < par.retirement_age:
+        if h > par.h_min:
+            return 0.0
+        elif e == par.emp or e == par.unemp:
+            # Unemployment benefits
+            return max(par.efterloen - income*0.64, 0)
+        elif e == par.ret:
+            # Retirement benefits
+            return par.early_benefit[t]
     # public retirement benefits
     else:
         return max(par.chi_base, par.chi_total - income*par.rho)

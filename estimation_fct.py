@@ -64,10 +64,19 @@ def prepare_data_old(par):
 
     return mean, weights, moments
 
-def prepare_data(par):
+def prepare_data(par, year="all"):
     # Load data
-    means_data = pd.read_csv("Data ny def/mean_matrix.csv")
-    covariance_matrix = pd.read_csv("Data ny def/variance_matrix.csv")
+
+    if year == "all":
+        means_data = pd.read_csv("Data ny def/mean_matrix.csv")
+        covariance_matrix = pd.read_csv("Data ny def/variance_matrix.csv")
+
+    elif year == 2019:
+        means_data = pd.read_csv("Data 2019/mean_matrix.csv")
+        covariance_matrix = pd.read_csv("Data 2019/variance_matrix.csv")
+
+    else:
+        assert False
 
     # Process means
     assets = np.array(means_data["formue_plsats_Mean"])
