@@ -16,7 +16,7 @@ def draw_initial_values(simN):
     means_normal = np.log(means)-0.5*np.diag(covar_normal)
 
     # draw from normal distribution and convert back to lognormal
-    dist = multivariate_normal(means_normal, covar_normal, seed=1)
+    dist = multivariate_normal(means_normal, covar_normal, seed=123)
     draws = np.exp(dist.rvs(size=simN))
 
     return draws[:,0], draws[:,1], draws[:,2]
