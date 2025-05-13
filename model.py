@@ -38,7 +38,7 @@ class ModelClass(EconModelClass):
         par.a_bar  = 0.001
         par.zeta   = 8.175348   
 
-        par.renten= 0.0211947668
+        par.renten= 0.0211947668 
         par.r_s  = par.renten*(1-0.153)
         par.r_a = par.renten*(1-0.42)
 
