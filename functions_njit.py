@@ -78,7 +78,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
-            return par.unemployment_benefit[t][0]
+            return max(par.unemployment_benefit[t,0] - income, 0)
         elif e == par.ret:
             # Retirement benefits
             return par.early_benefit[t]
@@ -100,7 +100,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
                 return 0.0
             elif e == par.emp or e == par.unemp:
                 # Unemployment benefits
-                return par.unemployment_benefit[t][0]
+                return max(par.unemployment_benefit[t,0] - income, 0)
             elif e == par.ret:
                 # Retirement benefits
                 return par.early_benefit[t]
@@ -206,7 +206,7 @@ def compute_transitions(par, sol_V, employed, retirement_idx, efter_idx, ex_next
         V_next_un       = sol_V[t+1, :, :, :, retirement_idx, par.ret, int(efter_idx)]
         V_next_early    = sol_V[t+1, :, :, :, retirement_idx, par.ret, int(efter_idx)]
 
-    elif t >= par.retirement_age - 1:
+    elif t >= par.retirement_age - 1: # Use expected value one year before the current period
         if int(ex_next) == par.unemp:
             V_next_em       = sol_V[t+1, :, :, :, retirement_idx+1, par.ret, int(efter_idx)]
         else:
@@ -382,10 +382,13 @@ def main_solver_loop(par, sol, do_print = False):
 
             if t > par.last_retirement:
                 e_grid = [par.ret]
-                efter_grid = [0, 1]
-            elif t >= par.retirement_age:
-                e_grid = [par.unemp, par.emp, par.ret]
-                efter_grid = [0, 1]
+                efter_grid = [0]
+            elif t > par.retirement_age+1:
+                e_grid = [par.emp, par.ret]
+                efter_grid = [0]
+            # elif t >= par.first_retirement:
+            #     e_grid = [par.unemp, par.emp, par.ret]
+            #     efter_grid = [0, 1]
             else:
                 e_grid = [par.unemp, par.emp, par.ret]
                 efter_grid = [0, 1]
@@ -409,51 +412,77 @@ def main_solver_loop(par, sol, do_print = False):
 
                                 idx = (t, a_idx, s_idx, k_idx, retirement_age_idx, employed, efter_idx)
                                 idx_unemployed = (t, a_idx, s_idx, k_idx, retirement_age_idx, par.unemp, efter_idx) 
-                                idx_ret = (t, a_idx, s_idx, slice(None), retirement_age_idx, employed, efter_idx) 
+                                idx_ret = (t, a_idx, s_idx, slice(None), retirement_age_idx, employed, efter_idx)
+                                idx_ret_uden_eft = (t, a_idx, s_idx, slice(None), retirement_age_idx, employed, slice(None)) 
+                                idx_ret_eft = (t, a_idx, s_idx, k_idx, retirement_age_idx, employed, slice(None)) 
 
                                 if t == par.T - 1: # Last period
-                                    if k_idx == 0: # No capital
+                                    if k_idx == 0 and efter_idx ==0: # No capital
                                         income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                         cash_on_hand = assets + income
 
-                                        sol_c[idx_ret] = calculate_last_period_consumption(par, assets, savings, employed, retirement_age, t)
-                                        sol_a[idx_ret] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
-                                        sol_ex[idx_ret] = e_unemployed
-                                        sol_h[idx_ret] = hours_unemp
-                                        sol_V[idx_ret] = value_last_period(par, sol_c[idx], assets, savings, employed, retirement_age, t)
+                                        sol_c[idx_ret_uden_eft] = calculate_last_period_consumption(par, assets, savings, employed, retirement_age, t)
+                                        sol_a[idx_ret_uden_eft] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+                                        sol_ex[idx_ret_uden_eft] = e_unemployed
+                                        sol_h[idx_ret_uden_eft] = hours_unemp
+                                        sol_V[idx_ret_uden_eft] = value_last_period(par, sol_c[idx], assets, savings, employed, retirement_age, t)
 
                                         if math.isnan(sol_V[idx]):
                                             print("val is nan in first", idx, sol_V[idx])
-
                                     else:
                                         pass
 
                                 elif t > retirement_age: # After retirement age, with "ratepension"
-                                    if k_idx == 0: # No capital
-                                        bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, efter, t)
+                                    if t>= par.retirement_age:
+                                        if k_idx == 0 and efter_idx ==0: # No capital
+                                            bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, efter, t)
 
-                                        c_star = optimizer(
-                                            obj_consumption_after_retirement,
-                                            bc_min,
-                                            bc_max,
-                                            args=(par, sol_V, assets, savings, employed, retirement_age, efter, t),
-                                            tol=par.opt_tol
-                                        )
-                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
-                                        cash_on_hand = assets + income
+                                            c_star = optimizer(
+                                                obj_consumption_after_retirement,
+                                                bc_min,
+                                                bc_max,
+                                                args=(par, sol_V, assets, savings, employed, retirement_age, efter, t),
+                                                tol=par.opt_tol
+                                            )
+                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
+                                            cash_on_hand = assets + income
 
 
-                                        sol_c[idx_ret] = c_star
-                                        sol_a[idx_ret] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
-                                        sol_ex[idx_ret] = e_unemployed
-                                        sol_h[idx_ret] = hours_unemp
-                                        sol_V[idx_ret] = value_function_after_retirement(par, sol_V, c_star, assets, savings, employed, retirement_age, efter, t)
+                                            sol_c[idx_ret_uden_eft] = c_star
+                                            sol_a[idx_ret_uden_eft] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+                                            sol_ex[idx_ret_uden_eft] = e_unemployed
+                                            sol_h[idx_ret_uden_eft] = hours_unemp
+                                            sol_V[idx_ret_uden_eft] = value_function_after_retirement(par, sol_V, c_star, assets, savings, employed, retirement_age, efter, t)
 
-                                        if math.isnan(sol_V[idx]):
-                                            print("val is nan in second", idx, sol_V[idx])
-
+                                            if math.isnan(sol_V[idx]):
+                                                print("val is nan in second", idx, sol_V[idx])
+                                        else:
+                                            pass
                                     else:
-                                        pass
+                                        if k_idx == 0: # No capital
+                                            bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, efter, t)
+
+                                            c_star = optimizer(
+                                                obj_consumption_after_retirement,
+                                                bc_min,
+                                                bc_max,
+                                                args=(par, sol_V, assets, savings, employed, retirement_age, efter, t),
+                                                tol=par.opt_tol
+                                            )
+                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
+                                            cash_on_hand = assets + income
+
+
+                                            sol_c[idx_ret] = c_star
+                                            sol_a[idx_ret] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+                                            sol_ex[idx_ret] = e_unemployed
+                                            sol_h[idx_ret] = hours_unemp
+                                            sol_V[idx_ret] = value_function_after_retirement(par, sol_V, c_star, assets, savings, employed, retirement_age, efter, t)
+
+                                            if math.isnan(sol_V[idx]):
+                                                print("val is nan in second", idx, sol_V[idx])
+                                        else:
+                                            pass
 
                                 elif t == retirement_age and t >= par.first_retirement:
                                     if employed == par.unemp: # Forced unemployment
@@ -480,40 +509,77 @@ def main_solver_loop(par, sol, do_print = False):
                                             print("val is nan in third", idx, sol_V[idx])
 
                                     elif employed == par.emp: # Can choose between employment and unemployment
-                                        h_star = optimize_outer(
-                                            obj_hours,       
-                                            par.h_min,
-                                            par.h_max,
-                                            args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, retirement_age, efter, t),
-                                            tol=par.opt_tol
-                                        )
+                                        if t >= par.retirement_age:
+                                            if efter_idx ==0: #No efterlon
+                                                h_star = optimize_outer(
+                                                    obj_hours,       
+                                                    par.h_min,
+                                                    par.h_max,
+                                                    args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, retirement_age, efter, t),
+                                                    tol=par.opt_tol
+                                                )
 
-                                        bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
-                                        c_star = optimizer(
-                                            obj_consumption,
-                                            bc_min,
-                                            bc_max,
-                                            args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, retirement_age, efter, t),
-                                            tol=par.opt_tol
-                                        )
-                                        val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
-                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
-                                        cash_on_hand = assets + income
-                                        sol_V[idx] = val
-                                        sol_h[idx]  = h_star
-                                        sol_c[idx] = c_star
-                                        sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+                                                bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
+                                                c_star = optimizer(
+                                                    obj_consumption,
+                                                    bc_min,
+                                                    bc_max,
+                                                    args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, retirement_age, efter, t),
+                                                    tol=par.opt_tol
+                                                )
+                                                val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
+                                                income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
+                                                cash_on_hand = assets + income
+                                                sol_V[idx_ret_eft] = val
+                                                sol_h[idx_ret_eft]  = h_star
+                                                sol_c[idx_ret_eft] = c_star
+                                                sol_a[idx_ret_eft] = (1+par.r_a)*(cash_on_hand - sol_c[idx_ret_eft])
 
-                                        if math.isnan(sol_V[idx]):
-                                            print("val is nan in fourth", idx, sol_V[idx])
+                                                if math.isnan(sol_V[idx]):
+                                                    print("val is nan in fourth", idx, sol_V[idx])
 
-                                        if sol_V[idx_unemployed] >= val:
-                                            sol_ex[idx] = e_unemployed
+                                                if sol_V[idx_unemployed] >= val:
+                                                    sol_ex[idx_ret_eft] = e_unemployed
+                                                else:
+                                                    sol_ex[idx_ret_eft] = employed
+                                            else:
+                                                pass
                                         else:
-                                            sol_ex[idx] = employed
+                                            h_star = optimize_outer(
+                                                obj_hours,       
+                                                par.h_min,
+                                                par.h_max,
+                                                args=(par, sol_V, sol_EV, assets, savings, human_capital, employed, retirement_age, efter, t),
+                                                tol=par.opt_tol
+                                            )
+
+                                            bc_min, bc_max = budget_constraint(par, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
+                                            c_star = optimizer(
+                                                obj_consumption,
+                                                bc_min,
+                                                bc_max,
+                                                args=(par, sol_V, sol_EV, h_star, assets, savings, human_capital, employed, retirement_age, efter, t),
+                                                tol=par.opt_tol
+                                            )
+                                            val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
+                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
+                                            cash_on_hand = assets + income
+                                            sol_V[idx] = val
+                                            sol_h[idx]  = h_star
+                                            sol_c[idx] = c_star
+                                            sol_a[idx] = (1+par.r_a)*(cash_on_hand - sol_c[idx])
+
+                                            if math.isnan(sol_V[idx]):
+                                                print("val is nan in fourth", idx, sol_V[idx])
+
+                                            if sol_V[idx_unemployed] >= val:
+                                                sol_ex[idx] = e_unemployed
+                                            else:
+                                                sol_ex[idx] = employed
 
                                     else: # Forced unemployment
-                                        if k_idx == 0: # No capital
+                                        if k_idx == 0 and efter_idx ==0: # No capital
+
                                             bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, efter, t)
 
                                             c_star_u = optimizer(
@@ -527,15 +593,14 @@ def main_solver_loop(par, sol, do_print = False):
                                             income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                             cash_on_hand_un = assets + income
 
-                                            sol_V[idx_ret] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, efter, t)
-                                            sol_c[idx_ret]  = c_star_u
-                                            sol_a[idx_ret] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
-                                            sol_ex[idx_ret] = e_unemployed
-                                            sol_h[idx_ret]  = hours_unemp
+                                            sol_V[idx_ret_uden_eft] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, efter, t)
+                                            sol_c[idx_ret_uden_eft]  = c_star_u
+                                            sol_a[idx_ret_uden_eft] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                            sol_ex[idx_ret_uden_eft] = e_unemployed
+                                            sol_h[idx_ret_uden_eft]  = hours_unemp
 
                                             if math.isnan(sol_V[idx]):
                                                 print("val is nan fifth", idx, sol_V[idx])
-
                                         else:
                                             pass
 
@@ -599,7 +664,8 @@ def main_solver_loop(par, sol, do_print = False):
                                     
 
                                     else: # Forced unemployment
-                                        if k_idx == 0: # No capital
+                                        if k_idx == 0 and efter_idx ==0: # No capital
+
                                             bc_min, bc_max = budget_constraint(par, hours_unemp, assets, savings, human_capital_unemp, employed, retirement_age, efter, t)
 
                                             c_star_u = optimizer(
@@ -613,16 +679,14 @@ def main_solver_loop(par, sol, do_print = False):
                                             income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                             cash_on_hand_un = assets + income
 
-                                            sol_V[idx_ret] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, efter, t)
-                                            sol_c[idx_ret]  = c_star_u
-                                            sol_a[idx_ret] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
-                                            sol_ex[idx_ret] = e_unemployed
-                                            sol_h[idx_ret]  = hours_unemp
+                                            sol_V[idx_ret_uden_eft] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, efter, t)
+                                            sol_c[idx_ret_uden_eft]  = c_star_u
+                                            sol_a[idx_ret_uden_eft] = (1+par.r_a)*(cash_on_hand_un - sol_c[idx])
+                                            sol_ex[idx_ret_uden_eft] = e_unemployed
+                                            sol_h[idx_ret_uden_eft]  = hours_unemp
 
                                             if math.isnan(sol_V[idx]):
                                                 print("val is nan in eight", idx, sol_V[idx])
-
-
                                         else:
                                             pass
 
