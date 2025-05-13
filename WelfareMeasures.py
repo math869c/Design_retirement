@@ -27,8 +27,8 @@ def consumption_replacement_rate_fct(model):
 def find_consumption_equivalence(original_model, new_model, do_print= False, the_method = 'brentq'):
     ''' Can be used to measure the impact of policy changes'''
     # c. Calculate welfare 
-    EV_og = expected_lifetime_utility_distribution(original_model,  original_model.sim.c,   original_model.sim.h,   original_model.sim.a)
-    EV_new = expected_lifetime_utility_distribution(new_model,      new_model.sim.c,        new_model.sim.h,        new_model.sim.a)   
+    EV_og = expected_lifetime_utility_distribution(original_model,  original_model.sim.c,   original_model.sim.h,   original_model.sim.a, original_model.sim.k)
+    EV_new = expected_lifetime_utility_distribution(new_model,      new_model.sim.c,        new_model.sim.h,        new_model.sim.a, new_model.sim.k)   
     if do_print:
         print(f'Expected welfare  before parameter changes: {EV_og}')
         print(f'Expected welfare after parameter changes: {EV_new}')
@@ -60,6 +60,15 @@ def find_consumption_equivalence(original_model, new_model, do_print= False, the
         return result.root
     else:
         raise ValueError("Root-finding for phi did not converge")
+    
+def find_consumption_eq_indi(original_model, new_model):
+    ''' Can be used to measure the impact of policy changes'''
+    # c. Calculate welfare 
+    EV_new = expected_lifetime_utility_distribution_indi(new_model,      new_model.sim.c,        new_model.sim.h,        new_model.sim.a, new_model.sim.k)   
+    # d. Test bounds 
+    phi_analytical = analytical_consumption_equivalence(original_model, EV_new)
+
+    return phi_analytical
     
 # Calculate elasticity of labor supply
 def labor_elasticity(original_model, new_model):
@@ -103,10 +112,10 @@ def bequest(model, a):
     else:
         return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
 
-def utility_work(model, h):
+def utility_work(model, h, k):
     '''Cannot be njited'''
     par = model.par
-    return - (h**(1+par.gamma))/(1+par.gamma)
+    return - (par.zeta /(1+k))*(h**(1+par.gamma))/(1+par.gamma)
 
 def utility_consumption(model, c):
     '''Cannot be njited'''
@@ -114,7 +123,7 @@ def utility_consumption(model, c):
     return (c**(1-par.sigma))/(1-par.sigma) 
 
 # Expected welfare 
-def expected_lifetime_utility_distribution(model, c, h, a):
+def expected_lifetime_utility_distribution(model, c, h, a, k):
     par = model.par
     N, T = c.shape
 
@@ -123,15 +132,34 @@ def expected_lifetime_utility_distribution(model, c, h, a):
     beta_1_pi = beta_vector*(1-par.pi)
 
     uc = utility_consumption(model, c)
-    uh = utility_work(model, h)
+    uh = utility_work(model, h, k)
     bq = bequest(model, a)
     total_utility = 0.0
     for t in range(T):
         total_utility += beta_pi[t]* (np.nansum(uc[:,t])+ np.nansum(uh[:,t])) + beta_1_pi[t]  * np.nansum(bq[:,t])
     return total_utility/N
 
-def expected_lifetime_utility_scaled(model, phi, c, h, a):
-    return expected_lifetime_utility_distribution(model, (1.0 + phi)*c, h, a)
+def expected_lifetime_utility_scaled(model, phi, c, h, a, k):
+    return expected_lifetime_utility_distribution(model, (1.0 + phi)*c, h, a, k)
+
+def expected_lifetime_utility_distribution_indi(model, c, h, a, k):
+    par = model.par
+    N, T = c.shape
+
+    beta_vector = par.beta**np.arange(T)
+    beta_pi = beta_vector*par.pi
+    beta_1_pi = beta_vector*(1-par.pi)
+
+    uc = utility_consumption(model, c)
+    uh = utility_work(model, h, k)
+    bq = bequest(model, a)
+    utility_list = []
+    for i in range(N):
+        total_utility = 0.0
+        for t in range(T):
+            total_utility += beta_pi[t]* (np.nansum(uc[i,t])+ np.nansum(uh[i,t])) + beta_1_pi[t]  * np.nansum(bq[i,t])
+        utility_list.append(total_utility)
+    return utility_list
 
 # analytical solution for consumption equivalence
 def analytical_consumption_equivalence(original_model, EV_new):
@@ -140,7 +168,7 @@ def analytical_consumption_equivalence(original_model, EV_new):
     
     # Calculate individual utility
     uc = utility_consumption(original_model, sim_og.c) 
-    uh = utility_work(original_model, sim_og.h)
+    uh = utility_work(original_model, sim_og.h, sim_og.k)
     bq = bequest(original_model, sim_og.a)
 
     # Calculate discount and probability of dying vector
@@ -158,6 +186,30 @@ def analytical_consumption_equivalence(original_model, EV_new):
 
     return ((EV_new-utility_work_bequest)/utility_con)**(1/(1-par_og.sigma))-1 
 
+def analytical_consumption_equivalence_indi(original_model, EV_new):
+    par_og = original_model.par
+    sim_og = original_model.sim
+
+    # Calculate discount and probability of dying vector
+    beta_vector = par_og.beta**np.arange(par_og.T)
+    beta_pi = beta_vector*par_og.pi
+    beta_1_pi = beta_vector*(1-par_og.pi)
+
+    con_eq_list = []
+    for i in np.arange(par_og.simN):
+        # Calculate individual utility
+        uc = utility_consumption(original_model, sim_og.c[i,:]) 
+        uh = utility_work(original_model, sim_og.h[i,:], sim_og.k[i,:])
+        bq = bequest(original_model, sim_og.a[i,:])
+ 
+        utility_work_bequest = 0.0
+        utility_con  = 0.0
+        for t in range(par_og.T):
+            utility_work_bequest += beta_pi[t]* np.sum(uh[i,t]) + beta_1_pi[t]  * np.sum(bq[i,t])
+            utility_con += beta_pi[t]*np.sum(uc[i,t])
+        con_eq_list.append(((EV_new[i]-utility_work_bequest)/utility_con)**(1/(1-par_og.sigma))-1)
+        
+    return con_eq_list
 
 def make_new_model(model, theta, theta_names, do_print = False):
     ''' Can be used to measure the impact of policy changes'''
@@ -190,8 +242,9 @@ def objective(phi, new_EV, original_model):
     c = original_model.sim.c
     h = original_model.sim.h
     a = original_model.sim.a
+    k = original_model.sim.k
 
-    compensate_EV = expected_lifetime_utility_scaled(original_model, phi, c, h, a)
+    compensate_EV = expected_lifetime_utility_scaled(original_model, phi, c, h, a, k)
     
     return new_EV - compensate_EV
 
