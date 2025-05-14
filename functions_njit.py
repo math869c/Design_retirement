@@ -107,6 +107,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
     # public retirement benefits
     else:
         return max(par.chi_base, par.chi_total - income*par.rho)
+    
 
     
 # 1.1.5 Total income before taxes and retirement contributions
@@ -247,6 +248,17 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, efter_idx, 
                     #     else:
                     #         ex_next = par.unemp
 
+                    elif t >= par.retirement_age:
+                        if employed == par.emp:
+                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.ret, int(efter_idx)], a_next, s_next, k_temp_)
+                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.emp, int(efter_idx)], a_next, s_next, k_temp_)
+                            if sol_v_emp >= sol_v_unemp:
+                                ex_next = 1
+                            else:
+                                ex_next = 0
+                        else:
+                            ex_next = 0
+
                     elif t >= par.first_retirement:
                         if employed == par.emp:
                             sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.unemp, int(efter_idx)], a_next, s_next, k_temp_)
@@ -309,10 +321,10 @@ def value_last_period(par, c, a, s, e, r, t):
 def value_function_after_retirement(par, sol_V, c, a, s, e, r, ef, t):
     # states and income 
     retirement_age_idx = r
-    if t >= par.retirement_age:
-        e_idx = par.ret
+    if t >= par.retirement_age - 1:
+        e_idx_next = par.ret
     else:
-        e_idx = par.unemp
+        e_idx_next = par.unemp
 
     h, k  = 0.0, 0.0
     k_idx = 0
@@ -321,7 +333,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, ef, t):
     # Next period states 
     a_next = (1+par.r_a)*(a + income - c)
     s_next = s
-    V_next = sol_V[t+1, :, :, k_idx, retirement_age_idx, e_idx, int(ef)]
+    V_next = sol_V[t+1, :, :, k_idx, retirement_age_idx, e_idx_next, int(ef)]
     EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
 
     return utility(par, c, h, k, t) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
@@ -394,8 +406,8 @@ def main_solver_loop(par, sol, do_print = False):
             if t > par.last_retirement:
                 e_grid = [par.ret]
                 efter_grid = [0]
-            elif t > par.retirement_age+1:
-                e_grid = [par.unemp, par.emp, par.ret]
+            elif t >= par.retirement_age:
+                e_grid = [par.emp, par.ret]
                 efter_grid = [0]
             # elif t >= par.first_retirement:
             #     e_grid = [par.unemp, par.emp, par.ret]
