@@ -20,8 +20,8 @@ import math
 
 # 1. Essentiel functions for such as utility, bequest, and wage 
 @jit_if_enabled(fastmath=False)
-def utility(par, c, h, k):
-    return ((c+1)**(1-par.sigma))/(1-par.sigma) - (par.zeta/(1+k)) * (h**(1+par.gamma))/(1+par.gamma)
+def utility(par, c, h, k, t):
+    return ((c+1)**(1-par.sigma))/(1-par.sigma) - (par.zeta/(1+k)) * (h**(1+par.gamma))/(1+par.gamma) - par.gamma_1*h*t**2
 
 @jit_if_enabled(fastmath=False)
 def bequest(par, a):
@@ -302,7 +302,7 @@ def value_last_period(par, c, a, s, e, r, t):
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
     a_next = (1+par.r_a)*(a + income - c)
 
-    return utility(par, c, h, k) + bequest(par, a_next)
+    return utility(par, c, h, k, t) + bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=False)
@@ -324,7 +324,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, ef, t):
     V_next = sol_V[t+1, :, :, k_idx, retirement_age_idx, e_idx, int(ef)]
     EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
 
-    return utility(par, c, h, k) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k, t) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=False)
@@ -338,7 +338,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, ef, t):
     k_next = ((1-par.delta)*k + h)
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_EV, a_next, s_next, k_next)
 
-    return utility(par, c, h, k) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k, t) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 # 4. Objective functions 

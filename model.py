@@ -38,6 +38,8 @@ class ModelClass(EconModelClass):
         par.a_bar  = 0.001
         par.zeta   = 8.175348   
 
+        par.gamma_1 = 0.00001
+
         par.renten= 0.0211947668 
         par.r_s  = par.renten*(1-0.153)
         par.r_a = par.renten*(1-0.42)
@@ -90,6 +92,7 @@ class ModelClass(EconModelClass):
         par.chi_base = 10_000
         par.chi_total = 137_520 #=(7198+462)
         par.rho = 0.309
+
 
         # hire and fire employment
         df_ekso = eksog_prob_simpel(par)[0]
