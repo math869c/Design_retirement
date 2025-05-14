@@ -74,7 +74,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
     if t < par.first_retirement + par.early_benefits_lag:
-        if h > par.h_min:
+        if h > 0.0:
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
@@ -88,7 +88,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
     
     elif t < par.retirement_age:
         if ef == 1: # overførsel for efterløn
-            if h > par.h_min:
+            if h > 0.0:
                 return 0.0
             elif e == par.emp or e == par.unemp:
                 return max(par.efterloen - income*0.64, 0)
@@ -96,7 +96,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
                 # Retirement benefits
                 return par.early_benefit[t]
         else: # overførsel, hvis ikke ret til efterløn
-            if h > par.h_min:
+            if h > 0.0:
                 return 0.0
             elif e == par.emp or e == par.unemp:
                 # Unemployment benefits
@@ -107,6 +107,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
     # public retirement benefits
     else:
         return max(par.chi_base, par.chi_total - income*par.rho)
+
     
 # 1.1.5 Total income before taxes and retirement contributions
 @jit_if_enabled(fastmath=False)
@@ -394,7 +395,7 @@ def main_solver_loop(par, sol, do_print = False):
                 e_grid = [par.ret]
                 efter_grid = [0]
             elif t > par.retirement_age+1:
-                e_grid = [par.emp, par.ret]
+                e_grid = [par.unemp, par.emp, par.ret]
                 efter_grid = [0]
             # elif t >= par.first_retirement:
             #     e_grid = [par.unemp, par.emp, par.ret]
@@ -930,7 +931,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ret_flag[i,t] = 0.0
 
                 elif sim_e[i,t] == 1.0:
-                    sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.unemp, int(sim_efter_init[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.ret, int(sim_efter_init[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                     sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.emp, int(sim_efter_init[i])], sim_a[i,t], s_retirement[i], sim_k[i,t])
                     if sol_v_emp >= sol_v_unemp:
                         sim_ex[i,t] = 1

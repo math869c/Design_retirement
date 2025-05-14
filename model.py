@@ -96,7 +96,7 @@ class ModelClass(EconModelClass):
         par.p_e_0 = np.array(df_ekso['to_0'])
         par.p_e_1 = np.array(df_ekso['to_1'])
         par.p_e_2 = np.array(df_ekso['to_2'])
-        par.p_efter = 0.8
+        par.p_efter = 0.6
         par.transition_length = par.T
 
         # par.initial_ex = pd.read_csv('data/mean_matrix.csv')['extensive_v2_Mean'][0]
@@ -146,7 +146,7 @@ class ModelClass(EconModelClass):
         par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
         par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 10, 1.5, 0
+        par.N_k, par.k_sp, par.k_min = 20, 1.5, 0
         par.w_max = 1_564_195      
         # par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1
         par.k_max = np.arange(par.T) + 40        
