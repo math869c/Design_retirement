@@ -159,7 +159,7 @@ def obj_func(scaled_theta, theta_names, mom_data, W, model, bounds, do_print=Fal
     if do_print: 
         print_str = ''
         for i, name in enumerate(theta_names):
-            print_str += f'{theta[i]:2.6f}, '
+            print_str += f'{theta[i]:2.10f}, '
         print(print_str)
     
     # Compute simulated moments
@@ -172,7 +172,7 @@ def obj_func(scaled_theta, theta_names, mom_data, W, model, bounds, do_print=Fal
     elapsed_time = end_time - start_time
     
     if do_print: 
-        print(f"Error = {obj:.2f}, Time = {elapsed_time:.4f} seconds")
+        print(f"Error = {obj:.5f}, Time = {elapsed_time:.1f} seconds")
 
     return obj
 
