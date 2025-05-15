@@ -545,16 +545,16 @@ def plot_bar_series_comparison(values1, values2, label1="Old", label2="New",
 
 
 
-def plot_labor_margins_by_age(intensive_age, extensive_age, avg_intensive, avg_extensive, age_start, title_prefix="", save_title=None):
+def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_intensive, avg_extensive, avg_total, age_start, title_prefix="", save_title=None):
     ages = np.arange(age_start, age_start + len(intensive_age))
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5.5), sharex=True)
+    fig, axes = plt.subplots(3, 1, figsize=(13, 10), sharex=True)
     
     # --- Intensive Margin ---
     ax = axes[0]
     ax.plot(ages, intensive_age * 100, color=custom_palette[0], linewidth=2.5, label="Intensive Margin by Age")
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
-    ax.axhline(avg_intensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Margin")
+    ax.axhline(avg_intensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect on Intensive Margin")
     ax.set_title(f"{title_prefix}Intensive Margin", fontweight="bold")
     ax.set_xlabel("Age")
     ax.set_ylabel("Change (%)")
@@ -567,7 +567,7 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, avg_intensive, avg_e
     ax = axes[1]
     ax.plot(ages, extensive_age * 100, color=custom_palette[0], linewidth=2.5, label="Extensive Margin by Age")
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
-    ax.axhline(avg_extensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Margin")
+    ax.axhline(avg_extensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect on Extensive Margin")
     ax.set_title(f"{title_prefix}Extensive Margin", fontweight="bold")
     ax.set_xlabel("Age")
     ax.set_ylabel("Change (%)")
@@ -575,6 +575,20 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, avg_intensive, avg_e
     ax.legend()
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+
+    # --- Total Margin ---
+    ax = axes[2]
+    ax.plot(ages, total_age * 100, color=custom_palette[0], linewidth=2.5, label="Total Effect by Age")
+    ax.axhline(0, color='black', linestyle='--', linewidth=1)
+    ax.axhline(avg_total * 100, color='red', linestyle='-', linewidth=1.5, label="Average Total Effect")
+    ax.set_title(f"{title_prefix}Total Effect", fontweight="bold")
+    ax.set_xlabel("Age")
+    ax.set_ylabel("Change (%)")
+    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.legend()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
 
     plt.tight_layout()
     if save_title:

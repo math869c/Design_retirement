@@ -27,8 +27,8 @@ def consumption_replacement_rate_fct(model):
 def find_consumption_equivalence(original_model, new_model, do_print= False, the_method = 'brentq'):
     ''' Can be used to measure the impact of policy changes'''
     # c. Calculate welfare 
-    EV_og = expected_lifetime_utility_distribution(original_model,  original_model.sim.c,   original_model.sim.h,   original_model.sim.a)
-    EV_new = expected_lifetime_utility_distribution(new_model,      new_model.sim.c,        new_model.sim.h,        new_model.sim.a)   
+    EV_og = expected_lifetime_utility_distribution(original_model,  original_model.sim.c,   original_model.sim.h,   original_model.sim.a, original_model.sim.k)
+    EV_new = expected_lifetime_utility_distribution(new_model,      new_model.sim.c,        new_model.sim.h,        new_model.sim.a, new_model.sim.k)   
     if do_print:
         print(f'Expected welfare  before parameter changes: {EV_og}')
         print(f'Expected welfare after parameter changes: {EV_new}')
@@ -72,8 +72,9 @@ def labor_elasticity(original_model, new_model):
     sim_new = new_model.sim
     
     # weights for the labor supply
-    pi_weight = np.cumprod(par_og.pi)
-
+    pi_cum = np.cumprod(par_og.pi)
+    pi_weight = pi_cum/np.cumsum(pi_cum)
+    
     # e. Calculate labor supply before and after
     # intensive margin
     sim_og_h_ex_1 = np.where(sim_og.ex == 1, sim_og.h, np.nan)
@@ -81,7 +82,8 @@ def labor_elasticity(original_model, new_model):
     sim_og_h = np.nanmean(sim_og_h_ex_1, axis=0)# age specific average 
     sim_new_h = np.nanmean(sim_new_h_ex_1, axis=0) # age specific average
     intensive_margin_age = (sim_new_h-sim_og_h)/sim_og_h 
-    intensive_margin = (np.nanmean(sim_new_h, axis=0)-np.nanmean(sim_og_h, axis=0))
+
+    intensive_margin = np.nansum(pi_weight[:par_og.last_retirement] * intensive_margin_age[:par_og.last_retirement], axis=0)
 
     # extensive margin
     sim_og_ex = np.nansum(sim_og.ex, axis=0) # age specific average
@@ -89,9 +91,17 @@ def labor_elasticity(original_model, new_model):
     extensive_margin_age = (sim_new_ex-sim_og_ex)/par_og.simN
     print(sim_og_ex)
     print(sim_new_ex)
-    extensive_margin = (np.nansum(pi_weight*sim_new_ex, axis=0)-np.nansum(pi_weight*sim_og_ex, axis=0))/np.sum(pi_weight*par_og.simN)
+    
+    extensive_margin = np.nansum(pi_weight[:par_og.last_retirement] * extensive_margin_age[:par_og.last_retirement], axis=0)
+
+    # Total labor supply effect 
+    total_margin_og = np.sum(sim_og.h, axis=0)
+    total_margin_new = np.sum(sim_new.h, axis=0)
+    total_margin_age = (total_margin_new-total_margin_og)/total_margin_og
+    total_margin = np.nansum(pi_weight[:par_og.last_retirement] * total_margin_age[:par_og.last_retirement], axis=0)
+
     # total margin
-    return intensive_margin, extensive_margin, intensive_margin_age, extensive_margin_age    
+    return intensive_margin, extensive_margin, total_margin, intensive_margin_age[:par_og.last_retirement], extensive_margin_age[:par_og.last_retirement], total_margin_age[:par_og.last_retirement]     
 
 
 # Help functions
@@ -103,10 +113,10 @@ def bequest(model, a):
     else:
         return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
 
-def utility_work(model, h):
+def utility_work(model, h, k):
     '''Cannot be njited'''
     par = model.par
-    return - (h**(1+par.gamma))/(1+par.gamma)
+    return -((par.zeta)/(1+k)) * (h**(1+par.gamma))/(1+par.gamma)
 
 def utility_consumption(model, c):
     '''Cannot be njited'''
@@ -114,7 +124,7 @@ def utility_consumption(model, c):
     return (c**(1-par.sigma))/(1-par.sigma) 
 
 # Expected welfare 
-def expected_lifetime_utility_distribution(model, c, h, a):
+def expected_lifetime_utility_distribution(model, c, h, a, k):
     par = model.par
     N, T = c.shape
 
@@ -123,15 +133,15 @@ def expected_lifetime_utility_distribution(model, c, h, a):
     beta_1_pi = beta_vector*(1-par.pi)
 
     uc = utility_consumption(model, c)
-    uh = utility_work(model, h)
+    uh = utility_work(model, h, k)
     bq = bequest(model, a)
     total_utility = 0.0
     for t in range(T):
         total_utility += beta_pi[t]* (np.nansum(uc[:,t])+ np.nansum(uh[:,t])) + beta_1_pi[t]  * np.nansum(bq[:,t])
     return total_utility/N
 
-def expected_lifetime_utility_scaled(model, phi, c, h, a):
-    return expected_lifetime_utility_distribution(model, (1.0 + phi)*c, h, a)
+def expected_lifetime_utility_scaled(model, phi, c, h, a, k):
+    return expected_lifetime_utility_distribution(model, (1.0 + phi)*c, h, a, k)
 
 # analytical solution for consumption equivalence
 def analytical_consumption_equivalence(original_model, EV_new):
@@ -140,7 +150,7 @@ def analytical_consumption_equivalence(original_model, EV_new):
     
     # Calculate individual utility
     uc = utility_consumption(original_model, sim_og.c) 
-    uh = utility_work(original_model, sim_og.h)
+    uh = utility_work(original_model, sim_og.h, sim_og.k)
     bq = bequest(original_model, sim_og.a)
 
     # Calculate discount and probability of dying vector
@@ -190,8 +200,9 @@ def objective(phi, new_EV, original_model):
     c = original_model.sim.c
     h = original_model.sim.h
     a = original_model.sim.a
+    k = original_model.sim.k
 
-    compensate_EV = expected_lifetime_utility_scaled(original_model, phi, c, h, a)
+    compensate_EV = expected_lifetime_utility_scaled(original_model, phi, c, h, a, k)
     
     return new_EV - compensate_EV
 
