@@ -31,13 +31,19 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.967331 # 0.995    # Skal kalibreres
-        par.sigma  = 1.147677     # Skal kalibreres
-        par.gamma  = 1.887866       # Skal kalibreres
-        par.mu     = 6.470031    # Skal kalibreres
+        par.beta   = 0.9654276064 # 0.995    # Skal kalibreres
+        par.sigma  = 1.1439276735     # Skal kalibreres
+        par.gamma  = 1.9252802098       # Skal kalibreres
+        par.mu     = 6.2333816952    # Skal kalibreres
         par.a_bar  = 0.001
+<<<<<<< HEAD
         par.zeta   = 8.175348   
         par.gamma_1 = 0.00001
+=======
+        par.zeta   = 8.3062287571   
+
+        par.gamma_1 = 0.0000108413
+>>>>>>> e5e0f21bc9403a37cf183deabd2e36531cd7e2a8
 
         # Assets
         par.renten= 0.0211947668 
@@ -53,7 +59,7 @@ class ModelClass(EconModelClass):
 
         par.w_0 =       136.083656
         par.k_0 =        11.140278
-        par.beta_1 =         0.050859
+        par.beta_1 =         0.0500726898
         par.beta_2 =        -0.000456
         par.delta =         0.027943
         par.k_0_var =         0.049583
@@ -76,7 +82,7 @@ class ModelClass(EconModelClass):
         par.range               = 5
         par.first_retirement    = par.retirement_age - par.range
         par.last_retirement     = par.retirement_age + par.range
-        par.retirement_window   = par.last_retirement - par.first_retirement + 1
+        par.retirement_window   = 40
 
         par.early_benefits_lag = 1
 

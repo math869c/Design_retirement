@@ -89,6 +89,7 @@ def labor_elasticity(original_model, new_model):
     sim_og_ex = np.nansum(sim_og.ex, axis=0) # age specific average
     sim_new_ex = np.nansum(sim_new.ex, axis=0) # age specific average
     extensive_margin_age = (sim_new_ex-sim_og_ex)/par_og.simN
+<<<<<<< HEAD
     print(sim_og_ex)
     print(sim_new_ex)
     
@@ -100,8 +101,30 @@ def labor_elasticity(original_model, new_model):
     total_margin_age = (total_margin_new-total_margin_og)/total_margin_og
     total_margin = np.nansum(pi_weight[:par_og.last_retirement] * total_margin_age[:par_og.last_retirement], axis=0)
 
+=======
+    extensive_margin = (np.nansum(pi_weight*sim_new_ex, axis=0)-np.nansum(pi_weight*sim_og_ex, axis=0))/np.sum(pi_weight*par_og.simN)
+>>>>>>> e5e0f21bc9403a37cf183deabd2e36531cd7e2a8
     # total margin
     return intensive_margin, extensive_margin, total_margin, intensive_margin_age[:par_og.last_retirement], extensive_margin_age[:par_og.last_retirement], total_margin_age[:par_og.last_retirement]     
+
+def kill_people(moment, model):
+    import random
+
+    killed_moment = moment.copy()
+
+    for i in range(killed_moment.shape[0]):
+        kill = 0
+        for j in range(killed_moment.shape[1]):
+            chance_of_death = random.random()
+            if chance_of_death >= model.par.pi[j]:
+                kill = 1
+
+            if kill == 1:
+                killed_moment[i, j] = np.nan
+            else:
+                pass
+
+    return killed_moment
 
 
 # Help functions

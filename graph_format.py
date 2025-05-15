@@ -739,8 +739,8 @@ def plot_model_vs_data_grid(a_dict, title=None, save_title=None):
 
         time = np.arange(age_start, age_start + max(T_sim, T_emp))
 
-        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[0], linewidth=2)
-        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[1], linestyle='--', linewidth=2)
+        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[0], linewidth=2)
+        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[1], linestyle='--', linewidth=2)
 
         ax.set_title(key.capitalize(), fontsize=12, fontweight="semibold")
         
@@ -794,8 +794,8 @@ def plot_model_vs_data_grid_oos(a_dict, title=None, save_title=None):
 
         time = np.arange(age_start, age_start + max(T_sim, T_emp))
 
-        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[0], linewidth=2)
-        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[1], linestyle='--', linewidth=2)
+        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[0], linewidth=2)
+        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[1], linestyle='--', linewidth=2)
 
         ax.set_title(key.capitalize(), fontsize=12, fontweight="semibold")
         
