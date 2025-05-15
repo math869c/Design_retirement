@@ -36,14 +36,9 @@ class ModelClass(EconModelClass):
         par.gamma  = 1.9252802098       # Skal kalibreres
         par.mu     = 6.2333816952    # Skal kalibreres
         par.a_bar  = 0.001
-<<<<<<< HEAD
-        par.zeta   = 8.175348   
-        par.gamma_1 = 0.00001
-=======
         par.zeta   = 8.3062287571   
 
         par.gamma_1 = 0.0000108413
->>>>>>> e5e0f21bc9403a37cf183deabd2e36531cd7e2a8
 
         # Assets
         par.renten= 0.0211947668 
