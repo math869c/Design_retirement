@@ -134,10 +134,10 @@ def bequest(model, a):
     else:
         return par.mu*(a+par.a_bar)**(1-par.sigma) / (1-par.sigma)
 
-def utility_work(model, h, k):
+def utility_work(model, h, k, t):
     '''Cannot be njited'''
     par = model.par
-    return -((par.zeta)/(1+k)) * (h**(1+par.gamma))/(1+par.gamma)
+    return -((par.zeta)/(1+k)) * (h**(1+par.gamma))/(1+par.gamma) - par.gamma_1*h*t**2
 
 def utility_consumption(model, c):
     '''Cannot be njited'''
@@ -150,16 +150,41 @@ def expected_lifetime_utility_distribution(model, c, h, a, k):
     N, T = c.shape
 
     beta_vector = par.beta**np.arange(T)
-    beta_pi = beta_vector*par.pi
-    beta_1_pi = beta_vector*(1-par.pi)
+    pi_cum = np.cumprod(par.pi)
+    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_beta = beta_vector*pi_stack
 
     uc = utility_consumption(model, c)
-    uh = utility_work(model, h, k)
     bq = bequest(model, a)
     total_utility = 0.0
     for t in range(T):
-        total_utility += beta_pi[t]* (np.nansum(uc[:,t])+ np.nansum(uh[:,t])) + beta_1_pi[t]  * np.nansum(bq[:,t])
+        uh = utility_work(model, h, k, t)
+        total_utility += pi_beta[t] * (np.nansum(uc[:,t])+ np.nansum(uh[:,t]) + (1-par.pi[t])  * np.nansum(bq[:,t]))
+
     return total_utility/N
+
+def expected_lifetime_utility_distribution_indi(model, c, h, a, k):
+    par = model.par
+    N, T = c.shape
+
+    beta_vector = par.beta**np.arange(T)
+    pi_cum = np.cumprod(par.pi)
+    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_beta = beta_vector*pi_stack
+
+    uc = utility_consumption(model, c)
+    bq = bequest(model, a)
+    
+    # for i in range(100):
+    total_utility = 0.0
+    for t in range(T):
+        uh = utility_work(model, h, k, t)
+        total_utility += pi_beta[t] * (uc[:,t]+ uh[:,t] + (1-par.pi[t])  * bq[:,t])
+    
+
+    return np.array(total_utility)
+
+
 
 def expected_lifetime_utility_scaled(model, phi, c, h, a, k):
     return expected_lifetime_utility_distribution(model, (1.0 + phi)*c, h, a, k)
@@ -171,23 +196,67 @@ def analytical_consumption_equivalence(original_model, EV_new):
     
     # Calculate individual utility
     uc = utility_consumption(original_model, sim_og.c) 
-    uh = utility_work(original_model, sim_og.h, sim_og.k)
     bq = bequest(original_model, sim_og.a)
 
     # Calculate discount and probability of dying vector
     beta_vector = par_og.beta**np.arange(par_og.T)
     beta_pi = beta_vector*par_og.pi
     beta_1_pi = beta_vector*(1-par_og.pi)
+
+    beta_vector = par_og.beta**np.arange(par_og.T)
+    pi_cum = np.cumprod(par_og.pi)
+    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_beta = beta_vector*pi_stack
     
-    utility_work_bequest = 0.0
-    utility_con  = 0.0
+    utility_work_bequest = np.zeros(sim_og.c.shape[0])
+    utility_con  = np.zeros(sim_og.c.shape[0])
     for t in range(par_og.T):
-        utility_work_bequest += beta_pi[t]* np.sum(uh[:,t]) + beta_1_pi[t]  * np.sum(bq[:,t])
-        utility_con += beta_pi[t]*np.sum(uc[:,t])
+        uh = utility_work(original_model, sim_og.h, sim_og.k, t)
+        utility_work_bequest += pi_beta[t]*(np.sum(uh[:,t]) + (1-par_og.pi[t])  * np.sum(bq[:,t]))
+        utility_con += pi_beta[t]*np.sum(uc[:,t])
     utility_work_bequest /= par_og.simN
     utility_con /= par_og.simN
 
     return ((EV_new-utility_work_bequest)/utility_con)**(1/(1-par_og.sigma))-1 
+
+
+def analytical_consumption_equivalence_indi(original_model, new_model):
+    par_og = original_model.par
+    sim_og = original_model.sim
+
+    EV_new_list = expected_lifetime_utility_distribution_indi(new_model,      new_model.sim.c,        new_model.sim.h,        new_model.sim.a, new_model.sim.k)
+    
+    # Calculate individual utility
+    uc = utility_consumption(original_model, sim_og.c) 
+    bq = bequest(original_model, sim_og.a)
+
+    # Calculate discount and probability of dying vector
+    beta_vector = par_og.beta**np.arange(par_og.T)
+    beta_pi = beta_vector*par_og.pi
+    beta_1_pi = beta_vector*(1-par_og.pi)
+
+    beta_vector = par_og.beta**np.arange(par_og.T)
+    pi_cum = np.cumprod(par_og.pi)
+    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_beta = beta_vector*pi_stack
+
+    # for i in range(100):
+    utility_work_bequest = np.zeros(sim_og.c.shape[0])
+    utility_con  = np.zeros(sim_og.c.shape[0])
+    for t in range(par_og.T):
+        uh = utility_work(original_model, sim_og.h, sim_og.k, t)
+        utility_work_bequest += pi_beta[t]*(uh[:,t] + (1-par_og.pi[t])  * bq[:,t])
+        utility_con += pi_beta[t]*uc[:,t]
+
+
+
+    return ((np.array(EV_new_list)-np.array(utility_work_bequest))/np.array(utility_con))**(1/(1-par_og.sigma))-1 
+
+
+
+
+
+
 
 
 def make_new_model(model, theta, theta_names, do_print = False):
