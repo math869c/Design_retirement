@@ -120,6 +120,8 @@ def kill_people(moment, model):
             else:
                 pass
 
+    print("done")
+
     return killed_moment
 
 
