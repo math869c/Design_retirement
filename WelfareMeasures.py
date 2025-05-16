@@ -137,12 +137,12 @@ def bequest(model, a):
 def utility_work(model, h, k, t):
     '''Cannot be njited'''
     par = model.par
-    return -((par.zeta)/(1+k)) * (h**(1+par.gamma))/(1+par.gamma) - par.gamma_1*h*t**2
+    return -(par.zeta/(1+k)) * (h**(1+par.gamma))/(1+par.gamma) - par.gamma_1*h*t**2
 
 def utility_consumption(model, c):
     '''Cannot be njited'''
     par = model.par
-    return (c**(1-par.sigma))/(1-par.sigma) 
+    return ((1+c)**(1-par.sigma))/(1-par.sigma) 
 
 # Expected welfare 
 def expected_lifetime_utility_distribution(model, c, h, a, k):
@@ -151,15 +151,16 @@ def expected_lifetime_utility_distribution(model, c, h, a, k):
 
     beta_vector = par.beta**np.arange(T)
     pi_cum = np.cumprod(par.pi)
-    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_stack = np.hstack((pi_cum))
+    pi_stack[1] = 1
     pi_beta = beta_vector*pi_stack
 
     uc = utility_consumption(model, c)
     bq = bequest(model, a)
     total_utility = 0.0
     for t in range(T):
-        uh = utility_work(model, h, k, t)
-        total_utility += pi_beta[t] * (np.nansum(uc[:,t])+ np.nansum(uh[:,t]) + (1-par.pi[t])  * np.nansum(bq[:,t]))
+        uh = utility_work(model, h[:,t], k[:,t], t)
+        total_utility += pi_beta[t] * (np.nansum(uc[:,t])+ np.nansum(uh[:]) + (1-par.pi[t])  * np.nansum(bq[:,t]))
 
     return total_utility/N
 
@@ -169,7 +170,8 @@ def expected_lifetime_utility_distribution_indi(model, c, h, a, k):
 
     beta_vector = par.beta**np.arange(T)
     pi_cum = np.cumprod(par.pi)
-    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_stack = np.hstack((pi_cum))
+    pi_stack[1] = 1
     pi_beta = beta_vector*pi_stack
 
     uc = utility_consumption(model, c)
@@ -178,8 +180,8 @@ def expected_lifetime_utility_distribution_indi(model, c, h, a, k):
     # for i in range(100):
     total_utility = 0.0
     for t in range(T):
-        uh = utility_work(model, h, k, t)
-        total_utility += pi_beta[t] * (uc[:,t]+ uh[:,t] + (1-par.pi[t])  * bq[:,t])
+        uh = utility_work(model, h[:,t], k[:,t], t)
+        total_utility += pi_beta[t] * (uc[:,t]+ uh[:] + (1-par.pi[t])  * bq[:,t])
     
 
     return np.array(total_utility)
@@ -205,14 +207,15 @@ def analytical_consumption_equivalence(original_model, EV_new):
 
     beta_vector = par_og.beta**np.arange(par_og.T)
     pi_cum = np.cumprod(par_og.pi)
-    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_stack = np.hstack((pi_cum))
+    pi_stack[1] = 1
     pi_beta = beta_vector*pi_stack
     
-    utility_work_bequest = np.zeros(sim_og.c.shape[0])
-    utility_con  = np.zeros(sim_og.c.shape[0])
+    utility_work_bequest = 0
+    utility_con  = 0
     for t in range(par_og.T):
-        uh = utility_work(original_model, sim_og.h, sim_og.k, t)
-        utility_work_bequest += pi_beta[t]*(np.sum(uh[:,t]) + (1-par_og.pi[t])  * np.sum(bq[:,t]))
+        uh = utility_work(original_model, sim_og.h[:,t], sim_og.k[:,t], t)
+        utility_work_bequest += pi_beta[t]*(np.sum(uh[:]) + (1-par_og.pi[t])  * np.sum(bq[:,t]))
         utility_con += pi_beta[t]*np.sum(uc[:,t])
     utility_work_bequest /= par_og.simN
     utility_con /= par_og.simN
@@ -237,18 +240,17 @@ def analytical_consumption_equivalence_indi(original_model, new_model):
 
     beta_vector = par_og.beta**np.arange(par_og.T)
     pi_cum = np.cumprod(par_og.pi)
-    pi_stack = np.hstack((1,pi_cum))[:70]
+    pi_stack = np.hstack((pi_cum))    
+    pi_stack[1] = 1
     pi_beta = beta_vector*pi_stack
 
     # for i in range(100):
     utility_work_bequest = np.zeros(sim_og.c.shape[0])
     utility_con  = np.zeros(sim_og.c.shape[0])
     for t in range(par_og.T):
-        uh = utility_work(original_model, sim_og.h, sim_og.k, t)
-        utility_work_bequest += pi_beta[t]*(uh[:,t] + (1-par_og.pi[t])  * bq[:,t])
+        uh = utility_work(original_model, sim_og.h[:,t], sim_og.k[:,t], t)
+        utility_work_bequest += pi_beta[t]*(uh[:] + (1-par_og.pi[t])  * bq[:,t])
         utility_con += pi_beta[t]*uc[:,t]
-
-
 
     return ((np.array(EV_new_list)-np.array(utility_work_bequest))/np.array(utility_con))**(1/(1-par_og.sigma))-1 
 

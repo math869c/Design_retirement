@@ -733,7 +733,7 @@ def plot_model_vs_data_grid(a_dict, title=None, save_title=None):
         T_emp = len(empirical_data)
 
         if key in ['hours', 'extensive']:
-            age_start, age_end = 30, 70
+            age_start, age_end = 30, 72
         else:
             age_start, age_end = 30, 100
 
@@ -747,7 +747,7 @@ def plot_model_vs_data_grid(a_dict, title=None, save_title=None):
         ax.set_xlim(age_start, age_end)
 
         if key == 'hours':
-            ax.set_ylim(0.4, 1)
+            ax.set_ylim(0.2, 1)
             ax.set_ylabel("Full time equivavlent hours", fontsize=11)
         elif key == 'extensive':
             ax.set_ylim(0, 1)

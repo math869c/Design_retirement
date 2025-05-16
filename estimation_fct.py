@@ -83,8 +83,8 @@ def prepare_data(par, year="all"):
     savings = np.array(means_data["pension_u_skat_plsats_Mean"])
     hours = np.array(means_data["yearly_hours_Mean"]) / par.full_time_hours
     extensive = np.array(means_data["extensive_v2_Mean"])
-    hours = hours[:40]
-    extensive = extensive[:40]
+    hours = hours[:55]
+    extensive = extensive[:55]
 
     mean = np.concatenate([extensive, assets, savings, hours])
 
@@ -95,7 +95,7 @@ def prepare_data(par, year="all"):
 
     # Construct diagonal weighting matrix: 1/variance
     safe_variances = np.where(variance_diag == 0, 1e-6, variance_diag)  # Avoid divide-by-zero
-    safe_variances[-40:] = safe_variances[-40:] / (par.full_time_hours**2)
+    safe_variances[-55:] = safe_variances[-55:] / (par.full_time_hours**2)
 
     # safe_variances[:30] = safe_variances[:30] / 2
 
@@ -131,8 +131,8 @@ def moment_func(sim_data):
     # Compute age-averaged moments
     avg_a_by_age = np.mean(sim_data.a, axis=0)  # Length 70
     avg_s_by_age = np.mean(sim_data.s, axis=0)[:55]  # Length 70
-    avg_h_by_age = np.nan_to_num(np.nanmean(np.where(sim_data.ex == 1, sim_data.h, np.nan), axis=0)[:40], nan=0.0) # Length 40
-    avg_ex_by_age = np.mean(sim_data.ex, axis=0)[:40]  # Length 40
+    avg_h_by_age = np.nan_to_num(np.nanmean(np.where(sim_data.ex == 1, sim_data.h, np.nan), axis=0)[:55], nan=0.0) # Length 40
+    avg_ex_by_age = np.mean(sim_data.ex, axis=0)[:55]  # Length 40
 
     # Concatenate and return
     return np.concatenate((avg_ex_by_age, avg_a_by_age, avg_s_by_age, avg_h_by_age))
