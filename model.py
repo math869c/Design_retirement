@@ -76,8 +76,7 @@ class ModelClass(EconModelClass):
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
         par.range               = 5
         par.first_retirement    = par.retirement_age - par.range
-        par.last_retirement     = par.retirement_age + par.range
-        par.retirement_window   = 40
+        par.last_retirement     = 55
 
         par.early_benefits_lag = 1
 
@@ -122,15 +121,6 @@ class ModelClass(EconModelClass):
         par.pi_el = par.pi.copy()
         # par.pi = np.ones_like(par.pi_el)
         
-        # par.EL = np.zeros(par.last_retirement + 1)
-        # for r in range(par.last_retirement + 1):
-        #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
-        # with np.errstate(invalid='ignore'):
-        #     par.EL = np.where(
-        #         (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
-        #         np.cumsum(S[::-1])[::-1] / S,
-        #         0.0
-        #     )
         par.EL = np.where((sp := np.cumprod(par.pi)) > 0, np.cumsum(sp[::-1])[::-1], 0.0)
 
         # Welfare system
@@ -147,10 +137,10 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 3, 1.5, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 3, 1.5, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 3, 1.5, 0
+        par.N_k, par.k_sp, par.k_min = 20, 1.5, 0
         par.w_max = 1_564_195      
         # par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1
         par.k_max = np.arange(par.T) + 40        
@@ -169,7 +159,7 @@ class ModelClass(EconModelClass):
 
         # Simulation
         par.simT = par.T # number of periods
-        par.simN = 10000 # number of individuals
+        par.simN = 50000 # number of individuals
 
     def update_dependent_parameters(self):
         par = self.par
@@ -179,8 +169,7 @@ class ModelClass(EconModelClass):
 
         # # Retirement system
         par.first_retirement = par.retirement_age - par.range
-        par.last_retirement = par.retirement_age + par.range
-        par.retirement_window = par.last_retirement - par.first_retirement + 1
+        par.last_retirement = 55
 
         # benefits
         par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
@@ -191,16 +180,8 @@ class ModelClass(EconModelClass):
         # survival probabilities
         par.pi = np.array([logistic(i,par.L, par.f, par.x0) for i in range(par.T)] )
         par.pi_el = par.pi.copy()
-        # par.pi = np.ones_like(par.pi_el)        
-        # par.EL = np.zeros(par.last_retirement + 1)
-        # for r in range(par.last_retirement + 1):
-        #     par.EL[r] = sum(np.cumprod(par.pi_el[int(r):])*np.arange(int(r),par.T))/(par.T-int(r))
-        with np.errstate(invalid='ignore'):
-            par.EL = np.where(
-                (S := np.concatenate(([1.0], np.cumprod(par.pi[1:])))) > 0,
-                np.cumsum(S[::-1])[::-1] / S,
-                0.0
-            )
+
+        par.EL = np.where((sp := np.cumprod(par.pi)) > 0, np.cumsum(sp[::-1])[::-1], 0.0)
 
         # fire and hire employment
         df_ekso = eksog_prob_simpel(par)[0]
