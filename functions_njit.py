@@ -20,8 +20,8 @@ import math
 
 # 1. Essentiel functions for such as utility, bequest, and wage 
 @jit_if_enabled(fastmath=False)
-def utility(par, c, h, k):
-    return ((c+1)**(1-par.sigma))/(1-par.sigma) - (par.zeta/(1+k)) * (h**(1+par.gamma))/(1+par.gamma)
+def utility(par, c, h, k, t):
+    return ((c+1)**(1-par.sigma))/(1-par.sigma) - (par.zeta/(1+k)) * (h**(1+par.gamma))/(1+par.gamma) - par.gamma_1*h*t**2
 
 @jit_if_enabled(fastmath=False)
 def bequest(par, a):
@@ -78,23 +78,26 @@ def public_benefit_fct(par, h, e, income, t):
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
-            return par.unemployment_benefit[t][0]
+            return max(par.unemployment_benefit[t, 0] - income, 0)
         elif e == par.ret:
             # Retirement benefits
             return par.early_benefit[t]
         else:
             print("Error: Invalid employment status")
-            return par.unemployment_benefit[t][0]
+            return par.unemployment_benefit[t, 0]
     
     elif t < par.retirement_age:
         if h > par.h_min:
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
-            return max(par.efterloen - income*0.64, 0)
+            return max(par.unemployment_benefit[t, 0] - income, 0)
         elif e == par.ret:
             # Retirement benefits
             return par.early_benefit[t]
+        
+
+
     # public retirement benefits
     else:
         return max(par.chi_base, par.chi_total - income*par.rho)
@@ -235,23 +238,39 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, t):
                     k_temp_ = k_next*par.xi_v[idx] 
 
                     if t == par.last_retirement:
-                        ex_next = par.unemp
+                        ex_next = par.ret
 
-                    # else:
-                    #     if employed == par.emp:
-                    #         ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
-                    #     else:
-                    #         ex_next = par.unemp
+
+                    elif t >= par.retirement_age:
+                        if employed == par.emp:
+                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.ret], a_next, s_next, k_temp_)
+                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.emp], a_next, s_next, k_temp_)
+                            if sol_v_emp >= sol_v_unemp:
+                                ex_next = 1
+                            else:
+                                ex_next = 0
+                        else:
+                            ex_next = 0
 
                     elif t >= par.first_retirement:
                         if employed == par.emp:
-                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, employed], a_next, s_next, k_temp_))
+                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.unemp], a_next, s_next, k_temp_)
+                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.emp], a_next, s_next, k_temp_)
+                            if sol_v_emp >= sol_v_unemp:
+                                ex_next = 1
+                            else:
+                                ex_next = 0
                         else:
                             ex_next = 0
 
                     else:
                         if employed == par.emp or employed == par.unemp:
-                            ex_next = np.round(interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t+1, :, :, :, retirement_idx+1, par.emp], a_next, s_next, k_temp_))
+                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.unemp], a_next, s_next, k_temp_)
+                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.emp], a_next, s_next, k_temp_)
+                            if sol_v_emp >= sol_v_unemp:
+                                ex_next = 1
+                            else:
+                                ex_next = 0
                         else:
                             ex_next = 0
 
@@ -288,14 +307,14 @@ def value_last_period(par, c, a, s, e, r, t):
     income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, t)
     a_next = (1+par.r_a)*(a + income - c)
 
-    return utility(par, c, h, k) + bequest(par, a_next)
+    return utility(par, c, h, k, t) + bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=False)
 def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     # states and income 
     retirement_age_idx = r
-    if t >= par.retirement_age:
+    if t >= par.retirement_age - 1:
         e_idx = par.ret
     else:
         e_idx = par.unemp
@@ -310,7 +329,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, t):
     V_next = sol_V[t+1, :, :, k_idx, retirement_age_idx, e_idx]
     EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
 
-    return utility(par, c, h, k) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k, t) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=False)
@@ -324,7 +343,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, t):
     k_next = ((1-par.delta)*k + h)
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_EV, a_next, s_next, k_next)
 
-    return utility(par, c, h, k) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k, t) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
 
 
 # 4. Objective functions 
@@ -663,6 +682,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
     sol_ex = sol.ex
     sol_c = sol.c
     sol_h = sol.h
+    sol_V = sol.V
 
     # i. initialize states
     sim_a[:,0] = sim_a_init[:]
@@ -698,8 +718,12 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ret_flag[i,t] = 0.0
 
                 elif sim_e[i,t] == 1.0:
-                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_ex[i,t] = np.round(sim_ex[i,t])
+                    sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.unemp], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.emp], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    if sol_v_emp >= sol_v_unemp:
+                        sim_ex[i,t] = 1
+                    else:
+                        sim_ex[i,t] = 0
 
                     if sim_ex[i,t] == 1.0:
                         sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
@@ -771,8 +795,12 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ret_flag[i,t] = 0.0
 
                 elif sim_e[i,t] == 1.0:
-                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_ex[i,t] = np.round(sim_ex[i,t])
+                    sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.unemp], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.emp], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    if sol_v_emp >= sol_v_unemp:
+                        sim_ex[i,t] = 1
+                    else:
+                        sim_ex[i,t] = 0
 
                     if sim_ex[i,t] == 1.0:
                         sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
@@ -837,8 +865,12 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ret_flag[i,t] = 0.0
 
                 elif sim_e[i,t] == 1.0:
-                    sim_ex[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_ex[t,:,:,:,int(retirement_age[i]),int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
-                    sim_ex[i,t] = np.round(sim_ex[i,t])
+                    sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.ret], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t,:,:,:,int(retirement_age[i]), par.emp], sim_a[i,t], s_retirement[i], sim_k[i,t])
+                    if sol_v_emp >= sol_v_unemp:
+                        sim_ex[i,t] = 1
+                    else:
+                        sim_ex[i,t] = 0
 
                     if sim_ex[i,t] == 1.0:
                         sim_c[i,t] = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_c[t,:,:,:,int(retirement_age[i]), int(sim_e[i,t])], sim_a[i,t], s_retirement[i], sim_k[i,t])
