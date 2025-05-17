@@ -824,3 +824,43 @@ def plot_model_vs_data_grid_oos(a_dict, title=None, save_title=None):
         save_figure(fig, save_title)
 
     plt.show()
+
+
+
+def plot_total_effect_with_trend(total_effect_list, title=None, save_title=None):
+    from scipy.stats import linregress
+    # Prepare data
+    array = np.array(total_effect_list)
+    x = np.arange(35, array.shape[0] + 35)
+    y = array[:, 2] * 100
+
+    # Linear regression
+    slope, intercept, r_value, p_value, std_err = linregress(x, y)
+    y_pred = intercept + slope * x
+
+    # Plot setup
+    fig, ax = plt.subplots(figsize=(7, 4))
+    
+    ax.plot(x, y, label="Estimated effect", color=custom_palette[0], marker='o', linestyle='', markersize=5)
+    ax.plot(x, y_pred, label=f"Linear fit: y = {intercept:.3f} + {slope:.3f}x", 
+            linestyle="--", color=custom_palette[1], linewidth=2)
+
+    
+    ax.set_xlabel("Retirement age", fontsize=11)
+    ax.set_ylabel("Percent", fontsize=11)
+
+    ax.grid(True, linestyle="--", alpha=0.6)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.legend(fontsize=10)
+
+    if title:
+        ax.set_title("Total effect with linear trend", fontsize=12, fontweight="semibold")
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
