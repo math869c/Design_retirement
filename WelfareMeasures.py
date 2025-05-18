@@ -88,9 +88,7 @@ def labor_elasticity(original_model, new_model):
     # extensive margin
     sim_og_ex = np.nansum(sim_og.ex, axis=0) # age specific average
     sim_new_ex = np.nansum(sim_new.ex, axis=0) # age specific average
-    extensive_margin_age = (sim_new_ex-sim_og_ex)/par_og.simN
-    print(sim_og_ex)
-    print(sim_new_ex)
+    extensive_margin_age = (sim_new_ex-sim_og_ex)/sim_og_ex
     
     extensive_margin = np.nansum(pi_weight[:par_og.last_retirement] * extensive_margin_age[:par_og.last_retirement], axis=0)
 
@@ -98,7 +96,11 @@ def labor_elasticity(original_model, new_model):
     total_margin_og = np.sum(sim_og.h, axis=0)
     total_margin_new = np.sum(sim_new.h, axis=0)
     total_margin_age = (total_margin_new-total_margin_og)/total_margin_og
-    total_margin = np.nansum(pi_weight[:par_og.last_retirement] * total_margin_age[:par_og.last_retirement], axis=0)
+
+
+    total_margin_og_temp_ = np.sum(pi_cum[:original_model.par.last_retirement] * original_model.sim.h[:, :original_model.par.last_retirement])
+    total_margin_new_temp_ = np.sum(pi_cum[:original_model.par.last_retirement] * new_model.sim.h[:, :original_model.par.last_retirement])
+    total_margin = (total_margin_new_temp_-total_margin_og_temp_)/total_margin_og_temp_
 
     # total margin
     return intensive_margin, extensive_margin, total_margin, intensive_margin_age[:par_og.last_retirement], extensive_margin_age[:par_og.last_retirement], total_margin_age[:par_og.last_retirement]     

@@ -548,44 +548,61 @@ def plot_bar_series_comparison(values1, values2, label1="Old", label2="New",
 def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_intensive, avg_extensive, avg_total, age_start, title_prefix="", save_title=None):
     ages = np.arange(age_start, age_start + len(intensive_age))
 
-    fig, axes = plt.subplots(3, 1, figsize=(13, 10), sharex=True)
-    
-    # --- Intensive Margin ---
+    first_age = 56
+
+    mask = (ages >= first_age) & (ages <= 72)
+    ages = ages[mask]
+    intensive_age = intensive_age[mask]
+    extensive_age = extensive_age[mask]
+    total_age = total_age[mask]
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 6), sharex=True)
+
+    # --- Total Margin ---
     ax = axes[0]
-    ax.plot(ages, intensive_age * 100, color=custom_palette[0], linewidth=2.5, label="Intensive Margin by Age")
+    ax.plot(ages, total_age * 100, color=custom_palette[0], linewidth=2.5, label="Total Effect")
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
-    ax.axhline(avg_intensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect on Intensive Margin")
-    ax.set_title(f"{title_prefix}Intensive Margin", fontweight="bold")
+    ax.axhline(avg_total * 100, color='red', linestyle='-', linewidth=1.5, label="Average Total Effect")
+    ax.set_xlim(first_age, 72)
+    ax.set_xticks(np.arange(56, 73, 2))
+    ax.set_title(f"{title_prefix}Total Effect", fontweight="bold")
     ax.set_xlabel("Age")
-    ax.set_ylabel("Change (%)")
+    ax.set_ylabel("Percentage change")
+    ax.set_ylim(-5, 25)
     ax.grid(True, linestyle='--', alpha=0.6)
-    ax.legend()
+    # ax.legend(loc='upper right')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
     # --- Extensive Margin ---
     ax = axes[1]
-    ax.plot(ages, extensive_age * 100, color=custom_palette[0], linewidth=2.5, label="Extensive Margin by Age")
+    ax.plot(ages, extensive_age * 100, color=custom_palette[0], linewidth=2.5, label="Margin")
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
-    ax.axhline(avg_extensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect on Extensive Margin")
+    ax.axhline(avg_extensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect")
+    ax.set_xlim(first_age, 72)
+    ax.set_xticks(np.arange(56, 73, 2))
     ax.set_title(f"{title_prefix}Extensive Margin", fontweight="bold")
     ax.set_xlabel("Age")
-    ax.set_ylabel("Change (%)")
+    # ax.set_ylabel("Change (%)")
     ax.grid(True, linestyle='--', alpha=0.6)
-    ax.legend()
+    # ax.legend()
+    ax.set_ylim(-5, 25)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # --- Total Margin ---
+    # --- Intensive Margin ---
     ax = axes[2]
-    ax.plot(ages, total_age * 100, color=custom_palette[0], linewidth=2.5, label="Total Effect by Age")
+    ax.plot(ages, intensive_age * 100, color=custom_palette[0], linewidth=2.5, label="Margin")
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
-    ax.axhline(avg_total * 100, color='red', linestyle='-', linewidth=1.5, label="Average Total Effect")
-    ax.set_title(f"{title_prefix}Total Effect", fontweight="bold")
+    ax.axhline(avg_intensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect")
+    ax.set_xlim(first_age, 72)
+    ax.set_xticks(np.arange(56, 73, 2))
+    ax.set_title(f"{title_prefix}Intensive Margin", fontweight="bold")
     ax.set_xlabel("Age")
-    ax.set_ylabel("Change (%)")
+    # ax.set_ylabel("Percentage change")
     ax.grid(True, linestyle='--', alpha=0.6)
-    ax.legend()
+    ax.legend(loc='upper right')
+    ax.set_ylim(-5, 25)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -827,10 +844,11 @@ def plot_model_vs_data_grid_oos(a_dict, title=None, save_title=None):
 
 
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 def plot_model_vs_data_3x2(a_dict, title=None, save_title=None):
+    
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     keys = list(a_dict.keys())
     n_panels = len(keys)
     ncols = 2
@@ -896,79 +914,6 @@ def plot_model_vs_data_3x2(a_dict, title=None, save_title=None):
         save_figure(fig, save_title)
 
     plt.show()
-
-
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-def plot_model_vs_data_3x2(a_dict, title=None, save_title=None):
-    keys = list(a_dict.keys())
-    n_panels = len(keys)
-    ncols = 2
-    nrows = int(np.ceil(n_panels / ncols))
-
-    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 4 * nrows), sharex=False)
-    axes = axes.flatten()
-
-    for i, key in enumerate(keys):
-        ax = axes[i]
-        sim_data, empirical_data = a_dict[key]
-        T_sim = len(sim_data)
-        T_emp = len(empirical_data)
-
-        if key in ['hours', 'extensive']:
-            age_start, age_end = 30, 72
-        elif key in ['illiquid']:
-            age_start, age_end = 30, 100
-        elif key in ['wages']:
-            age_start, age_end = 30, 60
-        else:
-            age_start, age_end = 30, 100
-
-        time = np.arange(age_start, age_start + max(T_sim, T_emp))
-
-        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[0], linewidth=2)
-        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[1], linestyle='--', linewidth=2)
-
-        ax.set_title(key.capitalize(), fontsize=12, fontweight="semibold")
-        ax.set_xlim(age_start, age_end)
-
-        if key == 'hours':
-            ax.set_ylim(0.2, 1)
-            ax.set_ylabel("Full time equivalent hours", fontsize=11)
-        elif key == 'extensive':
-            ax.set_ylim(0, 1)
-            ax.set_ylabel("Percent", fontsize=11)
-        elif key == 'liquid':
-            ax.set_ylabel("DKK", fontsize=11)
-        elif key == 'illiquid':
-            ax.set_ylim(0, 3)
-            ax.set_ylabel("Million DKK", fontsize=11)
-        elif key == 'wages':
-            ax.set_ylim(400_000, 600_000)
-            ax.set_ylabel("DKK", fontsize=11)
-
-        ax.grid(True, linestyle="--", alpha=0.6)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.legend(fontsize=10)
-        ax.set_xlabel("Age", fontsize=11)
-
-    # Hide unused axes
-    for j in range(n_panels, len(axes)):
-        fig.delaxes(axes[j])
-
-    if title:
-        fig.suptitle(title, fontsize=15, fontweight="bold", y=1.02)
-
-    plt.tight_layout()
-    plt.subplots_adjust(top=0.93)
-    if save_title:
-        save_figure(fig, save_title)
-
-    plt.show()
-
 
 
 def plot_total_effect_with_trend(total_effect_list, title=None, save_title=None):
@@ -1000,6 +945,50 @@ def plot_total_effect_with_trend(total_effect_list, title=None, save_title=None)
 
     if title:
         ax.set_title("Total effect with linear trend", fontsize=12, fontweight="semibold")
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
+
+
+
+def plot_tau_vs_policy(constant, beta1, beta2, par, title=None, save_title=None):
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Age range: 30 to 65
+    age_start = 30
+    age_end = 65
+    time = np.arange(par.T)  # assumed to be 70
+    age = np.arange(age_start, age_start + par.T)
+
+    # Calculate tau from quadratic spec
+    tau = np.maximum((constant + beta1 * time + beta2 * time**2) / 100, 0)
+
+    # Apply mask for plotting age 30 to 65
+    mask = (age >= age_start) & (age <= age_end)
+    x = age[mask]
+    y_model = tau[mask] * 100
+    y_policy = par.tau[mask] * 100
+
+    # Plot setup
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.plot(x, y_policy, label="Empirical Contribution Percent", color=custom_palette[0],  linewidth=2)
+    ax.plot(x, y_model, label="Optimal Contribution Percent", color=custom_palette[1], linestyle='--', linewidth=2)
+
+    ax.set_xlabel("Age", fontsize=11)
+    ax.set_ylabel("Percent", fontsize=11)
+    ax.grid(True, linestyle="--", alpha=0.6)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.legend(fontsize=10)
+
+    if title:
+        ax.set_title(title, fontsize=12, fontweight="semibold")
 
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)
