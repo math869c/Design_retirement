@@ -920,7 +920,7 @@ def plot_total_effect_with_trend(total_effect_list, title=None, save_title=None)
     from scipy.stats import linregress
     # Prepare data
     array = np.array(total_effect_list)
-    x = np.arange(35, array.shape[0] + 35)
+    x = np.arange(65, array.shape[0] + 65)
     y = array[:, 2] * 100
 
     # Linear regression
