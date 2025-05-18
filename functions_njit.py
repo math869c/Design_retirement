@@ -336,7 +336,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, ef, t):
     V_next = sol_V[t+1, :, :, k_idx, retirement_age_idx, e_idx_next, int(ef)]
     EV_next = interp_2d(par.a_grid, par.s_grid, V_next, a_next, s_next)
 
-    return utility(par, c, h, k, t) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k, t) + par.pi[t]*par.beta*EV_next + (1-par.pi[t])*bequest(par, a_next)
 
 
 @jit_if_enabled(fastmath=False)
@@ -350,7 +350,7 @@ def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, ef, t):
     k_next = ((1-par.delta)*k + h)
     EV_next = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_EV, a_next, s_next, k_next)
 
-    return utility(par, c, h, k, t) + par.pi[t+1]*par.beta*EV_next + (1-par.pi[t+1])*bequest(par, a_next)
+    return utility(par, c, h, k, t) + par.pi[t]*par.beta*EV_next + (1-par.pi[t])*bequest(par, a_next)
 
 
 # 4. Objective functions 
