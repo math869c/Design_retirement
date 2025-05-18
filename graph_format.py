@@ -824,3 +824,187 @@ def plot_model_vs_data_grid_oos(a_dict, title=None, save_title=None):
         save_figure(fig, save_title)
 
     plt.show()
+
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_model_vs_data_3x2(a_dict, title=None, save_title=None):
+    keys = list(a_dict.keys())
+    n_panels = len(keys)
+    ncols = 2
+    nrows = int(np.ceil(n_panels / ncols))
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 4 * nrows), sharex=False)
+    axes = axes.flatten()
+
+    for i, key in enumerate(keys):
+        ax = axes[i]
+        sim_data, empirical_data = a_dict[key]
+        T_sim = len(sim_data)
+        T_emp = len(empirical_data)
+
+        if key in ['hours', 'extensive']:
+            age_start, age_end = 30, 72
+        elif key in ['illiquid']:
+            age_start, age_end = 30, 100
+        elif key in ['wages']:
+            age_start, age_end = 30, 60
+        else:
+            age_start, age_end = 30, 100
+
+        time = np.arange(age_start, age_start + max(T_sim, T_emp))
+
+        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[0], linewidth=2)
+        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[1], linestyle='--', linewidth=2)
+
+        ax.set_title(key.capitalize(), fontsize=12, fontweight="semibold")
+        ax.set_xlim(age_start, age_end)
+
+        if key == 'hours':
+            ax.set_ylim(0.2, 1)
+            ax.set_ylabel("Full time equivalent hours", fontsize=11)
+        elif key == 'extensive':
+            ax.set_ylim(0, 1)
+            ax.set_ylabel("Percent", fontsize=11)
+        elif key == 'liquid':
+            ax.set_ylabel("DKK", fontsize=11)
+        elif key == 'illiquid':
+            ax.set_ylim(0, 3)
+            ax.set_ylabel("Million DKK", fontsize=11)
+        elif key == 'wages':
+            ax.set_ylim(400_000, 600_000)
+            ax.set_ylabel("DKK", fontsize=11)
+
+        ax.grid(True, linestyle="--", alpha=0.6)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.legend(fontsize=10)
+        ax.set_xlabel("Age", fontsize=11)
+
+    # Hide unused axes
+    for j in range(n_panels, len(axes)):
+        fig.delaxes(axes[j])
+
+    if title:
+        fig.suptitle(title, fontsize=15, fontweight="bold", y=1.02)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
+
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_model_vs_data_3x2(a_dict, title=None, save_title=None):
+    keys = list(a_dict.keys())
+    n_panels = len(keys)
+    ncols = 2
+    nrows = int(np.ceil(n_panels / ncols))
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 4 * nrows), sharex=False)
+    axes = axes.flatten()
+
+    for i, key in enumerate(keys):
+        ax = axes[i]
+        sim_data, empirical_data = a_dict[key]
+        T_sim = len(sim_data)
+        T_emp = len(empirical_data)
+
+        if key in ['hours', 'extensive']:
+            age_start, age_end = 30, 72
+        elif key in ['illiquid']:
+            age_start, age_end = 30, 100
+        elif key in ['wages']:
+            age_start, age_end = 30, 60
+        else:
+            age_start, age_end = 30, 100
+
+        time = np.arange(age_start, age_start + max(T_sim, T_emp))
+
+        ax.plot(time[:T_emp], empirical_data, label="Empirical", color=custom_palette[0], linewidth=2)
+        ax.plot(time[:T_sim], sim_data, label="Simulated", color=custom_palette[1], linestyle='--', linewidth=2)
+
+        ax.set_title(key.capitalize(), fontsize=12, fontweight="semibold")
+        ax.set_xlim(age_start, age_end)
+
+        if key == 'hours':
+            ax.set_ylim(0.2, 1)
+            ax.set_ylabel("Full time equivalent hours", fontsize=11)
+        elif key == 'extensive':
+            ax.set_ylim(0, 1)
+            ax.set_ylabel("Percent", fontsize=11)
+        elif key == 'liquid':
+            ax.set_ylabel("DKK", fontsize=11)
+        elif key == 'illiquid':
+            ax.set_ylim(0, 3)
+            ax.set_ylabel("Million DKK", fontsize=11)
+        elif key == 'wages':
+            ax.set_ylim(400_000, 600_000)
+            ax.set_ylabel("DKK", fontsize=11)
+
+        ax.grid(True, linestyle="--", alpha=0.6)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.legend(fontsize=10)
+        ax.set_xlabel("Age", fontsize=11)
+
+    # Hide unused axes
+    for j in range(n_panels, len(axes)):
+        fig.delaxes(axes[j])
+
+    if title:
+        fig.suptitle(title, fontsize=15, fontweight="bold", y=1.02)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
+
+
+
+def plot_total_effect_with_trend(total_effect_list, title=None, save_title=None):
+    from scipy.stats import linregress
+    # Prepare data
+    array = np.array(total_effect_list)
+    x = np.arange(35, array.shape[0] + 35)
+    y = array[:, 2] * 100
+
+    # Linear regression
+    slope, intercept, r_value, p_value, std_err = linregress(x, y)
+    y_pred = intercept + slope * x
+
+    # Plot setup
+    fig, ax = plt.subplots(figsize=(7, 4))
+    
+    ax.plot(x, y, label="Estimated effect", color=custom_palette[0], marker='o', linestyle='', markersize=5)
+    ax.plot(x, y_pred, label=f"Linear fit: y = {intercept:.3f} + {slope:.3f}x", 
+            linestyle="--", color=custom_palette[1], linewidth=2)
+
+    
+    ax.set_xlabel("Retirement age", fontsize=11)
+    ax.set_ylabel("Percent", fontsize=11)
+
+    ax.grid(True, linestyle="--", alpha=0.6)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.legend(fontsize=10)
+
+    if title:
+        ax.set_title("Total effect with linear trend", fontsize=12, fontweight="semibold")
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
