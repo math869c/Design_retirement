@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.optimize import root_scalar
 from functions_njit import *
+from consav.linear_interp import interp_1d, interp_2d, interp_3d, interp_4d
 
 # Welfare measurements for simulation 
 def replacement_rate_fct(model):
@@ -94,14 +95,22 @@ def labor_elasticity(original_model, new_model):
     
     extensive_margin = np.nansum(pi_weight[:par_og.last_retirement] * extensive_margin_age[:par_og.last_retirement], axis=0)
 
-    # Total labor supply effect 
+    # Total average labor supply effect 
     total_margin_og = np.sum(sim_og.h, axis=0)
     total_margin_new = np.sum(sim_new.h, axis=0)
     total_margin_age = (total_margin_new-total_margin_og)/total_margin_og
+    total_margin = np.nansum(pi_cum[:par_og.last_retirement] * total_margin_age[:par_og.last_retirement], axis=0)
+
+
+    # Total labor supply effect
     total_margin = np.nansum(pi_weight[:par_og.last_retirement] * total_margin_age[:par_og.last_retirement], axis=0)
+    total_per_person_og = np.sum(pi_cum*np.sum(sim_og.h, axis=0)/original_model.par.simN)
+    total_per_person_new = np.sum(pi_cum*np.sum(sim_new.h, axis=0)/new_model.par.simN)
+    total_per_person = (total_per_person_new-total_per_person_og)/total_per_person_og
+
 
     # total margin
-    return intensive_margin, extensive_margin, total_margin, intensive_margin_age[:par_og.last_retirement], extensive_margin_age[:par_og.last_retirement], total_margin_age[:par_og.last_retirement]     
+    return intensive_margin, extensive_margin, total_margin, total_per_person, intensive_margin_age[:par_og.last_retirement], extensive_margin_age[:par_og.last_retirement], total_margin_age[:par_og.last_retirement]     
 
 def kill_people(moment, model):
     import random
@@ -151,8 +160,7 @@ def expected_lifetime_utility_distribution(model, c, h, a, k):
 
     beta_vector = par.beta**np.arange(T)
     pi_cum = np.cumprod(par.pi)
-    pi_stack = np.hstack((pi_cum))
-    pi_stack[1] = 1
+    pi_stack = np.hstack((1,pi_cum))[:par.T]
     pi_beta = beta_vector*pi_stack
 
     uc = utility_consumption(model, c)
@@ -170,8 +178,7 @@ def expected_lifetime_utility_distribution_indi(model, c, h, a, k):
 
     beta_vector = par.beta**np.arange(T)
     pi_cum = np.cumprod(par.pi)
-    pi_stack = np.hstack((pi_cum))
-    pi_stack[1] = 1
+    pi_stack = np.hstack((1,pi_cum))[:par.T]
     pi_beta = beta_vector*pi_stack
 
     uc = utility_consumption(model, c)
@@ -207,8 +214,7 @@ def analytical_consumption_equivalence(original_model, EV_new):
 
     beta_vector = par_og.beta**np.arange(par_og.T)
     pi_cum = np.cumprod(par_og.pi)
-    pi_stack = np.hstack((pi_cum))
-    pi_stack[1] = 1
+    pi_stack = np.hstack((1, pi_cum))[:par_og.T]
     pi_beta = beta_vector*pi_stack
     
     utility_work_bequest = 0
@@ -240,8 +246,7 @@ def analytical_consumption_equivalence_indi(original_model, new_model):
 
     beta_vector = par_og.beta**np.arange(par_og.T)
     pi_cum = np.cumprod(par_og.pi)
-    pi_stack = np.hstack((pi_cum))    
-    pi_stack[1] = 1
+    pi_stack = np.hstack((1,pi_cum))[:par_og.T]    
     pi_beta = beta_vector*pi_stack
 
     # for i in range(100):
@@ -298,3 +303,149 @@ def objective(phi, new_EV, original_model):
     
     return new_EV - compensate_EV
 
+
+
+
+# Nye funktioner
+# Consumption equivalence of everybody 
+def expected_lifetime_utility_distribution_age(model, c, h, a, k):
+    par = model.par
+    N, T = c.shape
+
+    beta_vector = par.beta**np.arange(T)
+    pi_cum = np.cumprod(par.pi)
+    pi_stack = np.hstack((1,pi_cum))[:par.T]
+    pi_beta = beta_vector*pi_stack
+
+    uc = utility_consumption(model, c)
+    bq = bequest(model, a)
+    total_utility = 0.0
+    for t in range(T):
+        uh = utility_work(model, h[:,t], k[:,t], t)
+        total_utility += pi_beta[t] * (np.nansum(uc[:,t])+ np.nansum(uh[:]) + (1-par.pi[t])  * np.nansum(bq[:,t]))
+
+    return total_utility/N
+
+def ev_model(model):
+    # setup
+    par = model.par
+    c = model.sim.c
+    a = model.sim.a
+    h = model.sim.h
+    k = model.sim.k
+    N, T = model.sim.c.shape
+
+    # Udregn utility bidrag
+    uc = utility_consumption(model, c)
+    bq = bequest(model, a)
+    total_utility_contribution = []
+    for t in range(T):
+        uh = utility_work(model, h[:,t], k[:,t], t)
+        total_utility_contribution.append((np.nansum(uc[:,t])+ np.nansum(uh[:]) + (1-par.pi[t])  * np.nansum(bq[:,t]))/N)
+
+    # Lav beta og pi vector
+    beta_vector = par.beta**np.arange(T)
+    pi_1 = np.hstack((1,par.pi))
+    beta_pi_list = []
+    for t in range(par.T,-1,-1):
+        pi_1 = np.hstack((1,par.pi[par.T-t:]))
+        pi_cum = np.cumprod(pi_1)[:-1]
+        beta_pi_list.append(beta_vector[:t]*pi_cum)
+
+    # sammensæt EV 
+    EV_age = []
+    for t in range(par.T):
+        EV_age.append(np.sum(total_utility_contribution[t:]*beta_pi_list[t]))
+
+    # Vægt EV sammen 
+    cum_pi = np.cumprod(par.pi)
+    weight = cum_pi/np.sum(cum_pi)
+    weighted_EV = sum(weight*EV_age)
+    return EV_age, weighted_EV
+
+def analytical_age_phi(og_model, EV_age_new):
+    # Setup
+    par_og = og_model.par
+    sim_og = og_model.sim
+
+    # Udregn utility bidrag
+    uc = utility_consumption(og_model, sim_og.c) 
+    bq = bequest(og_model, sim_og.a)
+
+    utility_work_bequest = []
+    utility_con  = []
+    for t in range(par_og.T):
+        uh = utility_work(og_model, sim_og.h[:,t], sim_og.k[:,t], t)
+        utility_work_bequest.append((np.sum(uh[:]) + (1-par_og.pi[t])  * np.sum(bq[:,t]))/par_og.simN)
+        utility_con.append(np.sum(uc[:,t])/par_og.simN)
+
+    # Lav beta og pi vector
+    beta_vector = par_og.beta**np.arange(par_og.T)
+    pi_1 = np.hstack((1,par_og.pi))
+    beta_pi_list = []
+    for t in range(par_og.T,-1,-1):
+        pi_1 = np.hstack((1,par_og.pi[par_og.T-t:]))
+        pi_cum = np.cumprod(pi_1)[:-1]
+        beta_pi_list.append(beta_vector[:t]*pi_cum)
+
+    # sammensæt EV 
+    utility_work_bequest_age = []
+    utility_con_age = []
+    for t in range(par_og.T):
+        utility_work_bequest_age.append(np.sum(utility_work_bequest[t:]*beta_pi_list[t]))
+        utility_con_age.append(np.sum(utility_con[t:]*beta_pi_list[t]))
+
+    phi_age = ((np.array(EV_age_new)-np.array(utility_work_bequest_age))/(np.array(utility_con_age)))**(1/(1-par_og.sigma))-1
+
+
+    # Create a weight for phi
+    pi_cum = np.cumprod(par_og.pi)
+    weight = pi_cum/np.sum(pi_cum)
+    return phi_age, np.sum(phi_age*weight)
+
+def ev_model_indi(model):
+    # setup
+    par = model.par
+    c = model.sim.c
+    a = model.sim.a
+    h = model.sim.h
+    k = model.sim.k
+    N, T = model.sim.c.shape
+
+    # Udregn utility bidrag
+    uc = utility_consumption(model, c)
+    bq = bequest(model, a)
+    total_utility_contribution = []
+    for t in range(T):
+        uh = utility_work(model, h[:,t], k[:,t], t)
+        total_utility_contribution.append((uc[:,t]+ uh[:] + (1-par.pi[t])  *bq[:,t]))
+
+    beta_vector = par.beta**np.arange(T)
+    pi_1 = np.hstack((1,par.pi))
+    beta_pi_list = []
+    for t in range(par.T,-1,-1):
+        pi_1 = np.hstack((1,par.pi[par.T-t:]))
+        pi_cum = np.cumprod(pi_1)[:-1]
+        beta_pi_list.append(beta_vector[:t]*pi_cum)
+
+    EV_age_indi = []
+    for t in range(par.T):
+        EV_age_indi.append(np.sum((np.array(total_utility_contribution)[t:,:].T*beta_vector[t]),axis=1))
+    return EV_age_indi
+
+# Interpolation
+def EV_interpolering(model):
+    par = model.par
+    sim = model.sim
+    sol = model.sol
+
+    EV_all_ages = []
+    for t in range(model.par.T):
+        EV_age_int = 0
+        for i in range(model.par.simN):
+            if t > model.sim.retirement_age[i]:
+                EV_age_int += interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol.V[t,:, :, :,int(model.sim.retirement_age[i]), int(model.sim.e[i,t]), int(sim.efter_init[i])], model.sim.a[i,t], model.sim.s_retirement[i], model.sim.k[i,t]) 
+            else:
+                EV_age_int += interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol.V[t,:, :, :,t, int(model.sim.e[i,t]), int(sim.efter_init[i])], model.sim.a[i,t], model.sim.s[i,t], model.sim.k[i,t]) 
+        EV_all_ages.append(EV_age_int/par.simN)
+    return EV_all_ages
