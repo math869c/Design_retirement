@@ -47,13 +47,13 @@ def calculate_retirement_payouts(par, h, s, e, r, t):
     if (e == 2) or (t >= par.first_retirement and h == 0.0):
         if t >= r + par.m:
             s_retirement = s
-            s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
+            s_lr = s_retirement * par.share_lr * ( par.r_s * (1+par.r_s)**par.EL[int(r)] ) / ( (1+par.r_s)**par.EL[int(r)] - 1 )
             return  s_lr, 0.0
         
         elif t >= r:
             s_retirement = s
-            s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
-            s_rp = (((1+par.r_s)**par.m)*s_retirement*(1-par.share_lr))/np.sum((1+par.r_s)**(np.arange(par.m)))
+            s_lr = s_retirement * par.share_lr * ( par.r_s * (1+par.r_s)**par.EL[int(r)] ) / ( (1+par.r_s)**par.EL[int(r)] - 1 )
+            s_rp = s_retirement * (1-par.share_lr) * ( par.r_s * (1+par.r_s)**par.m ) / ( (1+par.r_s)**par.m - 1 )
             return   s_lr, s_rp
         
         else:
@@ -250,8 +250,8 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, efter_idx, 
 
                     elif t >= par.retirement_age:
                         if employed == par.emp:
-                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.ret, int(efter_idx)], a_next, s_next, k_temp_)
-                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.emp, int(efter_idx)], a_next, s_next, k_temp_)
+                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t+1], sol_V[t+1, :, :, :, retirement_idx+1, par.ret, int(efter_idx)], a_next, s_next, k_temp_)
+                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t+1], sol_V[t+1, :, :, :, retirement_idx+1, par.emp, int(efter_idx)], a_next, s_next, k_temp_)
                             if sol_v_emp >= sol_v_unemp:
                                 ex_next = 1
                             else:
@@ -261,8 +261,8 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, efter_idx, 
 
                     elif t >= par.first_retirement:
                         if employed == par.emp:
-                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.unemp, int(efter_idx)], a_next, s_next, k_temp_)
-                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.emp, int(efter_idx)], a_next, s_next, k_temp_)
+                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t+1], sol_V[t+1, :, :, :, retirement_idx+1, par.unemp, int(efter_idx)], a_next, s_next, k_temp_)
+                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t+1], sol_V[t+1, :, :, :, retirement_idx+1, par.emp, int(efter_idx)], a_next, s_next, k_temp_)
                             if sol_v_emp >= sol_v_unemp:
                                 ex_next = 1
                             else:
@@ -272,8 +272,8 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, efter_idx, 
 
                     else:
                         if employed == par.emp or employed == par.unemp:
-                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.unemp, int(efter_idx)], a_next, s_next, k_temp_)
-                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], sol_V[t+1, :, :, :, retirement_idx+1, par.emp, int(efter_idx)], a_next, s_next, k_temp_)
+                            sol_v_unemp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t+1], sol_V[t+1, :, :, :, retirement_idx+1, par.unemp, int(efter_idx)], a_next, s_next, k_temp_)
+                            sol_v_emp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t+1], sol_V[t+1, :, :, :, retirement_idx+1, par.emp, int(efter_idx)], a_next, s_next, k_temp_)
                             if sol_v_emp >= sol_v_unemp:
                                 ex_next = 1
                             else:
@@ -282,7 +282,7 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, efter_idx, 
                             ex_next = 0
 
                     V_next = compute_transitions(par, sol_V, employed, retirement_idx, int(efter_idx), ex_next, t)
-                    V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t], V_next, a_next, s_next, k_temp_)
+                    V_next_interp = interp_3d(par.a_grid, par.s_grid, par.k_grid[t+1], V_next, a_next, s_next, k_temp_)
                     EV_val += V_next_interp * par.xi_p[idx]
 
                 EV[i_a, i_s, i_k] = EV_val
