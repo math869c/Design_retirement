@@ -47,13 +47,13 @@ def calculate_retirement_payouts(par, h, s, e, r, t):
     if (e == 2) or (t >= par.first_retirement and h == 0.0):
         if t >= r + par.m:
             s_retirement = s
-            s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
+            s_lr = s_retirement * par.share_lr * ( par.r_s * (1+par.r_s)**par.EL[int(r)] ) / ( (1+par.r_s)**par.EL[int(r)] - 1 )
             return  s_lr, 0.0
         
         elif t >= r:
             s_retirement = s
-            s_lr =  (((1+par.r_s)**par.EL[int(r)])*s_retirement*par.share_lr)/np.sum((1+par.r_s)**(np.arange(par.EL[int(r)])))
-            s_rp = (((1+par.r_s)**par.m)*s_retirement*(1-par.share_lr))/np.sum((1+par.r_s)**(np.arange(par.m)))
+            s_lr = s_retirement * par.share_lr * ( par.r_s * (1+par.r_s)**par.EL[int(r)] ) / ( (1+par.r_s)**par.EL[int(r)] - 1 )
+            s_rp = s_retirement * (1-par.share_lr) * ( par.r_s * (1+par.r_s)**par.m ) / ( (1+par.r_s)**par.m - 1 )
             return   s_lr, s_rp
         
         else:
