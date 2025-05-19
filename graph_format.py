@@ -202,7 +202,7 @@ def plot_simulation_grid_variance(data_dict, time, title=None, ncols=2, save_tit
     plt.show()
 
 
-def plot_simulation_one_graph(data_dict, time, figsize =(10, 6), title="Simulation Results Over Time", 
+def plot_simulation_one_graph(data_dict, time, figsize =(10, 6), title=None, 
                               xlabel="Time Periods", ylabel="Value", save_title=None):
     fig, ax = plt.subplots(figsize=figsize)
     colors = custom_palette
@@ -327,10 +327,10 @@ def plot_all_solution_trajectories(model, par, t_end=60, save_title=None):
 
     plt.show()
 
-def plot_event_histogram(values1, xlabel, title,
+def plot_event_histogram(values1, xlabel, title = None,
                          values2=None,
-                         label1="Event 1", label2="Event 2",
-                         figsize=(10, 6), bins=None, save_title=None):
+                         label1="Event 1", label2="Event 2", 
+                         figsize=(10, 6), bins=None, range=None, median_val=None, mean_val =None, save_title=None):
     """
     Plot one or two overlaid histograms of individual event timing (e.g., retirement or last work).
 
@@ -354,20 +354,38 @@ def plot_event_histogram(values1, xlabel, title,
         valid2 = None
 
     # Auto binning if not supplied
-    if bins is None:
-        all_vals = valid1 if valid2 is None else np.concatenate((valid1, valid2))
-        bins = np.arange(int(np.min(all_vals)), int(np.max(all_vals)) + 2)
+    values1 = np.array(values1)
+    valid1 = values1[~np.isnan(values1)]
+
+    if values2 is not None:
+        values2 = np.array(values2)
+        valid2 = values2[~np.isnan(values2)]
+    else:
+        valid2 = None
+
+    # Use shared bin edges
+    if isinstance(bins, int):
+        if range is not None:
+            min_val, max_val = range
+        else:
+            all_vals = valid1 if valid2 is None else np.concatenate((valid1, valid2))
+            min_val, max_val = np.min(all_vals), np.max(all_vals)
+        bins = np.linspace(min_val, max_val, bins + 1)
 
     fig, ax = plt.subplots(figsize=figsize)
 
     # Plot histograms
     weights1 = np.ones_like(valid1) / len(valid1)
     ax.hist(valid1, bins=bins, edgecolor='black', alpha=0.7, weights=weights1, label=label1)
-
+    
     if valid2 is not None:
         weights2 = np.ones_like(valid2) / len(valid2)
-        ax.hist(valid2, bins=bins, edgecolor='black', alpha=0.5, weights=weights2, label=label2)
+        ax.hist(valid2, bins=bins, edgecolor='black', alpha=0.5, weights=weights2, label=label2, range=range)
 
+    if median_val:
+        ax.axvline(median_val, label='Median', color="#A3BE8C")
+    if mean_val:
+        ax.axvline(mean_val, label='Mean', color = "#EBCB8B", linestyle='--')
     # Formatting
     ax.set_title(title, fontsize=16, fontweight="bold")
     ax.set_xlabel(xlabel, fontsize=14)
@@ -377,7 +395,7 @@ def plot_event_histogram(values1, xlabel, title,
     ax.spines['right'].set_visible(False)
     ax.tick_params(labelsize=12)
 
-    if valid2 is not None:
+    if valid2 is not None or median_val is not None or mean_val is not None:
         ax.legend(fontsize=12)
 
     plt.tight_layout()
@@ -386,7 +404,7 @@ def plot_event_histogram(values1, xlabel, title,
 
     plt.show()
 
-def plot_bar_series(values, xlabel="Time", ylabel="Count", title="Bar Plot", normalize=False, figsize=(10, 6), t_start=0, t_end=40, save_title=None):
+def plot_bar_series(values, xlabel="Time", ylabel="Count", title=None, normalize=False, figsize=(10, 6), t_start=0, t_end=40, save_title=None):
     """
     Plot a bar chart over time (e.g., retirements per period).
 
@@ -426,7 +444,7 @@ def plot_bar_series(values, xlabel="Time", ylabel="Count", title="Bar Plot", nor
     plt.show()
 
 
-def plot_event_bar_series(values1, xlabel, title,
+def plot_event_bar_series(values1, xlabel, title = None,
                           values2=None,
                           label1="Event 1", label2="Event 2",
                           figsize=(10, 6), bins=None, save_title=None):
@@ -480,6 +498,7 @@ def plot_event_bar_series(values1, xlabel, title,
     ax.set_xlabel(xlabel, fontsize=14)
     ax.set_ylabel("Share of Individuals", fontsize=14)
     ax.set_xticks(bins)
+    ax.set_xticklabels([str(b + 30) for b in bins])
     ax.grid(True, linestyle='--', alpha=0.5)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -496,7 +515,7 @@ def plot_event_bar_series(values1, xlabel, title,
 
 
 def plot_bar_series_comparison(values1, values2, label1="Old", label2="New",
-                                xlabel="Time", ylabel="Share of Individuals", title="Bar Comparison",
+                                xlabel="Time", ylabel="Share of Individuals", title=None,
                                 normalize=True, figsize=(12, 6), t_start=0, t_end=None, save_title=None):
     """
     Plot two overlaid bar series (e.g. retirements per period) with optional normalization.
@@ -509,13 +528,14 @@ def plot_bar_series_comparison(values1, values2, label1="Old", label2="New",
     """
     values1 = np.array(values1)
     values2 = np.array(values2)
+    age_to_30 = 30
     
     if t_end is None:
         t_end = len(values1)
 
     values1 = values1[t_start:t_end]
     values2 = values2[t_start:t_end]
-    time = np.arange(t_start, t_end)
+    time = np.arange(t_start, t_end) + age_to_30
 
     if normalize:
         values1 = values1 / np.sum(values1)
@@ -615,7 +635,7 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_inten
 
 
 
-def plot_comparison_single_panel(sim_og, sim_new, variables, time, figsize=(12, 6), title="Key Variable Comparison", save_title=None):
+def plot_comparison_single_panel(sim_og, sim_new, variables, time, figsize=(12, 6), title=None, save_title=None):
     fig, ax = plt.subplots(figsize=figsize)
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -667,7 +687,7 @@ def plot_comparison_grid(data_og, data_new, time, title=None, ncols=2, save_titl
     plt.show()
 
 
-def plot_difference_grid(data_diff, time, title="Difference: Original - New", ncols=2, save_title=None):
+def plot_difference_grid(data_diff, time, title=None, ncols=2, save_title=None):
 
     keys = list(data_diff.keys())
     n = len(keys)
@@ -698,7 +718,7 @@ def plot_difference_grid(data_diff, time, title="Difference: Original - New", nc
     plt.show()
 
 
-def plot_ln_wage(ln_wage, man_hourly_salary, title="Log Wage Simulation vs Real Data", 
+def plot_ln_wage(ln_wage, man_hourly_salary, title=None, 
                  xlabel="Time (Years)", ylabel="ln(Wage)", save_title=None):
 
     # Convert real hourly salary to log scale
@@ -993,6 +1013,39 @@ def plot_tau_vs_policy(constant, beta1, beta2, par, title=None, save_title=None)
     plt.tight_layout()
     plt.subplots_adjust(top=0.93)
 
+    if save_title:
+        save_figure(fig, save_title)
+
+    plt.show()
+
+def plot_single_line_with_reference(line_data, reference_value, title=None, 
+                                    label_line="Line", label_ref="Reference", 
+                                    xlabel="Time", ylabel="Value", scale=1.0, save_title=None):
+    """
+    Plot a single line over time with a constant reference line.
+
+    Parameters:
+        line_data (array-like): Time series data
+        reference_value (float): Reference line (horizontal)
+        label_line (str): Label for the time series
+        label_ref (str): Label for the reference line
+        scale (float): Multiplier for both line and reference (e.g., 100 to convert to percent)
+    """
+    time = np.arange(len(line_data))
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    ax.plot(time, line_data * scale, label=label_line, color=custom_palette[0])
+    ax.plot(time, np.ones_like(line_data) * reference_value * scale, label=label_ref, color=custom_palette[1])
+
+    ax.set_title(title, fontsize=16, fontweight="bold")
+    ax.set_xlabel(xlabel, fontsize=14)
+    ax.set_ylabel(ylabel, fontsize=14)
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.legend(fontsize=12)
+
+    plt.tight_layout()
     if save_title:
         save_figure(fig, save_title)
 
