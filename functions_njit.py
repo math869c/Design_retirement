@@ -47,12 +47,12 @@ def calculate_retirement_payouts(par, h, s, e, r, t):
     if (e == 2) or (t >= par.first_retirement and h == 0.0):
         if t >= r + par.m:
             s_retirement = s
-            s_lr = s_retirement * par.share_lr * ( par.r_s * (1+par.r_s)**par.EL[int(r)] ) / ( (1+par.r_s)**par.EL[int(r)] - 1 )
+            s_lr = s_retirement * par.share_lr * par.s_lr_deterministic[int(r)]
             return  s_lr, 0.0
         
         elif t >= r:
             s_retirement = s
-            s_lr = s_retirement * par.share_lr * ( par.r_s * (1+par.r_s)**par.EL[int(r)] ) / ( (1+par.r_s)**par.EL[int(r)] - 1 )
+            s_lr = s_retirement * par.share_lr * par.s_lr_deterministic[int(r)]
             s_rp = s_retirement * (1-par.share_lr) * ( par.r_s * (1+par.r_s)**par.m ) / ( (1+par.r_s)**par.m - 1 )
             return   s_lr, s_rp
         
@@ -407,7 +407,7 @@ def main_solver_loop(par, sol, do_print = False):
                 e_grid = [par.ret]
                 efter_grid = [0]
             elif t >= par.retirement_age:
-                e_grid = [par.unemp, par.emp, par.ret]
+                e_grid = [par.emp, par.ret]
                 efter_grid = [0]
             # elif t >= par.first_retirement:
             #     e_grid = [par.unemp, par.emp, par.ret]

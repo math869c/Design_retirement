@@ -93,7 +93,6 @@ class ModelClass(EconModelClass):
         par.chi_total = 137_520 #=(7198+462)
         par.rho = 0.309
 
-
         # hire and fire employment
         df_ekso = eksog_prob_simpel(par)[0]
         par.p_e_0 = np.array(df_ekso['to_0'])
@@ -125,6 +124,12 @@ class ModelClass(EconModelClass):
         
         par.EL = np.where((sp := np.cumprod(par.pi)) > 0, np.cumsum(sp[::-1])[::-1], 0.0)
 
+        par.s_lr_deterministic = np.array([
+            (par.r_s * (1 + par.r_s)**par.EL[int(r)]) / ((1 + par.r_s)**par.EL[int(r)] - 1)
+            for r in range(par.T)
+        ])
+
+
         # Welfare system
         par.replacement_rate_bf_start = 8
         par.replacement_rate_bf_end = 6
@@ -139,10 +144,10 @@ class ModelClass(EconModelClass):
         par.ret = 2
 
         # Grids
-        par.N_a, par.a_sp, par.a_min, par.a_max = 5, 1.5, 0.1, 10_255_346
-        par.N_s, par.s_sp, par.s_min, par.s_max = 5, 1.5, 0.0, 6_884_777
+        par.N_a, par.a_sp, par.a_min, par.a_max = 10, 1.5, 0.1, 10_255_346
+        par.N_s, par.s_sp, par.s_min, par.s_max = 10, 1.5, 0.0, 6_884_777
 
-        par.N_k, par.k_sp, par.k_min = 5, 1.5, 0
+        par.N_k, par.k_sp, par.k_min = 15, 1.5, 0
         par.w_max = 1_564_195      
         # par.k_max = (np.log(1_564_195 / par.full_time_hours) - par.beta_2 * np.arange(par.T)**2) / par.beta_1
         par.k_max = np.arange(par.T) + 40        
