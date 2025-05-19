@@ -91,7 +91,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
             if h > 0.0:
                 return 0.0
             elif e == par.emp or e == par.unemp:
-                return max(par.efterloen - income*0.64, 0)
+                return max(par.efterloen - income*par.rho_ef, 0)
             elif e == par.ret:
                 # Retirement benefits
                 return par.early_benefit[t]
@@ -409,9 +409,6 @@ def main_solver_loop(par, sol, do_print = False):
             elif t >= par.retirement_age:
                 e_grid = [par.emp, par.ret]
                 efter_grid = [0]
-            # elif t >= par.first_retirement:
-            #     e_grid = [par.unemp, par.emp, par.ret]
-            #     efter_grid = [0, 1]
             else:
                 e_grid = [par.unemp, par.emp, par.ret]
                 efter_grid = [0, 1]

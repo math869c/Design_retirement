@@ -92,6 +92,7 @@ class ModelClass(EconModelClass):
         par.chi_base = 10_000
         par.chi_total = 137_520 #=(7198+462)
         par.rho = 0.309
+        par.rho_ef = 0.64
 
         # hire and fire employment
         df_ekso = eksog_prob_simpel(par)[0]
@@ -107,10 +108,10 @@ class ModelClass(EconModelClass):
         # unemployment benefit
         # early_coefficients = pd.read_csv('coefs_early_benefit.csv', header=None).to_numpy()
         # unemployment_coefficients = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < 30 else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
         coefs = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
         part_1 = np.hstack([np.vstack([np.arange(70)**i for i in range(2)]).T]) @ coefs 
-        par.unemployment_benefit = np.array([part_1[t] if t <(30)  else  part_1[30] for t in range(par.T)]) 
+        par.unemployment_benefit = np.array([part_1[t] if t <30  else  part_1[30] for t in range(par.T)]) 
 
 
         # life time 
@@ -175,11 +176,11 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # # Retirement system
-        par.first_retirement = par.retirement_age - par.range
-        par.last_retirement = 45
+        # par.first_retirement = par.retirement_age - par.range
+        par.last_retirement = 55
 
         # benefits
-        par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
+        # par.early_benefit = np.array([np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][:30]) if t < par.first_retirement else np.nanmean(pd.read_csv('Data ny def/mean_matrix.csv')['overfor_2'][30:]) for t in range(par.T) ])
         # coefs = pd.read_csv("coefs_unemployment_benefit.csv",header=None).to_numpy()
         # part_1 = np.hstack([np.vstack([np.arange(70)**i for i in range(2)]).T]) @ coefs 
         # par.unemployment_benefit = np.array([part_1[t] if t <(30)  else  part_1[30] for t in range(par.T)]) 
