@@ -31,14 +31,14 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # Preferences
-        par.beta   = 0.9654276064 # 0.995    # Skal kalibreres
-        par.sigma  = 1.1439276735     # Skal kalibreres
-        par.gamma  = 1.9252802098       # Skal kalibreres
-        par.mu     = 6.2333816952    # Skal kalibreres
+        par.beta   = 9.59140783e-01 # 0.995    # Skal kalibreres
+        par.sigma  = 1.15618153e+00     # Skal kalibreres
+        par.gamma  = 2.26711205e+00       # Skal kalibreres
+        par.mu     = 6.85439042e+00    # Skal kalibreres
         par.a_bar  = 0.001
-        par.zeta   = 8.3062287571   
+        par.zeta   = 6.87835658e+00  
 
-        par.gamma_1 = 0.0000108413
+        par.gamma_1 = 2.62100351e-05
 
         # Assets
         par.renten= 0.0211947668 
@@ -65,7 +65,7 @@ class ModelClass(EconModelClass):
         # Tax system
         par.labor_market_rate            = 0.08           # "am_sats"
         par.employment_deduction_rate    = 0.095          # "beskfradrag_sats"
-        par.bottom_tax_rate              = 0.123          # "bundskat_sats"
+        par.bottom_tax_rate              = 0.1213          # "bundskat_sats"
         par.top_tax_rate                 = 0.15           # "topskat_sats"
         par.municipal_tax_rate           = 0.2491         # "kommuneskat_sats"
         par.personal_allowance           = 54648          # "personfradrag"
@@ -176,7 +176,7 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # # Retirement system
-        # par.first_retirement = par.retirement_age - par.range
+        par.first_retirement = par.retirement_age - par.range
         par.last_retirement = 55
 
         # benefits
