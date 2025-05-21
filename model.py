@@ -64,8 +64,8 @@ class ModelClass(EconModelClass):
         par.k_scale = 1.
         # Tax system
         par.labor_market_rate            = 0.08           # "am_sats"
-        par.employment_deduction_rate    = 0.875          # "beskfradrag_sats"
-        par.bottom_tax_rate              = 0.113          # "bundskat_sats"
+        par.employment_deduction_rate    = 0.095          # "beskfradrag_sats"
+        par.bottom_tax_rate              = 0.123          # "bundskat_sats"
         par.top_tax_rate                 = 0.15           # "topskat_sats"
         par.municipal_tax_rate           = 0.2491         # "kommuneskat_sats"
         par.personal_allowance           = 54648          # "personfradrag"
