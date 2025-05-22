@@ -125,10 +125,11 @@ class ModelClass(EconModelClass):
         
         par.EL = np.where((sp := np.cumprod(par.pi)) > 0, np.cumsum(sp[::-1])[::-1], 0.0)
 
-        par.s_lr_deterministic = np.array([
-            (par.r_s * (1 + par.r_s)**par.EL[int(r)]) / ((1 + par.r_s)**par.EL[int(r)] - 1)
-            for r in range(par.T)
-        ])
+        with np.errstate(divide='ignore'):
+            par.s_lr_deterministic = np.array([
+                (par.r_s * (1 + par.r_s)**par.EL[int(r)]) / ((1 + par.r_s)**par.EL[int(r)] - 1)
+                for r in range(par.T)
+            ])
 
 
         # Welfare system
