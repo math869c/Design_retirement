@@ -5,7 +5,7 @@ import math
 
 
 # === Global Plot Style Settings ===
-sns.set_theme(context="notebook", style="whitegrid", font="garamond", palette="deep", font_scale=1.3)
+sns.set_theme(context="notebook", style="whitegrid", font="garamond", palette="deep", font_scale=3.5)
 custom_palette = [
     "#3B4252",  # Dark Slate
     "#A3BE8C",  # Olive Green
@@ -634,6 +634,38 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_inten
     plt.show()
 
 
+def plot_labor_margin_single(ages_start, margin_age, avg_margin, save_title=None):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    first_age = 56
+    ages = np.arange(ages_start, ages_start + len(margin_age))
+    mask = (ages >= first_age) & (ages <= 72)
+
+    ages = ages[mask]
+    margin_age = margin_age[mask]
+
+    fig, ax = plt.subplots(figsize=(6, 9)) 
+
+    ax.plot(ages, margin_age * 100, color=custom_palette[0], linewidth=2.5, label="Margin")
+    ax.axhline(0, color='black', linestyle='--', linewidth=1)
+    ax.axhline(avg_margin * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect")
+    ax.set_xlim(first_age, 72)
+    ax.set_xticks(np.arange(56, 73, 2))
+    ax.set_xlabel("Age")
+    ax.set_ylabel("Percentage change")
+    ax.set_ylim(-5, 25)
+    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.legend(loc='upper right')
+    # ax.set_title(f"{margin_type.capitalize()} Margin", fontweight="bold")
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    plt.tight_layout()
+    if save_title:
+        save_figure(fig, save_title)
+    plt.show()
 
 def plot_comparison_single_panel(sim_og, sim_new, variables, time, figsize=(12, 6), title=None, save_title=None):
     fig, ax = plt.subplots(figsize=figsize)
