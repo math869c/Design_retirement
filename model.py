@@ -93,6 +93,7 @@ class ModelClass(EconModelClass):
         par.chi_total = 137_520 #=(7198+462)
         par.rho = 0.309
         par.rho_ef = 0.64
+        par.means_test = 1.0
 
         # hire and fire employment
         df_ekso = eksog_prob_simpel(par)[0]

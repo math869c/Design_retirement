@@ -70,7 +70,7 @@ def labor_income_fct(par, k, h, r, t):
 
 # 1.1.4. Public benefits
 @jit_if_enabled(fastmath=False)
-def public_benefit_fct(par, h, e, ef, income, t):
+def public_benefit_fct(par, h, e, ef, labor_income, other_income, t):
     """Before retirement: unemployment benefits (if working, then no benefits), after retirement: public pension"""
     # Before public retirement age
     if t < par.first_retirement + par.early_benefits_lag:
@@ -78,7 +78,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
             return 0.0
         elif e == par.emp or e == par.unemp:
             # Unemployment benefits
-            return max(par.unemployment_benefit[t,0] - income, 0)
+            return max(par.unemployment_benefit[t,0] - other_income, 0)
         elif e == par.ret:
             # Retirement benefits
             return par.early_benefit[t]
@@ -91,7 +91,7 @@ def public_benefit_fct(par, h, e, ef, income, t):
             if h > 0.0:
                 return 0.0
             elif e == par.emp or e == par.unemp:
-                return max(par.efterloen - income*par.rho_ef, 0)
+                return max(par.efterloen - other_income*par.rho_ef, 0)
             elif e == par.ret:
                 # Retirement benefits
                 return par.early_benefit[t]
@@ -100,13 +100,13 @@ def public_benefit_fct(par, h, e, ef, income, t):
                 return 0.0
             elif e == par.emp or e == par.unemp:
                 # Unemployment benefits
-                return max(par.unemployment_benefit[t,0] - income, 0)
+                return max(par.unemployment_benefit[t,0] - other_income, 0)
             elif e == par.ret:
                 # Retirement benefits
                 return par.early_benefit[t]
     # public retirement benefits
     else:
-        return max(par.chi_base, par.chi_total - income*par.rho)
+        return max(par.chi_base, par.chi_total - (par.means_test*labor_income + other_income)*par.rho)
     
 
     
@@ -127,11 +127,14 @@ def income_private_fct(par, a, s, k, h, e, r, ef, t):
     # labor income 
     labor_income = labor_income_fct(par, k, h, r, t)
 
+    # Other income 
+    other_income = labor_income + a_return + s_lr + s_rp
+
     # Total income 
-    total_income = labor_income + a_return + s_lr + s_rp
+    total_income = labor_income + other_income
 
     # public benefits
-    public_benefit = public_benefit_fct(par, h, e, ef, total_income, t)
+    public_benefit = public_benefit_fct(par, h, e, ef, labor_income, other_income, t)
 
     return total_income + public_benefit
 
@@ -180,23 +183,24 @@ def final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t):
         s_lr, s_rp = 0.0, 0.0
     
     labor_income = labor_income_fct(par, k, h, r, t)
-    income_private = a_return + s_lr + s_rp + labor_income
-    chi = public_benefit_fct(par, h, e, ef, income_private, t)
+    other_income = a_return + s_lr + s_rp
+    income_private = other_income + labor_income
+    chi = public_benefit_fct(par, h, e, ef, labor_income, other_income, t)
 
     # Tax rate and retirement contribution
     tax_rate = tax_rate_fct(par, a, s, k, h, e, r, ef, t)
     retirement_contribution = retirement_contribution_fct(par, a, s, k, h, r, t)
 
     if h > 0.0:
-        return (1-tax_rate)*(income_private*(1-par.tau[t]) + chi), retirement_contribution
+        return (1-tax_rate)*(income_private*(1-par.tau[t]) + chi), retirement_contribution, labor_income, other_income
     else:
-        return (1-tax_rate)*(income_private + chi), retirement_contribution
+        return (1-tax_rate)*(income_private + chi), retirement_contribution, labor_income, other_income
 
 
 # 2. Helper functions in solving and optimizing
 @jit_if_enabled(fastmath=False)
 def budget_constraint(par, h, a, s, k, e, r, ef, t):
-    income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
+    income, _, _, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
     return par.c_min, max(par.c_min*2, a + income)
 
 
@@ -293,7 +297,7 @@ def precompute_EV_next(par, sol_ex, sol_V, retirement_idx, employed, efter_idx, 
 @jit_if_enabled(fastmath=False)
 def calculate_last_period_consumption(par, a, s, e, r, t):
     k, h, ef = 0.0, 0.0, 0.0
-    income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
+    income, _, _, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
  
     if par.mu != 0.0:
         # With bequest motive
@@ -311,7 +315,7 @@ def calculate_last_period_consumption(par, a, s, e, r, t):
 def value_last_period(par, c, a, s, e, r, t):
     # states and income 
     h, k, ef = 0.0,0.0, 0.0
-    income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
+    income, _, _, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
     a_next = (1+par.r_a)*(a + income - c)
 
     return utility(par, c, h, k, t) + bequest(par, a_next)
@@ -328,7 +332,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, ef, t):
 
     h, k  = 0.0, 0.0
     k_idx = 0
-    income, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
+    income, _, _, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
 
     # Next period states 
     a_next = (1+par.r_a)*(a + income - c)
@@ -342,7 +346,7 @@ def value_function_after_retirement(par, sol_V, c, a, s, e, r, ef, t):
 @jit_if_enabled(fastmath=False)
 def value_function(par, sol_V, sol_EV, c, h, a, s, k, e, r, ef, t):
     # states and income 
-    income, retirement_contribution = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
+    income, retirement_contribution, _, _ = final_income_and_retirement_contri(par, a, s, k, h, e, r, ef, t)
 
     # Next period states
     a_next = (1+par.r_a)*(a + income - c)
@@ -438,7 +442,7 @@ def main_solver_loop(par, sol, do_print = False):
 
                                 if t == par.T - 1: # Last period
                                     if k_idx == 0 and efter_idx ==0: # No capital
-                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
+                                        income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                         cash_on_hand = assets + income
 
                                         sol_c[idx_ret_uden_eft] = calculate_last_period_consumption(par, assets, savings, employed, retirement_age, t)
@@ -464,7 +468,7 @@ def main_solver_loop(par, sol, do_print = False):
                                                 args=(par, sol_V, assets, savings, employed, retirement_age, efter, t),
                                                 tol=par.opt_tol
                                             )
-                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
+                                            income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                             cash_on_hand = assets + income
 
 
@@ -489,7 +493,7 @@ def main_solver_loop(par, sol, do_print = False):
                                                 args=(par, sol_V, assets, savings, employed, retirement_age, efter, t),
                                                 tol=par.opt_tol
                                             )
-                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
+                                            income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                             cash_on_hand = assets + income
 
 
@@ -515,7 +519,7 @@ def main_solver_loop(par, sol, do_print = False):
                                             args=(par, sol_V, assets, savings, employed, retirement_age, efter, t),
                                             tol=par.opt_tol
                                         )
-                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, efter, t)
+                                        income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, efter, t)
                                         cash_on_hand_un = assets + income
 
 
@@ -548,7 +552,7 @@ def main_solver_loop(par, sol, do_print = False):
                                                     tol=par.opt_tol
                                                 )
                                                 val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
-                                                income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
+                                                income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
                                                 cash_on_hand = assets + income
                                                 sol_V[idx_ret_eft] = val
                                                 sol_h[idx_ret_eft]  = h_star
@@ -582,7 +586,7 @@ def main_solver_loop(par, sol, do_print = False):
                                                 tol=par.opt_tol
                                             )
                                             val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
-                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
+                                            income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
                                             cash_on_hand = assets + income
                                             sol_V[idx] = val
                                             sol_h[idx]  = h_star
@@ -610,7 +614,7 @@ def main_solver_loop(par, sol, do_print = False):
                                                 tol=par.opt_tol
                                             )
 
-                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
+                                            income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                             cash_on_hand_un = assets + income
 
                                             sol_V[idx_ret_uden_eft] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, efter, t)
@@ -636,7 +640,7 @@ def main_solver_loop(par, sol, do_print = False):
                                             tol=par.opt_tol
                                         )
 
-                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, efter, t)
+                                        income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital, hours_unemp, employed, retirement_age, efter, t)
                                         cash_on_hand_un = assets + income
 
                                         sol_V[idx] = value_function(par, sol_V, sol_EV, c_star_u, hours_unemp, assets, savings, human_capital, employed, retirement_age, efter, t) 
@@ -667,7 +671,7 @@ def main_solver_loop(par, sol, do_print = False):
                                         )
 
                                         val = value_function(par, sol_V, sol_EV, c_star, h_star, assets, savings, human_capital, employed, retirement_age, efter, t)
-                                        income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
+                                        income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital, h_star, employed, retirement_age, efter, t)
                                         cash_on_hand = assets + income
                                         sol_V[idx] = val
                                         sol_c[idx] = c_star
@@ -696,7 +700,7 @@ def main_solver_loop(par, sol, do_print = False):
                                                 tol=par.opt_tol
                                             )
 
-                                            income, _ = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
+                                            income, _, lab_income, other_income = final_income_and_retirement_contri(par, assets, savings, human_capital_unemp, hours_unemp, employed, retirement_age, efter, t)
                                             cash_on_hand_un = assets + income
 
                                             sol_V[idx_ret_uden_eft] = value_function_after_retirement(par, sol_V, c_star_u, assets, savings, employed, retirement_age, efter, t)
@@ -820,7 +824,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
 
                 # 3. Income variables 
                 # 3.1 final income and retirement payments 
-                sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) #(par, a, s, k, h, e, r, t)
+                sim_income[i,t], sim_s_retirement_contrib[i,t], lab_income, other_income = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) #(par, a, s, k, h, e, r, t)
                 sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
 
                 if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
@@ -830,7 +834,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 3.2 labor income
                 sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
                 # 3.3 public benefits
-                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), sim_income[i,t], t)
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), lab_income, other_income, t)
                 # 3.4 income before tax contribution
                 sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) 
                 # 3.5 tax rate
@@ -895,7 +899,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ex[i,t] = 0.0
                     sim_ret_flag[i,t] = 0.0
 
-                sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) #(par, a, s, k, h, e, r, t)
+                sim_income[i,t], sim_s_retirement_contrib[i,t], lab_income, other_income = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) #(par, a, s, k, h, e, r, t)
                 sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
 
                 if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
@@ -904,7 +908,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 3.2 labor income
                 sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
                 # 3.3 public benefits
-                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), sim_income[i,t], t)
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), lab_income, other_income, t)
                 # 3.4 income before tax contribution
                 sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) 
                 # 3.5 tax rate
@@ -966,7 +970,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                     sim_ex[i,t] = 0.0
                     sim_ret_flag[i,t] = 0.0
 
-                sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) #(par, a, s, k, h, e, r, t)
+                sim_income[i,t], sim_s_retirement_contrib[i,t],lab_income, other_income = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) #(par, a, s, k, h, e, r, t)
                 sim_s_lr_init[i], sim_s_rp_init[i] = calculate_retirement_payouts(par, sim_h[i,t], s_retirement[i], sim_e[i,t], retirement_age[i], t) # par, h, s, e, r, t
 
                 if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
@@ -975,7 +979,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 3.2 labor income
                 sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
                 # 3.3 public benefits
-                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), sim_income[i,t], t)
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), lab_income, other_income, t)
                 # 3.4 income before tax contribution
                 sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) 
                 # 3.5 tax rate
@@ -998,7 +1002,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 sim_h[i,t] = 0.0
 
                 # 3. Income variables
-                sim_income[i,t], sim_s_retirement_contrib[i,t] = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t)
+                sim_income[i,t], sim_s_retirement_contrib[i,t],lab_income, other_income = final_income_and_retirement_contri(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t)
 
                 if sim_a[i,t] +sim_income[i,t] - sim_c[i,t] < par.a_min:    
                     sim_c[i,t] = sim_a[i,t] +sim_income[i,t] - par.a_min
@@ -1008,7 +1012,7 @@ def main_simulation_loop(par, sol, sim, do_print = False):
                 # 3.2 labor income
                 sim_w[i,t] = np.minimum(wage(par, sim_k[i,t], t), par.w_max)
                 # 3.3 public benefits
-                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), sim_income[i,t], t)
+                sim_chi_payment[i,t] = public_benefit_fct(par, sim_h[i,t], sim_e[i,t], int(sim_efter_init[i]), lab_income, other_income, t)
                 # 3.4 income before tax contribution
                 sim_income_before_tax_contrib[i,t] = income_private_fct(par, sim_a[i,t], s_retirement[i], sim_k[i,t], sim_h[i,t], sim_e[i,t], retirement_age[i], int(sim_efter_init[i]), t) 
                 # 3.5 tax rate
