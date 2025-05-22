@@ -2,10 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import math
+import matplotlib.colors as mcolors
+import numpy as np
 
 
 # === Global Plot Style Settings ===
-sns.set_theme(context="notebook", style="whitegrid", font="garamond", palette="deep", font_scale=3.5)
+sns.set_theme(context="notebook", style="whitegrid", font="garamond", palette="deep", font_scale=1.8)
 custom_palette = [
     "#3B4252",  # Dark Slate
     "#A3BE8C",  # Olive Green
@@ -26,11 +28,11 @@ plt.rcParams.update({
     "figure.dpi": 120,
     "axes.titlesize": 16,
     "axes.titleweight": "bold",
-    "axes.labelsize": 14,
+    "axes.labelsize": 20,
     "axes.labelweight": "medium",
-    "legend.fontsize": 12,
-    "xtick.labelsize": 11,
-    "ytick.labelsize": 11,
+    "legend.fontsize": 20,
+    "xtick.labelsize": 20,
+    "ytick.labelsize": 20,
     "axes.edgecolor": "#333333",
     "axes.linewidth": 1.2,
     "grid.color": "#cccccc",
@@ -375,21 +377,21 @@ def plot_event_histogram(values1, xlabel, title = None,
     fig, ax = plt.subplots(figsize=figsize)
 
     # Plot histograms
-    weights1 = np.ones_like(valid1) / len(valid1)
+    weights1 = 100*np.ones_like(valid1) / len(valid1)
     ax.hist(valid1, bins=bins, edgecolor='black', alpha=0.7, weights=weights1, label=label1)
     
     if valid2 is not None:
-        weights2 = np.ones_like(valid2) / len(valid2)
+        weights2 = 100*np.ones_like(valid2) / len(valid2)
         ax.hist(valid2, bins=bins, edgecolor='black', alpha=0.5, weights=weights2, label=label2, range=range)
 
     if median_val:
-        ax.axvline(median_val, label='Median', color="#A3BE8C")
+        ax.axvline(median_val, label=f'Median of realized CE at {np.round(median_val,2)}', color="#A3BE8C")
     if mean_val:
-        ax.axvline(mean_val, label='Mean', color = "#EBCB8B", linestyle='--')
+        ax.axvline(mean_val, label=f'CE at {np.round(mean_val,2)}', color = "#EBCB8B", linestyle='--')
     # Formatting
     ax.set_title(title, fontsize=16, fontweight="bold")
     ax.set_xlabel(xlabel, fontsize=14)
-    ax.set_ylabel("Share of Individuals", fontsize=14)
+    ax.set_ylabel("Share of Individuals (%)", fontsize=14)
     ax.grid(True, linestyle='--', alpha=0.5)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -447,7 +449,7 @@ def plot_bar_series(values, xlabel="Time", ylabel="Count", title=None, normalize
 def plot_event_bar_series(values1, xlabel, title = None,
                           values2=None,
                           label1="Event 1", label2="Event 2",
-                          figsize=(10, 6), bins=None, save_title=None):
+                          figsize=(10, 6), nsim=50000,bins=None, save_title=None):
     """
     Plot one or two event distributions as overlapping bar series (normalized shares).
 
@@ -477,11 +479,11 @@ def plot_event_bar_series(values1, xlabel, title = None,
 
     # Frequencies (normalized)
     count1 = np.array([np.sum(valid1 == b) for b in bins])
-    freq1 = count1 / count1.sum()
+    freq1 = count1/nsim # / count1.sum()
 
     if valid2 is not None:
         count2 = np.array([np.sum(valid2 == b) for b in bins])
-        freq2 = count2 / count2.sum()
+        freq2 = count2/nsim  # / count2.sum()
 
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -515,7 +517,7 @@ def plot_event_bar_series(values1, xlabel, title = None,
 
 
 def plot_bar_series_comparison(values1, values2, label1="Old", label2="New",
-                                xlabel="Time", ylabel="Share of Individuals", title=None,
+                                xlabel="Time", ylabel="Share of Individuals", title=None, Nsim = 50000,
                                 normalize=True, figsize=(12, 6), t_start=0, t_end=None, save_title=None):
     """
     Plot two overlaid bar series (e.g. retirements per period) with optional normalization.
@@ -538,8 +540,8 @@ def plot_bar_series_comparison(values1, values2, label1="Old", label2="New",
     time = np.arange(t_start, t_end) + age_to_30
 
     if normalize:
-        values1 = values1 / np.sum(values1)
-        values2 = values2 / np.sum(values2)
+        values1 = values1 / Nsim
+        values2 = values2 / Nsim
 
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -565,7 +567,7 @@ def plot_bar_series_comparison(values1, values2, label1="Old", label2="New",
 
 
 
-def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_intensive, avg_extensive, avg_total, age_start, title_prefix="", save_title=None):
+def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_intensive, avg_extensive, avg_total, age_start, title_prefix="", save_title=None, ylim_total=(-5, 25), ylim_extensive=(-5, 25), ylim_intensive=(-5, 25)):
     ages = np.arange(age_start, age_start + len(intensive_age))
 
     first_age = 56
@@ -576,7 +578,7 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_inten
     extensive_age = extensive_age[mask]
     total_age = total_age[mask]
 
-    fig, axes = plt.subplots(1, 3, figsize=(13, 6), sharex=True)
+    fig, axes = plt.subplots(1, 3, figsize=(18, 8), sharex=True)
 
     # --- Total Margin ---
     ax = axes[0]
@@ -584,11 +586,11 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_inten
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
     ax.axhline(avg_total * 100, color='red', linestyle='-', linewidth=1.5, label="Average Total Effect")
     ax.set_xlim(first_age, 72)
+    ax.set_ylim(*ylim_total)      
     ax.set_xticks(np.arange(56, 73, 2))
     ax.set_title(f"{title_prefix}Total Effect", fontweight="bold")
     ax.set_xlabel("Age")
-    ax.set_ylabel("Percentage change")
-    ax.set_ylim(-5, 25)
+    ax.set_ylabel("Percentage Points")
     ax.grid(True, linestyle='--', alpha=0.6)
     # ax.legend(loc='upper right')
     ax.spines['top'].set_visible(False)
@@ -600,13 +602,13 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_inten
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
     ax.axhline(avg_extensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect")
     ax.set_xlim(first_age, 72)
+    ax.set_ylim(*ylim_extensive)
     ax.set_xticks(np.arange(56, 73, 2))
     ax.set_title(f"{title_prefix}Extensive Margin", fontweight="bold")
     ax.set_xlabel("Age")
     # ax.set_ylabel("Change (%)")
     ax.grid(True, linestyle='--', alpha=0.6)
     # ax.legend()
-    ax.set_ylim(-5, 25)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -616,13 +618,13 @@ def plot_labor_margins_by_age(intensive_age, extensive_age, total_age, avg_inten
     ax.axhline(0, color='black', linestyle='--', linewidth=1)
     ax.axhline(avg_intensive * 100, color='red', linestyle='-', linewidth=1.5, label="Average Effect")
     ax.set_xlim(first_age, 72)
+    ax.set_ylim(*ylim_intensive)
     ax.set_xticks(np.arange(56, 73, 2))
     ax.set_title(f"{title_prefix}Intensive Margin", fontweight="bold")
     ax.set_xlabel("Age")
     # ax.set_ylabel("Percentage change")
     ax.grid(True, linestyle='--', alpha=0.6)
     ax.legend(loc='upper right')
-    ax.set_ylim(-5, 25)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -1063,15 +1065,15 @@ def plot_single_line_with_reference(line_data, reference_value, title=None,
         label_ref (str): Label for the reference line
         scale (float): Multiplier for both line and reference (e.g., 100 to convert to percent)
     """
-    time = np.arange(len(line_data))
+    time = np.arange(len(line_data)) +30
     fig, ax = plt.subplots(figsize=(10, 5))
 
     ax.plot(time, line_data * scale, label=label_line, color=custom_palette[0])
     ax.plot(time, np.ones_like(line_data) * reference_value * scale, label=label_ref, color=custom_palette[1])
 
     ax.set_title(title, fontsize=16, fontweight="bold")
-    ax.set_xlabel(xlabel, fontsize=14)
-    ax.set_ylabel(ylabel, fontsize=14)
+    ax.set_xlabel(xlabel, fontsize=20)
+    ax.set_ylabel(ylabel, fontsize=20)
     ax.grid(True, linestyle="--", alpha=0.5)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)

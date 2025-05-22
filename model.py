@@ -176,7 +176,7 @@ class ModelClass(EconModelClass):
         par.T = 100 - par.start_age # time periods
 
         # # Retirement system
-        par.first_retirement = par.retirement_age - par.range
+        # par.first_retirement = par.retirement_age - par.range
         par.last_retirement = 55
 
         # benefits

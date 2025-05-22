@@ -82,27 +82,27 @@ def labor_elasticity(original_model, new_model):
     sim_new_h_ex_1 = np.where(sim_new.ex == 1, sim_new.h, np.nan)
     sim_og_h = np.nanmean(sim_og_h_ex_1, axis=0)# age specific average 
     sim_new_h = np.nanmean(sim_new_h_ex_1, axis=0) # age specific average
-    intensive_margin_age = (sim_new_h-sim_og_h)/sim_og_h 
+    intensive_margin_age = (sim_new_h-sim_og_h) 
 
     intensive_margin = np.nansum(pi_weight[:par_og.last_retirement] * intensive_margin_age[:par_og.last_retirement], axis=0)
 
     # extensive margin
-    sim_og_ex = np.nansum(sim_og.ex, axis=0) # age specific average
-    sim_new_ex = np.nansum(sim_new.ex, axis=0) # age specific average
-    extensive_margin_age = (sim_new_ex-sim_og_ex)/sim_og_ex
+    sim_og_ex = np.nanmean(sim_og.ex, axis=0) # age specific average
+    sim_new_ex = np.nanmean(sim_new.ex, axis=0) # age specific average
+    extensive_margin_age = (sim_new_ex-sim_og_ex)
     
     extensive_margin = np.nansum(pi_weight[:par_og.last_retirement] * extensive_margin_age[:par_og.last_retirement], axis=0)
 
     # Total average labor supply effect 
-    total_margin_og = np.sum(sim_og.h, axis=0)
-    total_margin_new = np.sum(sim_new.h, axis=0)
-    total_margin_age = (total_margin_new-total_margin_og)/total_margin_og
+    total_margin_og = np.nanmean(sim_og.h, axis=0)
+    total_margin_new = np.nanmean(sim_new.h, axis=0)
+    total_margin_age = (total_margin_new-total_margin_og)
 
 
     total_margin = np.nansum(pi_weight[:par_og.last_retirement]* total_margin_age[:par_og.last_retirement], axis=0)
     total_per_person_og = np.sum(pi_cum*np.sum(sim_og.h,axis=0)/original_model.par.simN)
     total_per_person_new = np.sum(pi_cum*np.sum(sim_new.h,axis=0)/new_model.par.simN)
-    total_per_person = (total_per_person_new-total_per_person_og)/total_per_person_og
+    total_per_person = (total_per_person_new-total_per_person_og)
 
 
     # total_margin_og_temp_ = np.sum(pi_cum[:original_model.par.last_retirement] * original_model.sim.h[:, :original_model.par.last_retirement])
