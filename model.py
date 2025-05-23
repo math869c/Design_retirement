@@ -155,7 +155,7 @@ class ModelClass(EconModelClass):
         par.k_max = np.arange(par.T) + 40        
         
 
-        par.h_min  = 0.05
+        par.h_min  = 0.2
         par.h_max  = 1.2
 
         par.c_min  = 1
