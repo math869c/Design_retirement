@@ -936,24 +936,26 @@ def plot_model_vs_data_3x2(a_dict, title=None, save_title=None):
 
         if key == 'hours':
             ax.set_ylim(0.2, 1)
-            ax.set_ylabel("Full time equivalent hours", fontsize=11)
+            ax.set_ylabel("Full time equivalent hours", fontsize=12)
         elif key == 'extensive':
             ax.set_ylim(0, 1)
-            ax.set_ylabel("Percent", fontsize=11)
+            ax.set_ylabel("Percent", fontsize=12)
         elif key == 'liquid':
-            ax.set_ylabel("DKK", fontsize=11)
+            ax.set_ylabel("DKK", fontsize=12)
         elif key == 'illiquid':
             ax.set_ylim(0, 3)
-            ax.set_ylabel("Million DKK", fontsize=11)
+            ax.set_ylabel("Million DKK", fontsize=12)
         elif key == 'wages':
             ax.set_ylim(400_000, 600_000)
-            ax.set_ylabel("DKK", fontsize=11)
+            ax.set_ylabel("DKK", fontsize=12)
 
         ax.grid(True, linestyle="--", alpha=0.6)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.legend(fontsize=10)
-        ax.set_xlabel("Age", fontsize=11)
+        ax.set_xlabel("Age", fontsize=12)
+        ax.tick_params(labelsize=12)
+
 
     # Hide unused axes
     for j in range(n_panels, len(axes)):

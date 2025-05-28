@@ -75,7 +75,7 @@ class ModelClass(EconModelClass):
         # Retirement system 
         par.retirement_age      = 65 - par.start_age # Time when agents enter pension
         par.range               = 5
-        par.first_retirement    = par.retirement_age - par.range
+        par.first_retirement    = 30
         par.last_retirement     = 45
 
         par.early_benefits_lag = 1
