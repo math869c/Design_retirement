@@ -74,7 +74,7 @@ def labor_elasticity(original_model, new_model):
     
     # weights for the labor supply
     pi_cum = np.cumprod(par_og.pi)
-    pi_weight = pi_cum/np.cumsum(pi_cum)
+    pi_weight = pi_cum/np.sum(pi_cum)
     
     # e. Calculate labor supply before and after
     # intensive margin
@@ -336,12 +336,14 @@ def ev_model(model):
     N, T = model.sim.c.shape
 
     # Udregn utility bidrag
-    uc = utility_consumption(model, c)
-    bq = bequest(model, a)
+
     total_utility_contribution = []
     for t in range(T):
         uh = utility_work(model, h[:,t], k[:,t], t)
-        total_utility_contribution.append((np.nansum(uc[:,t])+ np.nansum(uh[:]) + (1-par.pi[t])  * np.nansum(bq[:,t]))/N)
+        uc = utility_consumption(model, c[:,t])
+        bq = bequest(model, a[:,t])
+        total_utility_contribution.append((np.nansum(uc[:])+ np.nansum(uh[:]) + (1-par.pi[t])  * np.nansum(bq[:]))/N)
+
 
     # Lav beta og pi vector
     beta_vector = par.beta**np.arange(T)
@@ -361,7 +363,7 @@ def ev_model(model):
     cum_pi = np.cumprod(par.pi)
     weight = cum_pi/np.sum(cum_pi)
     weighted_EV = sum(weight*EV_age)
-    return EV_age, weighted_EV
+    return EV_age, weighted_EV, total_utility_contribution
 
 def analytical_age_phi(og_model, EV_age_new):
     # Setup
