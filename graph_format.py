@@ -753,25 +753,27 @@ def plot_difference_grid(data_diff, time, title=None, ncols=2, save_title=None):
 
 
 def plot_ln_wage(ln_wage, man_hourly_salary, title=None, 
-                 xlabel="Time (Years)", ylabel="ln(Wage)", save_title=None):
+                 xlabel="Age", ylabel="Hourly wage in DKK", save_title=None):
 
     # Convert real hourly salary to log scale
     ln_real_wage = np.log(man_hourly_salary)
-    time = np.arange(len(ln_wage))
+    time = np.arange(len(ln_wage)) + 30
 
     # Create figure
     fig, ax = plt.subplots(figsize=(10, 5))
 
     # Plot simulated ln(wage)
-    ax.plot(time, ln_wage, marker="o", linestyle="-", label="Simulated ln(Wage)", color=custom_palette[0])
+    ax.plot(time, ln_wage, marker="", linestyle="--", label="Estimated hourly wage", linewidth=2, color=custom_palette[1])
 
     # Plot real ln(wage)
-    ax.plot(time, ln_real_wage, marker="s", linestyle="--", label="Real ln(Wage)", color=custom_palette[1])
+    ax.plot(time, ln_real_wage, marker="", linestyle="-", label="Observed mean hourly wage", linewidth=2, color=custom_palette[0])
 
     # Axes formatting
     ax.set_title(title, fontsize=16, fontweight="bold")
     ax.set_xlabel(xlabel, fontsize=14)
     ax.set_ylabel(ylabel, fontsize=14)
+    ax.tick_params(labelsize=12)
+
 
     ax.grid(True, linestyle="--", alpha=0.7)
     ax.legend(loc="best", frameon=True, fontsize=12)
@@ -779,6 +781,8 @@ def plot_ln_wage(ln_wage, man_hourly_salary, title=None,
     # Remove top and right borders
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+
+
 
     plt.tight_layout()
 
